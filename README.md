@@ -20,10 +20,11 @@ This tool is targeted at domain experts that know about FHIR but don't necessari
 Coming soon. We are currently working on a UI for Redmatch. A the moment the application can be used with a client such as [Postman](https://www.postman.com/).
 
 ## Technologies
-* Spring Boot - version 2.2.6.RELEASE
-* HAPI FHIR - version 4.2.0
-* ANTLR - version 4.8-1
-* MongoDB - version 4.2.6
+* Spring Boot
+* HAPI FHIR
+* ANTLR
+* MongoDB
+* Apache POI
 
 ## Usage
 
