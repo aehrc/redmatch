@@ -124,12 +124,6 @@
             <artifactId>antlr4-runtime</artifactId>
             <version>${antlr.version}</version>
         </dependency>
-        <!-- Used to test the interaction with REDCap. -->
-        <dependency>
-            <groupId>com.github.tomakehurst</groupId>
-            <artifactId>wiremock-standalone</artifactId>
-            <version>${wiremock.version}</version>
-        </dependency>
         <!-- Embedded version of MondoDB. -->
         <dependency>
             <groupId>de.flapdoodle.embed</groupId>
