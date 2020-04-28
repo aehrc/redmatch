@@ -50,6 +50,7 @@ import org.ietf.jgss.Oid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.grammar.RedmatchGrammar;
 import au.csiro.redmatch.grammar.RedmatchGrammar.AttributeContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ConditionContext;
@@ -207,8 +208,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       final Document doc = (Document) res;
       return doc;
     } catch (Throwable t) {
-      log.error("There was a problem compiling the rules.", t);
-      return null;
+      log.error("There was an unexpected problem compiling the rules.", t);
+      throw new RedmatchException("There was an unexpected problem compiling the rules.", t);
     }
   }
   
