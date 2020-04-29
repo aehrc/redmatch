@@ -410,7 +410,7 @@ public class RedmatchApi {
     
     // Compile rules document and add validation errors.
     final Document doc = compiler.compile(redmatchProject.getRulesDocument(), metadata);
-    redmatchProject.getIssues().addAll(compiler.getErrorMessages());
+    redmatchProject.setIssues(compiler.getErrorMessages());
     
     // The document might be empty, depending on the type of errors
     if (doc == null) {
