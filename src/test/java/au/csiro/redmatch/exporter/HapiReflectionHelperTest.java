@@ -39,30 +39,31 @@ import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeSystem.CodeSystemFilterComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
+import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
+import ca.uhn.fhir.context.FhirContext;
 
 /**
- * Test cases for {@link HapiReflectionHelper}.
+ * Unit tests for {@link HapiReflectionHelper}.
  * 
  * 
  * @author Alejandro Metke
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
-@PropertySource("classpath:application.properties")
-@SpringBootTest
 public class HapiReflectionHelperTest {
-
-  @Autowired
-  private HapiReflectionHelper helper;
+  
+  private static HapiReflectionHelper helper;
+  
+  @BeforeClass
+  public static void init() {
+    helper = new HapiReflectionHelper();
+    FhirContext ctx = FhirContext.forR4();
+    helper.setCtx(ctx);
+    helper.init();
+  }
   
   @Test
   public void testIsPrimitive() {
@@ -125,7 +126,6 @@ public class HapiReflectionHelperTest {
   
   @Test
   public void testGetHapiTypes() {
-    
     try {
       // backbone element - should return no types
       Class<? extends Base>[] types =  helper.getHapiTypes(CodeSystem.class, "filter");
@@ -427,11 +427,6 @@ public class HapiReflectionHelperTest {
     
     s = helper.getGenericAttributeName("valueXxx");
     assertNull(s);
-  }
-  
-  @Test
-  public void testGetGenericAttributeName2() {
-    // TODO
   }
   
   @Test
