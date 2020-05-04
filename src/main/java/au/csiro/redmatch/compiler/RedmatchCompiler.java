@@ -416,6 +416,12 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         final String fieldId = ((FieldBasedValue) val).getFieldId();
         
         final Field f = metadata.getField(fieldId);
+        if (f == null) {
+          errorMessages.add(getAnnotationFromContext(ctx, "Field " + fieldId 
+              + " does not exist in REDCap."));
+          continue;
+        }
+        
         final FieldType ft = f.getFieldType();
         
         // CONCEPT can only apply to a field of type TEXT, YESNO, DROPDOWN, RADIO, CHECKBOX, 
@@ -540,7 +546,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             errorMessages.add(getAnnotationFromContext(ctx, "Canonical " + s + " is invalid: " 
                 + e.getLocalizedMessage()));
           }
-          
           
         } else if (type.equals("url")) {
           try {
@@ -751,7 +756,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else if ("FALSE".equals(text)) {
         return new ConditionExpression(false);
       } else if ("NULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var);
+        VariableIdentifier vi = visitVariableIdentifierInternal(
+            ctx.variableIdentifier(), var, false);
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
             + " does not exist in REDCap report."));
@@ -759,7 +765,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           return new ConditionExpression(vi.getFullId(), true);
         }
       } else if ("NOTNULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var);
+        VariableIdentifier vi = visitVariableIdentifierInternal(
+            ctx.variableIdentifier(), var, false);
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
             + " does not exist in REDCap report."));
@@ -774,7 +781,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
         
         VariableIdentifier vi = (VariableIdentifier) visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var);
+            ctx.variableIdentifier(), var, false);
         
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
@@ -833,8 +840,15 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   }
   
   private VariableIdentifier visitVariableIdentifierInternal(VariableIdentifierContext ctx, 
-      Variables var) { 
+      Variables var, boolean inResource) { 
     String id = ctx.IDENTIFIER().get(0).getText();
+    
+    // Check if this is compliant 
+    if (inResource && !idPattern.matcher(id).matches()) {
+      errorMessages.add(getAnnotationFromContext(ctx, "FHIR id " + id + " is invalid (it should "
+          + "match this regex: [A-Za-z0-9\\-\\.]{1,64})"));
+    }
+    
     if (ctx.IDENTIFIER().size() > 1) {
       return new VariableIdentifier(id, var.getValue(ctx.IDENTIFIER().get(1).getText()));
     } else {
@@ -874,7 +888,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
     res.setResourceType(ctx.IDENTIFIER().getText());
     
-    VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var);
+    VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, true);
     res.setResourceId(vi.getFullId());
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
@@ -950,7 +964,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       String literal = ctx.CODE_VALUE().getText();
       return new CodeLiteralValue(literal);
     } else if (ctx.variableIdentifier() != null) {
-      String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var).getFullId();
+      String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, false).getFullId();
       
       TerminalNode tn = (TerminalNode) ctx.getChild(0);
       String enumConstant = tn.getText();
@@ -989,7 +1003,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private Value visitReferenceInternal(ReferenceContext ctx, Variables var) {
     final ReferenceValue res = new ReferenceValue();
     res.setResourceType(ctx.IDENTIFIER().getText());
-    res.setResourceId(visitVariableIdentifierInternal(ctx.variableIdentifier(), var).getFullId());
+    res.setResourceId(visitVariableIdentifierInternal(
+        ctx.variableIdentifier(), var, true).getFullId());
     
     return res;
   }
