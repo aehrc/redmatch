@@ -267,19 +267,37 @@ public class ApiController {
       @ApiResponse(code = 406, message = "The uploaded file is empty."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{projectId}/$import-mappings", 
-      method = RequestMethod.POST, produces = "text/plain")
+      method = RequestMethod.POST, produces = "application/json")
   @Transactional
-  public ResponseEntity<String> importMappings(@RequestParam("file") MultipartFile file,
-      @PathVariable String projectId) {
+  public ResponseEntity<?> importMappings(
+      @RequestParam("file") MultipartFile file,
+      @PathVariable String projectId,
+      UriComponentsBuilder b) {
     if (!file.isEmpty()) {
       try {
-        api.importMappingsExcel(projectId, file.getBytes());
+        OperationResponse rr = api.importMappingsExcel(projectId, file.getBytes());
+        final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+  
+        final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+        final HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(uriComponents.toUri());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+  
+        switch (rr.getStatus()) {
+          case UPDATED:
+            return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+          case CREATED:
+            return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
+          default:
+            throw new RuntimeException(
+                "Unexpected status " + rr.getStatus() + ". This should never happen!");
+        }
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+            "There was a problem reading the file.");
       }
-      return getResponse(HttpStatus.OK, "Mappings were imported successfully");
     } else {
-      return getResponse(HttpStatus.BAD_REQUEST, "The uploaded file is empty.");
+      return getResponse(HttpStatus.BAD_REQUEST, "The mappings file is empty!");
     }
   }
   
