@@ -38,6 +38,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.google.gson.Gson;
 
 import au.csiro.redmatch.api.RedmatchApi;
+import au.csiro.redmatch.api.ProjectAlreadyExistsException;
 import au.csiro.redmatch.api.ProjectNotFoundException;
 import au.csiro.redmatch.client.HttpException;
 import au.csiro.redmatch.exporter.NoMappingFoundException;
@@ -418,6 +419,12 @@ public class ApiController {
   private ResponseEntity<String> exceptionHandler(RuntimeException ex) {
     log.error(ex.getMessage(), ex);
     return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+  }
+  
+  @ExceptionHandler(ProjectAlreadyExistsException.class)
+  private ResponseEntity<String> exceptionHandler(ProjectAlreadyExistsException ex) {
+    log.error(ex.getMessage(), ex);
+    return getResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
   }
   
   @ExceptionHandler(InvalidProjectException.class)

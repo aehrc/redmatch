@@ -106,6 +106,13 @@ public class RedmatchApi {
       throw new InvalidProjectException("Attribute 'token' is required.");
     }
     
+    // Check if this project exists
+    final Optional<RedmatchProject> project = dao.getRedmatchProject(fp.getId());
+    if (project.isPresent()) {
+      throw new ProjectAlreadyExistsException("The Redmatch project " + fp.getId() 
+        + " already exists.");
+    }
+    
     // Populate Redmatch project with metadata from REDCap
     fp.setMetadata(getMetadataFromRedcap(fp.getRedcapUrl(), fp.getToken(), fp.getReportId()));
     
