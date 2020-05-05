@@ -68,6 +68,7 @@ import au.csiro.redmatch.model.AnnotationType;
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Field.FieldType;
+import au.csiro.redmatch.model.Field.TextValidationType;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
@@ -423,9 +424,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
         
         final FieldType ft = f.getFieldType();
+        final TextValidationType tvt = f.getTextValidationType();
         
         // CONCEPT can only apply to a field of type TEXT, YESNO, DROPDOWN, RADIO, CHECKBOX, 
-        // CHECKBOX_OPTION or TRUEFALSE
+        // CHECKBOX_OPTION or TRUEFALSE.
         if (val instanceof ConceptValue && !(ft.equals(FieldType.TEXT) 
             || ft.equals(FieldType.YESNO) || ft.equals(FieldType.DROPDOWN) 
             || ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOW_OR_RADIO_OPTION) 
@@ -435,6 +437,15 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
               "The expression CONCEPT can only be used on fields of type TEXT, YESNO, DROPDOWN, "
               + "RADIO, DROPDOW_OR_RADIO_OPTION, CHECKBOX, CHECKBOX_OPTION or TRUEFALSE but field " 
               + fieldId + " is of type " + f.getFieldType()));
+        }
+        
+        // If used on a TEXT field, the field should be connected to a FHIR terminology server.
+        if (val instanceof ConceptValue && ft.equals(FieldType.TEXT) 
+            && !TextValidationType.FHIR_TERMINOLOGY.equals(tvt)) {
+          errorMessages.add(getAnnotationFromContext(ctx, 
+              "The field " + fieldId + " is a text field but it is not validated using a FHIR "
+                  + "terminology server. CONCEPT expressions used on fields of type TEXT require "
+                  + "that the fields are validated using a FHIR terminology server."));
         }
         
         // CONCEPT_SELECTED can only apply to fields of type DROPDOW and RADIO

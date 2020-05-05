@@ -72,6 +72,30 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     compiler.getValidator().setClient(mockTerminologyServer);
   }
   
+  /**
+   * Unit test for FHIR-17, compiler is not checking CONCEPT expression is used on REDCap field 
+   * connected to Ontoserver.
+   * 
+   * dx_1 is a valid field (it is a text field configured to validate using Ontoserver).
+   * dx_text_1 is not a valid field (it is of type text and not configured to validate using 
+   * Ontoserver).
+   */
+  @Test
+  public void testInvalidConceptField() {
+    String rule = "TRUE { Patient<p> -> maritalStatus = CONCEPT(dx_1); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    rule = "TRUE { Patient<p> -> maritalStatus = CONCEPT(dx_text_1); }";
+    compiler.compile(rule, metadata);
+    errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
   @Test
   public void testInvalidField() {
     final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(stud_num); }";
@@ -93,7 +117,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   }
   
   /**
-   * Unit test for FHIR-16.
+   * Unit test for FHIR-16, FHIR ids are not being validated.
    */
   @Test
   public void testInvalidId() {
@@ -275,7 +299,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "  } ELSE {\n" + 
         "    // We use the code selected using the terminology server\n" + 
         "    Condition<c${x}> -> \n" + 
-        "      code = CONCEPT(dx_text_${x}),\n" + 
+        "      code = CONCEPT(dx_${x}),\n" + 
         "      subject = REF(Patient<p>);\n" + 
         "  }\n" + 
         "}";
@@ -334,10 +358,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals("c1", resource.getResourceId());
     assertEquals("Condition", resource.getResourceType());
     
-    // code = CONCEPT(dx_text_${x})
+    // code = CONCEPT(dx_${x})
     av = resource.getResourceAttributeValues().get(0);
     testFieldBasedAttributeValue(av, new String[] {"code"},  new int[] {-1}, 
-        "dx_text_1", ConceptValue.class);
+        "dx_1", ConceptValue.class);
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
@@ -376,10 +400,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals("c2", resource.getResourceId());
     assertEquals("Condition", resource.getResourceType());
     
-    // code = CONCEPT(dx_text_${x})
+    // code = CONCEPT(dx_${x})
     av = resource.getResourceAttributeValues().get(0);
     testFieldBasedAttributeValue(av, new String[] {"code"},  new int[] {-1}, 
-        "dx_text_2", ConceptValue.class);
+        "dx_2", ConceptValue.class);
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);

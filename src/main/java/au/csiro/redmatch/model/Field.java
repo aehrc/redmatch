@@ -23,7 +23,7 @@ public class Field {
   public enum TextValidationType {
     NONE, DATE_YMD, DATE_MDY, DATE_DMY, TIME, DATETIME_YMD, DATETIME_MDY, DATETIME_DMY, 
     DATETIME_SECONDS_YMD, DATETIME_SECONDS_MDY, DATETIME_SECONDS_DMY, PHONE, EMAIL, NUMBER, 
-    INTEGER, ZIPCODE
+    INTEGER, ZIPCODE, FHIR_TERMINOLOGY
   }
   
   @Id
@@ -98,6 +98,10 @@ public class Field {
    * <tr>
    * <td>ZIPCODE</td>
    * <td>string</td>
+   * </tr>
+   * <tr>
+   * <td>FHIR_TERMINOLOGY</td>
+   * <td>code, coding, CodeableConcept</td>
    * </tr>
    * </table>
    */
