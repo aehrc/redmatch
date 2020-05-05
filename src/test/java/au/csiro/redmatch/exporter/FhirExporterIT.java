@@ -53,10 +53,10 @@ import au.csiro.redmatch.validation.MockTerminolgyServer;
 @RunWith(SpringJUnit4ClassRunner.class)
 @PropertySource("classpath:application.properties")
 @SpringBootTest
-public class FhirExporterTest extends AbstractRedmatchTest {
+public class FhirExporterIT extends AbstractRedmatchTest {
   
   /** Logger. */
-  private static final Log log = LogFactory.getLog(FhirExporterTest.class);
+  private static final Log log = LogFactory.getLog(FhirExporterIT.class);
   
   @Autowired
   private FhirExporter exporter;

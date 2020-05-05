@@ -13,6 +13,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.FileNotFoundException;
 import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
+import au.csiro.redmatch.client.ITerminologyServer;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Metadata;
@@ -41,6 +45,7 @@ import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionType;
+import au.csiro.redmatch.validation.MockTerminolgyServer;
 
 /**
  * Redmatch compiler unit tests.
@@ -53,12 +58,80 @@ import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionTyp
 @SpringBootTest
 public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(RedmatchCompilerIT.class);
+  
   @Autowired
   private RedmatchCompiler compiler;
   
+  private ITerminologyServer mockTerminologyServer = new MockTerminolgyServer();
+  
+  @Before
+  public void hookMock() {
+    log.info("Setting mock terminology server");
+    compiler.getValidator().setClient(mockTerminologyServer);
+  }
+  
+  /**
+   * Unit test for FHIR-17, compiler is not checking CONCEPT expression is used on REDCap field 
+   * connected to Ontoserver.
+   * 
+   * dx_1 is a valid field (it is a text field configured to validate using Ontoserver).
+   * dx_text_1 is not a valid field (it is of type text and not configured to validate using 
+   * Ontoserver).
+   */
+  @Test
+  public void testInvalidConceptField() {
+    String rule = "TRUE { Patient<p> -> maritalStatus = CONCEPT(dx_1); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    rule = "TRUE { Patient<p> -> maritalStatus = CONCEPT(dx_text_1); }";
+    compiler.compile(rule, metadata);
+    errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
+  @Test
+  public void testInvalidField() {
+    final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(stud_num); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
+  @Test
+  public void testValidId() {
+    final String rule = "TRUE { Patient<p-1> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
+  /**
+   * Unit test for FHIR-16, FHIR ids are not being validated.
+   */
+  @Test
+  public void testInvalidId() {
+    final String rule = "TRUE { Patient<p_1> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
   @Test
   public void testListExplicit() {
-    final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(stud_num); }";
+    final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(record_id); }";
     final Metadata metadata = loadMetadata();
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -102,7 +175,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testListImplicit() {
-    final String rule = "TRUE { Patient<p> -> identifier.value = VALUE(stud_num); }";
+    final String rule = "TRUE { Patient<p> -> identifier.value = VALUE(record_id); }";
     final Metadata metadata = loadMetadata();
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -146,7 +219,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testWrongAttribute() {
-    final String rule = "TRUE { Patient<p> -> identifiers.value = VALUE(stud_num); }";
+    final String rule = "TRUE { Patient<p> -> identifiers.value = VALUE(record_id); }";
     final Metadata metadata = loadMetadata();
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -202,11 +275,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // identifier.type.text = "Medicare Number"
     testStringAttributeValue(attrsVals.get(1), new String[] {"identifier", "type", "text"}, 
-        new int[] {-1, -1, -1}, "'Medicare Number'");
+        new int[] {-1, -1, -1}, "Medicare Number");
     
     // identifier.system = "http://ns.electronichealth.net.au/id/medicare-number"
     testStringAttributeValue(attrsVals.get(2), new String[] {"identifier", "system"}, 
-        new int[] {-1, -1}, "'http://ns.electronichealth.net.au/id/medicare-number'");
+        new int[] {-1, -1}, "http://ns.electronichealth.net.au/id/medicare-number");
     
     // identifier.value = VALUE(pat_medicare)
     testFieldBasedAttributeValue(attrsVals.get(3), new String[] {"identifier", "value"}, 
@@ -226,7 +299,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "  } ELSE {\n" + 
         "    // We use the code selected using the terminology server\n" + 
         "    Condition<c${x}> -> \n" + 
-        "      code = CONCEPT(dx_text_${x}),\n" + 
+        "      code = CONCEPT(dx_${x}),\n" + 
         "      subject = REF(Patient<p>);\n" + 
         "  }\n" + 
         "}";
@@ -254,7 +327,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     Rule nestedRule = nestedRules.get(0);
     testConditionExpression(nestedRule, ConditionType.EXPRESSION, "dx_1", 
-        ConditionExpressionOperator.EQ, "'NOT_FOUND'");
+        ConditionExpressionOperator.EQ, "NOT_FOUND");
     
     // Test nested body
     b = nestedRule.getBody();
@@ -285,10 +358,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals("c1", resource.getResourceId());
     assertEquals("Condition", resource.getResourceType());
     
-    // code = CONCEPT(dx_text_${x})
+    // code = CONCEPT(dx_${x})
     av = resource.getResourceAttributeValues().get(0);
     testFieldBasedAttributeValue(av, new String[] {"code"},  new int[] {-1}, 
-        "dx_text_1", ConceptValue.class);
+        "dx_1", ConceptValue.class);
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
@@ -296,7 +369,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     nestedRule = nestedRules.get(1);
     testConditionExpression(nestedRule, ConditionType.EXPRESSION, "dx_2", 
-        ConditionExpressionOperator.EQ, "'NOT_FOUND'");
+        ConditionExpressionOperator.EQ, "NOT_FOUND");
     
     // Test nested body
     b = nestedRule.getBody();
@@ -327,10 +400,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals("c2", resource.getResourceId());
     assertEquals("Condition", resource.getResourceType());
     
-    // code = CONCEPT(dx_text_${x})
+    // code = CONCEPT(dx_${x})
     av = resource.getResourceAttributeValues().get(0);
     testFieldBasedAttributeValue(av, new String[] {"code"},  new int[] {-1}, 
-        "dx_text_2", ConceptValue.class);
+        "dx_2", ConceptValue.class);
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);

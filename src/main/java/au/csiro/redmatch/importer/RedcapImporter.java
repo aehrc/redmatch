@@ -108,6 +108,13 @@ public class RedcapImporter {
         String textValidationType = entry.get(FIELD_TEXT_VALIDATION);
         if (!textValidationType.isEmpty()) {
           field.setTextValidationType(TextValidationType.valueOf(textValidationType.toUpperCase()));
+        } else {
+          // The FHIR_TERMINOLOGY validation type comes from the select_choices_or_calculations 
+          // field
+          String selectChoices = entry.get(SELECT_CHOICES_OR_CALCULATIONS);
+          if (selectChoices != null && selectChoices.startsWith("FHIR:")) {
+            field.setTextValidationType(TextValidationType.FHIR_TERMINOLOGY);
+          }
         }
       } catch (IllegalArgumentException e) {
         log.warn("Unknown text validation type: " + entry.get(FIELD_TEXT_VALIDATION).toUpperCase());

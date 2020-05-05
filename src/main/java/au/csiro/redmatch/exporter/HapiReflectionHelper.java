@@ -57,12 +57,21 @@ public class HapiReflectionHelper {
   
   @Autowired
   private FhirContext ctx;
+  
+  /**
+   * Sets the FHIR context.
+   * 
+   * @param ctx The FHIR context.
+   */
+  public void setCtx(FhirContext ctx) {
+    this.ctx = ctx;
+  }
 
   /**
    * Configure restful client.
    */
   @PostConstruct
-  private void init() {
+  public void init() {
     // Load FHIR simple and complex types - needed to get attribute types
     try (final InputStream in = FhirExporter.class.getClassLoader()
         .getResourceAsStream("fhir-metadata/4.0.1/profiles-types.json")) {
