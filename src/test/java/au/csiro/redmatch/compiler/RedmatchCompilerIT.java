@@ -7,6 +7,7 @@ package au.csiro.redmatch.compiler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -45,6 +46,7 @@ import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionType;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionNode;
 import au.csiro.redmatch.validation.MockTerminolgyServer;
 
 /**
@@ -70,6 +72,60 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);
+  }
+  
+  @Test
+  public void testComplexCondition() {
+    String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 "
+        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    Document doc = compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    assertNotNull(doc.getRules());
+    assertEquals(1, doc.getRules().size());
+    Rule r = doc.getRules().get(0);
+    
+    Condition c = r.getCondition();
+    assertTrue(c instanceof ConditionNode);
+  }
+  
+  @Test
+  public void testEvenMoreComplexCondition() {
+    String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 | VALUE(oph) = 2"
+        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    Document doc = compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    assertNotNull(doc.getRules());
+    assertEquals(1, doc.getRules().size());
+    Rule r = doc.getRules().get(0);
+    
+    Condition c = r.getCondition();
+    assertTrue(c instanceof ConditionNode);
+  }
+  
+  @Test
+  public void testComplexConditionWithParenthesis() {
+    String rule = "VALUE(facial) = 1 & (VALUE(ptosis) = 1 | VALUE(oph) = 2)"
+        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    Document doc = compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    assertNotNull(doc.getRules());
+    assertEquals(1, doc.getRules().size());
+    Rule r = doc.getRules().get(0);
+    
+    Condition c = r.getCondition();
+    assertTrue(c instanceof ConditionNode);
   }
   
   /**
