@@ -828,7 +828,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       }
       ParseTree second = ctx.getChild(1);
       if (second instanceof TerminalNode) {
-        TerminalNode tn = (TerminalNode) first;
+        TerminalNode tn = (TerminalNode) second;
         String text = tn.getSymbol().getText();
         if ("&".equals(text)) {
           return new ConditionNode((Condition) visitConditionInternal(ctx.condition(0), var, meta),

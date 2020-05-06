@@ -50,7 +50,7 @@ services:
     volumes:
       - mongodb_data_container:/data/db
   redmatch:
-    image: aehrc/redmatch:0.9.1
+    image: aehrc/redmatch:0.9.2
     container_name: redmatch
     depends_on:
       - mongo
