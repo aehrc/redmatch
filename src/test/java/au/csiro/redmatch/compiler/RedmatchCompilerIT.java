@@ -169,7 +169,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
     printErrors(errors);
-    assertTrue(!errors.isEmpty());
+    assertTrue(errors.isEmpty());
   }
   
   /**
@@ -178,6 +178,18 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testInvalidId() {
     final String rule = "TRUE { Patient<p_1> -> identifier[0].value = VALUE(record_id); }";
+    final Metadata metadata = loadMetadata();
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(!errors.isEmpty());
+  }
+  
+  @Test
+  public void testInvalidId2() {
+    final String rule = "// Might lose some detail here if other is specified - should migrate to "
+        + "Ontoserver plugin\nVALUE(m_weak) = 1 { "
+        + "Observation<mito_cd_atax> -> status = CODE_LITERAL(final); }";
     final Metadata metadata = loadMetadata();
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();

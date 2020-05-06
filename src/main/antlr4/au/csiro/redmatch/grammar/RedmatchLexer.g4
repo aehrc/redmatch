@@ -43,7 +43,7 @@ CODE_LITERAL
     ;
 
 IDENTIFIER
-    : ([A-Za-z] | '_')([A-Za-z0-9] | '_')*
+    : ([A-Za-z_-])([A-Za-z0-9_-])*
     ;
 
 STRING
