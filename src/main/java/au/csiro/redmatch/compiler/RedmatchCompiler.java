@@ -424,7 +424,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
         
         final FieldType ft = f.getFieldType();
-        final TextValidationType tvt = f.getTextValidationType();
+        //final TextValidationType tvt = f.getTextValidationType();
         
         // CONCEPT can only apply to a field of type TEXT, YESNO, DROPDOWN, RADIO, CHECKBOX, 
         // CHECKBOX_OPTION or TRUEFALSE.
@@ -439,14 +439,15 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
               + fieldId + " is of type " + f.getFieldType()));
         }
         
+        // FHIR-35: we no longer need this check - CONCEPT can be used on plain text fields
         // If used on a TEXT field, the field should be connected to a FHIR terminology server.
-        if (val instanceof ConceptValue && ft.equals(FieldType.TEXT) 
-            && !TextValidationType.FHIR_TERMINOLOGY.equals(tvt)) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              "The field " + fieldId + " is a text field but it is not validated using a FHIR "
-                  + "terminology server. CONCEPT expressions used on fields of type TEXT require "
-                  + "that the fields are validated using a FHIR terminology server."));
-        }
+        //if (val instanceof ConceptValue && ft.equals(FieldType.TEXT) 
+        //    && !TextValidationType.FHIR_TERMINOLOGY.equals(tvt)) {
+        //  errorMessages.add(getAnnotationFromContext(ctx, 
+        //      "The field " + fieldId + " is a text field but it is not validated using a FHIR "
+        //          + "terminology server. CONCEPT expressions used on fields of type TEXT require "
+        //          + "that the fields are validated using a FHIR terminology server."));
+        //}
         
         // CONCEPT_SELECTED can only apply to fields of type DROPDOW and RADIO
         if (val instanceof ConceptSelectedValue && !(ft.equals(FieldType.DROPDOWN) 
@@ -578,9 +579,21 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
               String.format(errorMsg, "Mapped concept", type)));
         }
       } else if (val instanceof ConceptValue) {
-        if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Concept", type)));
+        // There are two cases here: mapping to fields or static field values, or mapping to free
+        // text. Mappings to free text are only compatible with CodeableConcepts.
+        final Field f = metadata.getField(((ConceptValue) val).getFieldId());
+        final FieldType ft = f.getFieldType();
+        final TextValidationType vt = f.getTextValidationType();
+        if (FieldType.TEXT.equals(ft) && !TextValidationType.FHIR_TERMINOLOGY.equals(vt)) {
+          if (!type.equals("CodeableConcept")) {
+            errorMessages.add(getAnnotationFromContext(ctx, 
+                String.format(errorMsg, "Concept mapped to free text", type)));
+          }
+        } else {
+          if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
+            errorMessages.add(getAnnotationFromContext(ctx, 
+                String.format(errorMsg, "Concept", type)));
+          }
         }
       }  else if (val instanceof FieldValue) {
         if (Character.isUpperCase(type.charAt(0))) {
@@ -961,7 +974,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     } else if (ctx.reference() != null) {
       return visitReferenceInternal(ctx.reference(), var);
     } else if (ctx.CONCEPT_VALUE() != null) {
-      String literal = ctx.CONCEPT_VALUE().getText();
+      String literal = removeEnds(ctx.CONCEPT_VALUE().getText());
       String[] parts = literal.split("[|]");
       if (parts.length == 2) {
         return new ConceptLiteralValue(parts[0], parts[1]);
@@ -972,7 +985,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             + ". This should not happen!");
       }
     } else if (ctx.CODE_VALUE() != null) {
-      String literal = ctx.CODE_VALUE().getText();
+      String literal = removeEnds(ctx.CODE_VALUE().getText());
       return new CodeLiteralValue(literal);
     } else if (ctx.variableIdentifier() != null) {
       String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, false).getFullId();

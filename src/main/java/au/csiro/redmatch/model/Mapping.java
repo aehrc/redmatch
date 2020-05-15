@@ -34,6 +34,11 @@ public class Mapping {
    * The type of field in REDCap. Might help with mapping process.
    */
   private String redcapFieldType;
+  
+  /**
+   * The free text that wants to be mapped.
+   */
+  private String text;
 
   /**
    * The system assigned by the mapper.
@@ -86,6 +91,14 @@ public class Mapping {
     this.redcapFieldType = redcapFieldType;
   }
 
+  public String getText() {
+    return text;
+  }
+
+  public void setText(String text) {
+    this.text = text;
+  }
+
   public String getTargetSystem() {
     return targetSystem;
   }
@@ -124,9 +137,9 @@ public class Mapping {
 
   @Override
   public String toString() {
-    return "Mapping [redcapFieldId=" + redcapFieldId + ", redcapLabel=" + redcapLabel
-        + ", redcapFieldType=" + redcapFieldType + ", targetSystem=" + targetSystem 
-        + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay + "]";
+    return "Mapping [id=" + id + ", redcapFieldId=" + redcapFieldId + ", redcapLabel=" + redcapLabel
+        + ", redcapFieldType=" + redcapFieldType + ", text=" + text + ", targetSystem="
+        + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay + "]";
   }
 
 }

@@ -1,0 +1,5 @@
+NOTNULL(pat_gene) {
+  Observation<pat-gene> ->
+    component[0].code = CONCEPT_LITERAL(http://loinc.org|48018-6),
+    component[0].valueCodeableConcept = CONCEPT(pat_gene);
+}

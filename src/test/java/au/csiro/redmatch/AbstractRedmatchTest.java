@@ -41,18 +41,18 @@ public abstract class AbstractRedmatchTest {
   @Autowired
   protected RedcapImporter redcapImporter;
   
-  protected Metadata loadMetadata() {
-    String json = loadTestFile("src/test/resources/metadata.json");
+  protected Metadata loadMetadata(String name) {
+    String json = loadTestFile("src/test/resources/metadata_" + name + ".json");
     return redcapImporter.parseMetadata(json);
   }
   
-  protected List<Row> loadData() {
-    String json = loadTestFile("src/test/resources/report.json");
+  protected List<Row> loadData(String name) {
+    String json = loadTestFile("src/test/resources/report_"+ name + ".json");
     return redcapImporter.parseData(json);
   }
   
-  protected String loadRules() {
-    return loadTestFile("src/test/resources/rules_tutorial.fcp");
+  protected String loadRules(String name) {
+    return loadTestFile("src/test/resources/rules_" + name + ".rdm");
   }
   
   private String loadTestFile(String path) {

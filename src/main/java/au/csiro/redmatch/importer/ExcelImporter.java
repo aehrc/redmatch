@@ -56,13 +56,15 @@ public class ExcelImporter {
       Cell idCell = row.getCell(0);
       Cell typeCell = row.getCell(1);
       Cell labelCell = row.getCell(2);
-      Cell systemCell = row.getCell(3);
-      Cell codeCell = row.getCell(4);
-      Cell displayCell = row.getCell(5);
+      Cell textCell = row.getCell(3);
+      Cell systemCell = row.getCell(4);
+      Cell codeCell = row.getCell(5);
+      Cell displayCell = row.getCell(6);
 
       String id = idCell.getStringCellValue();
       String type = typeCell.getStringCellValue();
       String label = labelCell.getStringCellValue();
+      String text = textCell.getStringCellValue();
       String system = systemCell.getStringCellValue();
       String code = getStringValue(codeCell);
       String display = getStringValue(displayCell);
@@ -71,6 +73,7 @@ public class ExcelImporter {
       mapping.setRedcapFieldId(id);
       mapping.setRedcapLabel(label);
       mapping.setRedcapFieldType(type);
+      mapping.setText(text);
       mapping.setTargetSystem(system);
       mapping.setTargetCode(code);
       mapping.setTargetDisplay(display);
