@@ -11,8 +11,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.Metadata;
+import au.csiro.redmatch.model.Field.TextValidationType;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 
 /**
@@ -22,7 +26,10 @@ import au.csiro.redmatch.model.grammar.GrammarObject;
  *
  */
 public class Document extends GrammarObject {
-
+  
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(Document.class);
+  
   private final List<Rule> rules = new ArrayList<>();
 
   public Document() {
@@ -42,8 +49,8 @@ public class Document extends GrammarObject {
    * Returns a map with the REDCap field ids referenced in the rules as the key and a boolean value
    * indicating if the field needs to be mapped. A field requires mapping when it is part of the
    * "resource" section of the rule and uses the CONCEPT, CONCEPT_SELECTED or CODE_SELECTED keyword.
-   * The CONCEPT keyword does not require a mapping when used on a REDCap field of type TEXT because
-   * it assumes it is an autocomplete field that will store the selected concept.
+   * The CONCEPT keyword only requires a mapping when used on a REDCap field of type TEXT that is 
+   * not an autocomplete field.
    * 
    * @param metadata The metadata of the project. Required to calculate which fields are required
    * based on the rules.
@@ -101,6 +108,12 @@ public class Document extends GrammarObject {
               }
             } else if (fbv instanceof ConceptValue) {
               Field f = metadata.getField(rulesFieldId);
+              
+              if (f == null) {
+                log.warn("Found null field " + rulesFieldId + " in expression " + fbv);
+                continue;
+              }
+              
               switch (f.getFieldType()) {
               case YESNO:
               case DROPDOWN:
@@ -110,6 +123,11 @@ public class Document extends GrammarObject {
               case CHECKBOX_OPTION:
               case TRUEFALSE:
                 res.put(rulesFieldId, Boolean.TRUE);
+                break;
+              case TEXT:
+                if (!TextValidationType.FHIR_TERMINOLOGY.equals(f.getTextValidationType())) {
+                  res.put(rulesFieldId, Boolean.TRUE);
+                }
                 break;
               default:
                 res.put(rulesFieldId, Boolean.FALSE);

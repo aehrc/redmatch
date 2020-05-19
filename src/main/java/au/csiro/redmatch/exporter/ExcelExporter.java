@@ -80,13 +80,16 @@ public class ExcelExporter {
       cell2.setCellValue("Label");
       Cell cell3 = row.createCell(3);
       cell3.setCellStyle(boldStyle);
-      cell3.setCellValue("System");
+      cell3.setCellValue("Text");
       Cell cell4 = row.createCell(4);
       cell4.setCellStyle(boldStyle);
-      cell4.setCellValue("Code");
+      cell4.setCellValue("System");
       Cell cell5 = row.createCell(5);
       cell5.setCellStyle(boldStyle);
-      cell5.setCellValue("Display");
+      cell5.setCellValue("Code");
+      Cell cell6 = row.createCell(6);
+      cell6.setCellStyle(boldStyle);
+      cell6.setCellValue("Display");
 
       for (int i = 0; i < mappings.size(); i++) {
         row = sheet.createRow(i + 1);
@@ -100,22 +103,26 @@ public class ExcelExporter {
         cell2.setCellStyle(wrappedCellStyle);
         cell2.setCellValue(mapping.getRedcapLabel());
         cell3 = row.createCell(3);
-        cell3.setCellStyle(unlockedCellStyle);
-        cell3.setCellValue(mapping.getTargetSystem());
+        cell3.setCellStyle(wrappedCellStyle);
+        cell3.setCellValue(mapping.getText());
         cell4 = row.createCell(4);
         cell4.setCellStyle(unlockedCellStyle);
-        cell4.setCellValue(mapping.getTargetCode());
+        cell4.setCellValue(mapping.getTargetSystem());
         cell5 = row.createCell(5);
         cell5.setCellStyle(unlockedCellStyle);
-        cell5.setCellValue(mapping.getTargetDisplay());
+        cell5.setCellValue(mapping.getTargetCode());
+        cell6 = row.createCell(6);
+        cell6.setCellStyle(unlockedCellStyle);
+        cell6.setCellValue(mapping.getTargetDisplay());
       }
 
       sheet.autoSizeColumn(0);
       sheet.autoSizeColumn(1);
       sheet.setColumnWidth(2, 40 * 256);
-      sheet.setColumnWidth(3, 20 * 256);
+      sheet.setColumnWidth(3, 40 * 256);
       sheet.setColumnWidth(4, 20 * 256);
-      sheet.setColumnWidth(5, 40 * 256);
+      sheet.setColumnWidth(5, 20 * 256);
+      sheet.setColumnWidth(6, 40 * 256);
       wb.write(baos);
     }
   }
