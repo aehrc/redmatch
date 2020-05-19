@@ -69,14 +69,14 @@ NOTNULL(phenotype___${x}) {
 
 // Some forms use yes / no matrixes to capture information
 VALUE(m_weak) = 1 {
-  Observation<m_weak> ->
+  Observation<m-weak> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(m_weak),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
 }
 
 VALUE(m_weak) = 0 {
-  Observation<m_weak> ->
+  Observation<m-weak> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(m_weak),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG);
@@ -126,7 +126,7 @@ VALUE(oph) = 2 {
 
 // Some matrixes have several options
 VALUE(left_bicep___1) = 1 {
-  Observation<left_bicep> ->
+  Observation<left-bicep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(left_bicep___1),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -136,7 +136,7 @@ VALUE(left_bicep___1) = 1 {
 }
 
 VALUE(left_bicep___3) = 1 {
-  Observation<left_bicep> ->
+  Observation<left-bicep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(left_bicep___3),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -146,7 +146,7 @@ VALUE(left_bicep___3) = 1 {
 }
 
 VALUE(right_bicep___1) = 1 {
-  Observation<right_bicep> ->
+  Observation<right-bicep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(right_bicep___1),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -156,7 +156,7 @@ VALUE(right_bicep___1) = 1 {
 }
 
 VALUE(right_bicep___3) = 1 {
-  Observation<right_bicep> ->
+  Observation<right-bicep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(right_bicep___3),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -166,7 +166,7 @@ VALUE(right_bicep___3) = 1 {
 }
 
 VALUE(left_tricep___1) = 1 {
-  Observation<left_tricep> ->
+  Observation<left-tricep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(left_tricep___1),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -176,7 +176,7 @@ VALUE(left_tricep___1) = 1 {
 }
 
 VALUE(left_tricep___3) = 1 {
-  Observation<left_tricep> ->
+  Observation<left-tricep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(left_tricep___3),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -186,7 +186,7 @@ VALUE(left_tricep___3) = 1 {
 }
 
 VALUE(right_tricep___1) = 1 {
-  Observation<right_tricep> ->
+  Observation<right-tricep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(right_tricep___1),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
@@ -196,7 +196,7 @@ VALUE(right_tricep___1) = 1 {
 }
 
 VALUE(right_tricep___3) = 1 {
-  Observation<right_tricep> ->
+  Observation<right-tricep> ->
     status = CODE_LITERAL(final),
     code = CONCEPT(right_tricep___3),
     interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),

@@ -87,29 +87,6 @@ public class RedcapClient {
   }
   
   /**
-   *  Returns the data for a REDCap project in JSON format.
-   *  
-   * @param url The URL of the REDCap installation.
-   * @param token The API token.
-   * @return A response with a status and content.
-   */
-  public String getRecords(String url, String token) {
-    ArrayList<NameValuePair> params = new ArrayList<>();
-    params.add(new BasicNameValuePair("token", token));
-    params.add(new BasicNameValuePair("content", "record"));
-    params.add(new BasicNameValuePair("format", "json"));
-
-    final Response resp = doPost(url, params);
-    int status = resp.getStatus();
-    if (status >= 200 && status < 300) {
-      return resp.getContent();
-    } else {
-      handleRedcapStatus(status, resp.getContent());
-      return null;
-    }
-  }
-  
-  /**
    * Returns the contents of a report in REDCap.
    * 
    * @param url The URL of the REDCap installation.

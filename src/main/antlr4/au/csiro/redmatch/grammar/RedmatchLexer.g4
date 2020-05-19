@@ -35,11 +35,11 @@ DOTDOT            : '..';
 COLON             : ':';
 
 CONCEPT_LITERAL
-    : 'CONCEPT_LITERAL' -> pushMode(FHIR)
+    : 'CONCEPT_LITERAL' -> pushMode(FHIR_CONCEPT)
     ;
     
 CODE_LITERAL
-    : 'CODE_LITERAL' -> pushMode(FHIR)
+    : 'CODE_LITERAL' -> pushMode(FHIR_CODE)
     ;
 
 IDENTIFIER
@@ -102,20 +102,17 @@ fragment HEX
     : [0-9a-fA-F]
     ;
 
-mode FHIR;
+mode FHIR_CONCEPT;
 
-CODE_VALUE
-    : [a-zA-Z0-9:_]+
-    ;
-   
+// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*, and uri definition \S*
 CONCEPT_VALUE
-    : [a-zA-Z0-9:_%+-.@#/]+ '|' CODE_VALUE ('|' STRING)?
+    : '(' ~[ \r\n\t]+ '|' (~[ \r\n\t]+) ([ \r\n\t] ~[ \r\n\t]+)* ('|' STRING)? ')' -> popMode
     ;
-    
-OPEN_CODE
-    : '('
+
+mode FHIR_CODE;
+
+// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*
+CODE_VALUE
+    : '(' ~[ \r\n\t]+ ([ \r\n\t] ~[ \r\n\t]+)* ')' -> popMode
     ;
-    
-CLOSE_CODE
-    : ')' -> popMode
-    ;
+

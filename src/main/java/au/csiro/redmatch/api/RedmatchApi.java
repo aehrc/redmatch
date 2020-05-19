@@ -9,11 +9,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,7 +24,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import au.csiro.redmatch.client.RedcapClient;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.exporter.ExcelExporter;
@@ -76,9 +72,6 @@ public class RedmatchApi {
 
   @Autowired
   private RedmatchDao dao;
-  
-  @Autowired
-  private RedcapClient redcapClient;
 
   /**
    * Cretaes a new Redmatch project.
@@ -242,11 +235,33 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse importMappingsExcel(String projectId, byte[] bytes) {
+    log.info("Importing mappings from Excel.");
     final RedmatchProject project = resolveRedmatchProject(projectId);
+    log.info("Project " + projectId + " has " + project.getMappings().size() + " mappings.");
     try {
       final Workbook wb = new HSSFWorkbook(new ByteArrayInputStream(bytes), false);
-      final Map<String, Mapping> newMappings = excelImporter.importMappings(wb);
-      project.replaceMappings(newMappings.values());
+      final List<Mapping> newMappings = excelImporter.importMappings(wb);
+      log.info("Imported " + newMappings.size() + " from Excel.");
+      
+      final List<Mapping> oldMappings = project.getMappings();
+      
+      if (newMappings.size() != oldMappings.size()) {
+        throw new InvalidMappingsException("Uploaded " + newMappings.size() 
+          + " mappings but expected " + oldMappings.size());
+      }
+      
+      for (int i = 0; i < oldMappings.size(); i++) {
+        final Mapping oldMapping = oldMappings.get(i);
+        final Mapping newMapping = newMappings.get(i);
+        
+        if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
+          throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
+              + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
+              + newMapping.getRedcapFieldId());
+        }
+      }
+      
+      project.replaceMappings(newMappings);
       dao.saveRedmatchProject(project);
       return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
     } catch (IOException e) {
@@ -294,8 +309,8 @@ public class RedmatchApi {
     }
     
     log.info("Getting data from REDCap.");
-    final List<Row> rows = redcapImporter.parseData(
-        redcapClient.getRecords(fcp.getRedcapUrl(), fcp.getToken()));
+    final List<Row> rows = redcapImporter.getReport(fcp.getRedcapUrl(), fcp.getToken(), 
+        fcp.getReportId());
     log.info("Retrieved " + rows.size() + " records.");
     
     final Metadata metadata = fcp.getMetadata();
@@ -373,14 +388,12 @@ public class RedmatchApi {
     // does not allow accessing the report definition.
     log.debug("Getting report data to find required fields");
     final Set<String> fieldIds = new HashSet<>();
-    final String reportString = redcapClient.getReport(url, token, reportId);
-    final List<Row> report = redcapImporter.parseData(reportString);
+    final List<Row> report = redcapImporter.getReport(url, token, reportId);
     fieldIds.addAll(extractFields(report.get(0).getData().keySet()));
     
     // Get the metadata and filter it based on the field names
     log.debug("Getting metadata for required fields");
-    final String metadataString = redcapClient.getMetadata(url, token, fieldIds);
-    final Metadata metadata = redcapImporter.parseMetadata(metadataString);
+    final Metadata metadata = redcapImporter.getMetadata(url, token, fieldIds);
     return metadata;
   }
   
@@ -410,14 +423,14 @@ public class RedmatchApi {
    *   <li>Generates mappings from the rules.</li>
    * </ol>
    * 
-   * @param redmatchProject
+   * @param rmp
    */
-  private void processRedmatchProject(RedmatchProject redmatchProject) {
-    final Metadata metadata = redmatchProject.getMetadata();
+  private void processRedmatchProject(RedmatchProject rmp) {
+    final Metadata metadata = rmp.getMetadata();
     
     // Compile rules document and add validation errors.
-    final Document doc = compiler.compile(redmatchProject.getRulesDocument(), metadata);
-    redmatchProject.setIssues(compiler.getErrorMessages());
+    final Document doc = compiler.compile(rmp.getRulesDocument(), metadata);
+    rmp.setIssues(compiler.getErrorMessages());
     
     // The document might be empty, depending on the type of errors
     if (doc == null) {
@@ -425,14 +438,17 @@ public class RedmatchApi {
     }
     
     // Generate mappings from rules
-    final List<Mapping> tgtMappings = redcapImporter.generateMappings(metadata, 
-        doc.getReferencedFields(metadata));
+    final List<Mapping> tgtMappings = redcapImporter.generateMappings(
+        metadata, 
+        doc.getReferencedFields(metadata), 
+        redcapImporter.getReport(rmp.getRedcapUrl(), rmp.getToken(), rmp.getReportId())
+    );
     
     // Merge mappings
-    final List<Mapping> srcMappings = redmatchProject.getMappings();
+    final List<Mapping> srcMappings = rmp.getMappings();
     mergeMappings(srcMappings, tgtMappings);
     
-    redmatchProject.replaceMappings(tgtMappings);
+    rmp.replaceMappings(tgtMappings);
   }
   
   /**
@@ -453,32 +469,22 @@ public class RedmatchApi {
       return;
     }
     
-    // Index old mappings
-    final Map<String, Mapping> oldMappingsMap = indexMappings(srcMappings);
-    
     for (Mapping mapping : tgtMappings) {
-      Mapping oldMapping = oldMappingsMap.get(mapping.getRedcapFieldId());
-      if (oldMapping != null && oldMapping.hasTargetSystem() && !mapping.hasTargetSystem()) {
-        // Copy targets over
-        mapping.setTargetSystem(oldMapping.getTargetSystem());
-        mapping.setTargetCode(oldMapping.getTargetCode());
-        mapping.setTargetDisplay(oldMapping.getTargetDisplay());
+      // Look for a match in the old mappings - a match is a mapping with the same fieldId and the
+      // same text
+      for (Mapping oldMapping : srcMappings) {
+        if (mapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
+            && ((mapping.getText() == null && oldMapping.getText() == null) 
+                || (mapping.getText() != null && mapping.getText().equals(oldMapping.getText())))) {
+          if (oldMapping.hasTargetSystem() && !mapping.hasTargetSystem()) {
+            // Copy targets over
+            mapping.setTargetSystem(oldMapping.getTargetSystem());
+            mapping.setTargetCode(oldMapping.getTargetCode());
+            mapping.setTargetDisplay(oldMapping.getTargetDisplay());
+          }
+        }
       }
     }
-  }
-  
-  /**
-   * Indexes a collection of mappings, using the REDCap field id as key.
-   * 
-   * @param mappings The mappings to index.
-   * @return The map.
-   */
-  private Map<String, Mapping> indexMappings(Collection<Mapping> mappings) {
-    final Map<String, Mapping> res = new HashMap<>();
-    for (Mapping m : mappings) {
-      res.put(m.getRedcapFieldId(), m);
-    }
-    return res;
   }
   
   /**

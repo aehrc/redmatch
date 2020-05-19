@@ -55,6 +55,7 @@ import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.Field.FieldType;
+import au.csiro.redmatch.model.Field.TextValidationType;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
 import au.csiro.redmatch.model.grammar.redmatch.BooleanValue;
@@ -248,12 +249,6 @@ public class FhirExporter {
       if (fhirType.equals(CodeType.class) || fhirType.equals(Enumeration.class)) {
         Class<?> hapiType = helper.getParametrisedType(f);
         
-        // FIXME: need to look for list example, e.g., CodeSystem
-        //if (isList) {
-        //  hapiType = helper.getParametrisedType(f);
-        //} else {
-        //  hapiType = f.getType();
-        //}
         // Now we need the EnumFactory for this type
         log.debug("Getting EnumFactory for type " + hapiType.getName());
         try {
@@ -370,7 +365,7 @@ public class FhirExporter {
       
       return getConcept(m.getTargetSystem(), m.getTargetCode(), m.getTargetDisplay(), fhirType);
     } else if (value instanceof ConceptValue) {
-      // 74400008|Appendicitis|http://snomed.info/sct
+      // Ontoserver REDCap plugin format: 74400008|Appendicitis|http://snomed.info/sct
       ConceptValue cv = (ConceptValue) value;
       String fieldId = cv.getFieldId();
       au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
@@ -385,18 +380,36 @@ public class FhirExporter {
       case DROPDOW_OR_RADIO_OPTION:
         // In this case we look for a mapping to the field itself, not its options
         Mapping m = findMapping(mappings, fieldId);
-        validateMappingForCode(m);
+        validateMappingForConcept(m);
         return getConcept(m.getTargetSystem(), m.getTargetCode(), m.getTargetDisplay(), fhirType);
       case TEXT:
         // This is a special case where a text field is connected to the REDCap Ontoserver plugin
         String val = getValue(row, fieldId);
-        
-        String[] parts = val.split("[|]");
-        if (parts.length != 3) {
-          throw new RuleApplicationException("Expected CONCEPT value to have the format "
-              + "code|display|system but got " + val);
+        if(TextValidationType.FHIR_TERMINOLOGY.equals(f.getTextValidationType())) {
+          String[] parts = val.split("[|]");
+          if (parts.length != 3) {
+            throw new RuleApplicationException("Expected CONCEPT value to have the format "
+                + "code|display|system but got " + val);
+          }
+          return getConcept(parts[2].trim(), parts[0].trim(), parts[1].trim(), fhirType);
+        } else {
+          // Deal with plain text
+          // Find the mapping
+          Map<String, Mapping> map = findMappings(mappings, fieldId);
+          m = map.get(val);
+          
+          // TODO: fhirType should be CodeableConcept - coding is not acceptable
+          // We don't validate here because it is ok if the mapping is not filled out
+          String system = m.getTargetSystem();
+          String code = m.getTargetCode();
+          String display = m.getTargetDisplay();
+          
+          if (system != null && code != null) {
+            return getConcept(system, code, display, fhirType);
+          } else {
+            return new CodeableConcept().setText(val);
+          }
         }
-        return getConcept(parts[2].trim(), parts[0].trim(), parts[1].trim(), fhirType);
       case FILE:
       case NOTES:
       case DESCRIPTIVE:
@@ -716,6 +729,16 @@ public class FhirExporter {
     }
     throw new RuleApplicationException("A mapping for field " + fieldId + " is required but "
         + "was not found.");
+  }
+  
+  private Map<String, Mapping> findMappings(List<Mapping> mappings, String fieldId) {
+    Map<String, Mapping> res = new HashMap<>();
+    for (Mapping mapping : mappings) {
+      if (mapping.getRedcapFieldId().equals(fieldId)) {
+        res.put(mapping.getText(), mapping);
+      }
+    }
+    return res;
   }
   
   /**

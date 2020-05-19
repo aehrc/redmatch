@@ -24,6 +24,7 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationStatus;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Type;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,10 +77,11 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   }
   
   @Test
-  public void testCreateClinicalResourcesFromRules() {
-    Metadata metadata = this.loadMetadata();
-    List<Row> rows = this.loadData();
-    String rules = this.loadRules();
+  public void testCreateClinicalResourcesFromRulesDataMappings() {
+    Metadata metadata = this.loadMetadata("data_mappings");
+    List<Row> rows = this.loadData("data_mappings");
+    String rules = this.loadRules("data_mappings");
+    
     Document rulesDocument = compiler.compile(rules, metadata);
     assertNotNull(rulesDocument);
     final List<Annotation> compilationErrors = compiler.getErrorMessages();
@@ -89,110 +91,170 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertTrue(compilationErrors.isEmpty());
     
     List<Mapping> mappings = redcapImporter.generateMappings(metadata, 
-        rulesDocument.getReferencedFields(metadata));
+        rulesDocument.getReferencedFields(metadata), rows);
     
-    populateMappings(mappings);
+    populateDataMappings(mappings);
     
     Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
         mappings, rulesDocument);
     
     System.out.println(res.keySet());
     
-    // Patient 1
-    assertTrue(res.containsKey("p-1"));
-    DomainResource dr = res.get("p-1");
-    assertTrue(dr instanceof Patient);
-    Patient p1 = (Patient) dr;
-    assertTrue(p1.hasIdentifier());
-    Identifier ident = p1.getIdentifierFirstRep();
-    assertTrue(ident.hasType());
-    assertTrue(ident.getType().hasCoding());
-    assertEquals("http://hl7.org/fhir/v2/0203", ident.getType().getCodingFirstRep().getSystem());
-    assertEquals("MC", ident.getType().getCodingFirstRep().getCode());
-    assertEquals("Medicare Number", ident.getType().getText());
-    assertEquals("http://ns.electronichealth.net.au/id/medicare-number", ident.getSystem());
-    assertEquals("12345678911", ident.getValue());
-    assertTrue(p1.hasDeceasedBooleanType());
-    assertEquals(false, p1.getDeceasedBooleanType().booleanValue());
-    assertEquals(p1.getGender(), AdministrativeGender.MALE);
+    assertEquals(2, res.keySet().size());
+
+    assertTrue(res.containsKey("pat-gene-1"));
+    DomainResource dr = res.get("pat-gene-1");
+    assertTrue(dr instanceof Observation);
+    Observation obs1 = (Observation) dr;
+    assertTrue(obs1.hasComponent());
+    Type vt = obs1.getComponentFirstRep().getValue();
+    assertTrue(vt instanceof CodeableConcept);
+    CodeableConcept cc = (CodeableConcept) vt;
+    assertTrue(cc.hasCoding());
+    Coding c = cc.getCodingFirstRep();
+    assertEquals("http://www.genenames.org/geneId", c.getSystem());
+    assertEquals("HGNC:1100", c.getCode());
+    assertEquals("BRCA1", c.getDisplay());
     
-    // c1-1 and c2-1
-    assertTrue(res.containsKey("c1-1"));
-    dr = res.get("c1-1");
-    assertTrue(dr instanceof Condition);
-    Condition c11 = (Condition) dr;
-    assertTrue(c11.hasCode());
-    Coding cod = c11.getCode().getCodingFirstRep();
-    assertEquals("http://snomed.info/sct", cod.getSystem());
-    assertEquals("74400008", cod.getCode());
-    assertEquals("Appendicitis", cod.getDisplay());
+    assertTrue(res.containsKey("pat-gene-2"));
+    dr = res.get("pat-gene-2");
+    assertTrue(dr instanceof Observation);
+    Observation obs2 = (Observation) dr;
+    assertTrue(obs2.hasComponent());
+    vt = obs2.getComponentFirstRep().getValue();
+    assertTrue(vt instanceof CodeableConcept);
+    cc = (CodeableConcept) vt;
+    assertTrue(cc.hasCoding());
+    c = cc.getCodingFirstRep();
+    assertEquals("http://www.genenames.org/geneId", c.getSystem());
+    assertEquals("HGNC:1101", c.getCode());
+    assertEquals("BRCA2", c.getDisplay());
+  }
+  
+  @Test
+  public void testCreateClinicalResourcesFromRules() {
+    Metadata metadata = this.loadMetadata("tutorial");
+    List<Row> rows = this.loadData("tutorial");
+    String rules = this.loadRules("tutorial");
+    Document rulesDocument = compiler.compile(rules, metadata);
+    assertNotNull(rulesDocument);
+    final List<Annotation> compilationErrors = compiler.getErrorMessages();
+    for (Annotation ann : compilationErrors) {
+      System.out.println(ann);
+    }
+    assertTrue(compilationErrors.isEmpty());
     
-    assertTrue(res.containsKey("c2-1"));
-    dr = res.get("c2-1");
-    assertTrue(dr instanceof Condition);
-    Condition c21 = (Condition) dr;
-    assertTrue(c21.hasCode());
-    assertEquals("CAKUT", c21.getCode().getText());
+    List<Mapping> mappings = redcapImporter.generateMappings(metadata, 
+        rulesDocument.getReferencedFields(metadata), rows);
     
-    // obs1-1 and obs3-1    
-    testObservation(res, "obs1-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001558", 
-        "Decreased fetal movement", "POS");
+    populateMappings(mappings);
     
-    testObservation(res, "obs3-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0031910", 
-        "Abnormal cranial nerve physiology", "POS");
+    try {
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
+          mappings, rulesDocument);
     
-    testObservation(res, "m_weak-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
-        "Muscle weakness", "POS");
     
-    testObservation(res, "facial-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0010628", 
-        "Facial palsy", "NEG");
-    
-    testObservation(res, "ptosis-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000508", 
-        "Ptosis", "POS");
-    
-    testObservation(res, "oph-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000602", 
-        "Ophthalmoplegia", "NEG");
-    
-    testObservation(res, "right_tricep-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001252", 
-        "Muscular hypotonia", "POS", "699996001", "Triceps brachii muscle and/or tendon structure", 
-        false);
-    
-    // Patient 2
-    assertTrue(res.containsKey("p-2"));
-    dr = res.get("p-2");
-    assertTrue(dr instanceof Patient);
-    Patient p2 = (Patient) dr;
-    assertTrue(p2.hasIdentifier());
-    ident = p2.getIdentifierFirstRep();
-    assertTrue(ident.hasType());
-    assertTrue(ident.getType().hasCoding());
-    assertEquals("http://hl7.org/fhir/v2/0203", ident.getType().getCodingFirstRep().getSystem());
-    assertEquals("MC", ident.getType().getCodingFirstRep().getCode());
-    assertEquals("Medicare Number", ident.getType().getText());
-    assertEquals("http://ns.electronichealth.net.au/id/medicare-number", ident.getSystem());
-    assertEquals("9876543211", ident.getValue());
-    assertTrue(p2.hasDeceasedDateTimeType());
-    assertEquals(2, p2.getDeceasedDateTimeType().getDay().intValue());
-    assertEquals(3, p2.getDeceasedDateTimeType().getMonth().intValue());
-    assertEquals(2020, p2.getDeceasedDateTimeType().getYear().intValue());
-    assertEquals(p2.getGender(), AdministrativeGender.FEMALE);
-    
-    // c1-2
-    assertTrue(res.containsKey("c1-2"));
-    dr = res.get("c1-2");
-    assertTrue(dr instanceof Condition);
-    Condition c12 = (Condition) dr;
-    assertTrue(c12.hasCode());
-    cod = c12.getCode().getCodingFirstRep();
-    assertEquals("http://snomed.info/sct", cod.getSystem());
-    assertEquals("73211009", cod.getCode());
-    assertEquals("Diabetes mellitus", cod.getDisplay());
-    
-    testObservation(res, "m_weak-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
-        "Muscle weakness", "NEG");
-    
-    testObservation(res, "left_bicep-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001276", 
-        "Hypertonia", "POS", "699956003", "Biceps brachii muscle and/or tendon structure", true);
+      System.out.println(res.keySet());
+      
+      // Patient 1
+      assertTrue(res.containsKey("p-1"));
+      DomainResource dr = res.get("p-1");
+      assertTrue(dr instanceof Patient);
+      Patient p1 = (Patient) dr;
+      assertTrue(p1.hasIdentifier());
+      Identifier ident = p1.getIdentifierFirstRep();
+      assertTrue(ident.hasType());
+      assertTrue(ident.getType().hasCoding());
+      assertEquals("http://hl7.org/fhir/v2/0203", ident.getType().getCodingFirstRep().getSystem());
+      assertEquals("MC", ident.getType().getCodingFirstRep().getCode());
+      assertEquals("Medicare Number", ident.getType().getText());
+      assertEquals("http://ns.electronichealth.net.au/id/medicare-number", ident.getSystem());
+      assertEquals("12345678911", ident.getValue());
+      assertTrue(p1.hasDeceasedBooleanType());
+      assertEquals(false, p1.getDeceasedBooleanType().booleanValue());
+      assertEquals(p1.getGender(), AdministrativeGender.MALE);
+      
+      // c1-1 and c2-1
+      assertTrue(res.containsKey("c1-1"));
+      dr = res.get("c1-1");
+      assertTrue(dr instanceof Condition);
+      Condition c11 = (Condition) dr;
+      assertTrue(c11.hasCode());
+      Coding cod = c11.getCode().getCodingFirstRep();
+      assertEquals("http://snomed.info/sct", cod.getSystem());
+      assertEquals("74400008", cod.getCode());
+      assertEquals("Appendicitis", cod.getDisplay());
+      
+      assertTrue(res.containsKey("c2-1"));
+      dr = res.get("c2-1");
+      assertTrue(dr instanceof Condition);
+      Condition c21 = (Condition) dr;
+      assertTrue(c21.hasCode());
+      assertEquals("CAKUT", c21.getCode().getText());
+      
+      // obs1-1 and obs3-1    
+      testObservation(res, "obs1-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001558", 
+          "Decreased fetal movement", "POS");
+      
+      testObservation(res, "obs3-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0031910", 
+          "Abnormal cranial nerve physiology", "POS");
+      
+      testObservation(res, "m-weak-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
+          "Muscle weakness", "POS");
+      
+      testObservation(res, "facial-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0010628", 
+          "Facial palsy", "NEG");
+      
+      testObservation(res, "ptosis-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000508", 
+          "Ptosis", "POS");
+      
+      testObservation(res, "oph-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000602", 
+          "Ophthalmoplegia", "NEG");
+      
+      testObservation(res, "right-tricep-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001252", 
+          "Muscular hypotonia", "POS", "699996001", "Triceps brachii muscle and/or tendon structure", 
+          false);
+      
+      // Patient 2
+      assertTrue(res.containsKey("p-2"));
+      dr = res.get("p-2");
+      assertTrue(dr instanceof Patient);
+      Patient p2 = (Patient) dr;
+      assertTrue(p2.hasIdentifier());
+      ident = p2.getIdentifierFirstRep();
+      assertTrue(ident.hasType());
+      assertTrue(ident.getType().hasCoding());
+      assertEquals("http://hl7.org/fhir/v2/0203", ident.getType().getCodingFirstRep().getSystem());
+      assertEquals("MC", ident.getType().getCodingFirstRep().getCode());
+      assertEquals("Medicare Number", ident.getType().getText());
+      assertEquals("http://ns.electronichealth.net.au/id/medicare-number", ident.getSystem());
+      assertEquals("9876543211", ident.getValue());
+      assertTrue(p2.hasDeceasedDateTimeType());
+      assertEquals(2, p2.getDeceasedDateTimeType().getDay().intValue());
+      assertEquals(3, p2.getDeceasedDateTimeType().getMonth().intValue());
+      assertEquals(2020, p2.getDeceasedDateTimeType().getYear().intValue());
+      assertEquals(p2.getGender(), AdministrativeGender.FEMALE);
+      
+      // c1-2
+      assertTrue(res.containsKey("c1-2"));
+      dr = res.get("c1-2");
+      assertTrue(dr instanceof Condition);
+      Condition c12 = (Condition) dr;
+      assertTrue(c12.hasCode());
+      cod = c12.getCode().getCodingFirstRep();
+      assertEquals("http://snomed.info/sct", cod.getSystem());
+      assertEquals("73211009", cod.getCode());
+      assertEquals("Diabetes mellitus", cod.getDisplay());
+      
+      testObservation(res, "m-weak-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
+          "Muscle weakness", "NEG");
+      
+      testObservation(res, "left-bicep-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001276", 
+          "Hypertonia", "POS", "699956003", "Biceps brachii muscle and/or tendon structure", true);
+    } catch (Exception e) {
+      e.printStackTrace();
+      assertTrue(false);
+    }
   }
 
   private void testObservation(Map<String, DomainResource> res, String id, String system, String code, String display, String interpretation) {
@@ -267,6 +329,25 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     } else {
       assertEquals("HP:0012834", cod.getCode());
       assertEquals("Right", cod.getDisplay());
+    }
+  }
+  
+  private void populateDataMappings (List<Mapping> mappings) {
+    for (Mapping mapping : mappings) {
+      String fieldId = mapping.getRedcapFieldId();
+      if (fieldId.equals("pat_gene")) {
+        String text = mapping.getText();
+        if (text.equals("BRCA2")) {
+          mapping.setTargetSystem("http://www.genenames.org/geneId");
+          mapping.setTargetCode("HGNC:1101");
+          mapping.setTargetDisplay("BRCA2");
+        } else if (text.equals("BRCA1")) {
+          mapping.setTargetSystem("http://www.genenames.org/geneId");
+          mapping.setTargetCode("HGNC:1100");
+          mapping.setTargetDisplay("BRCA1");
+        }
+        
+      }
     }
   }
   
