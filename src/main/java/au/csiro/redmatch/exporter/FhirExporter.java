@@ -277,7 +277,7 @@ public class FhirExporter {
     String system = m.getTargetSystem();
     String code = m.getTargetCode();
     
-    if (system == null || code == null) {
+    if (system == null || system.isBlank() || code == null || code.isBlank()) {
       throw new NoMappingFoundException("Mapping to a concept for field " + m.getRedcapLabel() 
         + " (" + m.getRedcapFieldId() + ") is required but was not found.");
     }
@@ -398,13 +398,12 @@ public class FhirExporter {
           Map<String, Mapping> map = findMappings(mappings, fieldId);
           m = map.get(val);
           
-          // TODO: fhirType should be CodeableConcept - coding is not acceptable
           // We don't validate here because it is ok if the mapping is not filled out
           String system = m.getTargetSystem();
           String code = m.getTargetCode();
           String display = m.getTargetDisplay();
           
-          if (system != null && code != null) {
+          if (system != null && !system.isBlank() && code != null && !code.isBlank()) {
             return getConcept(system, code, display, fhirType);
           } else {
             return new CodeableConcept().setText(val);
@@ -618,7 +617,7 @@ public class FhirExporter {
   
   private Base getConcept(String system, String code, String display, Class<?> type) {
     if (!FitbitUrlValidator.isValid(system)) {
-      throw new RuleApplicationException("The system " + system + " is invalid.");
+      throw new RuleApplicationException("The system '" + system + "' is invalid.");
     }
 
     if (!codePattern.matcher(code).matches()) {
