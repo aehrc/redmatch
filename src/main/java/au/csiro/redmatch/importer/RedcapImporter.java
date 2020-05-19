@@ -123,7 +123,8 @@ public class RedcapImporter {
           }
         }
       } catch (IllegalArgumentException e) {
-        log.warn("Unknown text validation type: " + entry.get(FIELD_TEXT_VALIDATION).toUpperCase());
+        log.warn("Unknown text validation type in field "  + fieldName + ": " 
+            + entry.get(FIELD_TEXT_VALIDATION).toUpperCase());
         field.setTextValidationType(TextValidationType.NONE);
       }
 
@@ -136,7 +137,9 @@ public class RedcapImporter {
 
             int index = part.indexOf(',');
             if (index == -1) {
-              throw new RedmatchException("Invalid select choices: " + select);
+              log.warn("Invalid select choice '"+ part +"' in field " + fieldName 
+                  + " (choices are: " + select + "). Ignoring.");
+              continue;
             }
 
             final String code = part.substring(0, index).trim();

@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -236,11 +235,33 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse importMappingsExcel(String projectId, byte[] bytes) {
+    log.info("Importing mappings from Excel.");
     final RedmatchProject project = resolveRedmatchProject(projectId);
+    log.info("Project " + projectId + " has " + project.getMappings().size() + " mappings.");
     try {
       final Workbook wb = new HSSFWorkbook(new ByteArrayInputStream(bytes), false);
-      final Map<String, Mapping> newMappings = excelImporter.importMappings(wb);
-      project.replaceMappings(newMappings.values());
+      final List<Mapping> newMappings = excelImporter.importMappings(wb);
+      log.info("Imported " + newMappings.size() + " from Excel.");
+      
+      final List<Mapping> oldMappings = project.getMappings();
+      
+      if (newMappings.size() != oldMappings.size()) {
+        throw new InvalidMappingsException("Uploaded " + newMappings.size() 
+          + " mappings but expected " + oldMappings.size());
+      }
+      
+      for (int i = 0; i < oldMappings.size(); i++) {
+        final Mapping oldMapping = oldMappings.get(i);
+        final Mapping newMapping = newMappings.get(i);
+        
+        if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
+          throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
+              + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
+              + newMapping.getRedcapFieldId());
+        }
+      }
+      
+      project.replaceMappings(newMappings);
       dao.saveRedmatchProject(project);
       return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
     } catch (IOException e) {

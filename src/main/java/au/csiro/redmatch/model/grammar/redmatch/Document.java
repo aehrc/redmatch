@@ -11,6 +11,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Field.TextValidationType;
@@ -23,7 +26,10 @@ import au.csiro.redmatch.model.grammar.GrammarObject;
  *
  */
 public class Document extends GrammarObject {
-
+  
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(Document.class);
+  
   private final List<Rule> rules = new ArrayList<>();
 
   public Document() {
@@ -102,6 +108,12 @@ public class Document extends GrammarObject {
               }
             } else if (fbv instanceof ConceptValue) {
               Field f = metadata.getField(rulesFieldId);
+              
+              if (f == null) {
+                log.warn("Found null field " + rulesFieldId + " in expression " + fbv);
+                continue;
+              }
+              
               switch (f.getFieldType()) {
               case YESNO:
               case DROPDOWN:
