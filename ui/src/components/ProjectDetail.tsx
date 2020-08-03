@@ -12,11 +12,12 @@ import {
 } from "@material-ui/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "react-query";
-import FhircapApi, { FhircapProject } from "../api/FhircapApi";
+import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
 import { Config } from "./App";
 import { ApiError } from "./ApiError";
 import ProjectInfo from "./ProjectInfo";
 import Rules from "./Rules";
+
 
 const useStyles = makeStyles(theme =>
   createStyles({
@@ -60,13 +61,18 @@ interface TabPanelProps {
 
 export default function ProjectDetail(props: Props) {
   const classes = useStyles(),
-    { fhircapUrl } = useContext(Config),
-    { className, reportId } = props,
-    [activeTab, setActiveTab] = useState<number>(0),
-    { status, data: project, error } = useQuery<
-      FhircapProject,
-      [string, string]
-    >(["FhircapProject", reportId], FhircapApi(fhircapUrl).getProject);
+  { redmatchUrl } = useContext(Config),
+  { className, reportId } = props,
+  [activeTab, setActiveTab] = useState<number>(0),
+  { status, data: project, error, refetch } = 
+    useQuery<RedmatchProject, [string, string]>(
+      ["RedmatchProject", reportId], RedmatchApi(redmatchUrl).getProject
+    );
+
+
+  const handleRulesSave = () => {
+    return refetch();
+  };
 
   function renderProjectDetail() {
     if (!project) {
@@ -88,7 +94,7 @@ export default function ProjectDetail(props: Props) {
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <Rules project={project} />
+          <Rules project={project} onSuccess={handleRulesSave}/>
         </TabPanel>
       </Card>
     );
@@ -99,12 +105,9 @@ export default function ProjectDetail(props: Props) {
       <Breadcrumbs className={classes.breadcrumbs}>
         <Link
           variant="body1"
-          component={() => (
-            <RouterLink className={classes.link} to="/">
-              Home
-            </RouterLink>
-          )}
-        />
+          component={RouterLink}
+          to="/"
+        >Home</Link>
         <Typography variant="body1">Projects</Typography>
         <Typography variant="body1">{reportId}</Typography>
       </Breadcrumbs>

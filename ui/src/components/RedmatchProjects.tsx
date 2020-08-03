@@ -25,10 +25,10 @@ import {
 } from "@material-ui/icons";
 import { makeStyles } from "@material-ui/core/styles";
 import { useQuery } from "react-query";
-import FhircapApi, { FhircapProject } from "../api/FhircapApi";
+import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
 import { Config } from "./App";
 import { ApiError } from "./ApiError";
-import NewFhircapProject from "./NewFhircapProject";
+import NewRedmatchProject from "./NewRedmatchProject";
 import { Link } from "react-router-dom";
 
 const useStyles = makeStyles({
@@ -40,19 +40,19 @@ const useStyles = makeStyles({
   }
 });
 
-export default function FhircapProjects() {
-  const { fhircapUrl } = useContext(Config),
-    classes = useStyles(),
-    [newProjectOpen, setNewProjectOpen] = useState(false),
-    { status, data, error, refetch } = useQuery<FhircapProject[], string>(
-      "FhircapProjects",
-      FhircapApi(fhircapUrl).getProjects
-    );
+export default function RedmatchProjects() {
+  const { redmatchUrl } = useContext(Config),
+  classes = useStyles(),
+  [newProjectOpen, setNewProjectOpen] = useState(false),
+  { status, data, error, refetch } = useQuery<RedmatchProject[], string>(
+    "RedmatchProjects",
+    RedmatchApi(redmatchUrl).getProjects
+  );
 
-  function renderSecondaryText(fhircapProject: FhircapProject) {
+  function renderSecondaryText(redmatchProject: RedmatchProject) {
     return (
       <Fragment>
-        <SubdirectoryArrowRight fontSize="inherit" /> {fhircapProject.redcapUrl}
+        <SubdirectoryArrowRight fontSize="inherit" /> {redmatchProject.redcapUrl}
       </Fragment>
     );
   }
@@ -67,18 +67,18 @@ export default function FhircapProjects() {
     } else {
       return (
         <List className={classes.list}>
-          {data.map((fhircapProject, i) => {
+          {data.map((redmatchProject, i) => {
             return (
               <ListItem key={i}>
                 <ListItemIcon>
                   <Transform />
                 </ListItemIcon>
                 <ListItemText
-                  primary={fhircapProject.name}
-                  secondary={renderSecondaryText(fhircapProject)}
+                  primary={redmatchProject.name}
+                  secondary={renderSecondaryText(redmatchProject)}
                 />
                 <ListItemSecondaryAction>
-                  <Link to={`/project/${fhircapProject.reportId}`}>
+                  <Link to={`/project/${redmatchProject.id}`}>
                     <IconButton title="Launch this project">
                       <Launch />
                     </IconButton>
@@ -105,7 +105,7 @@ export default function FhircapProjects() {
     <Card>
       <CardContent>
         <Typography variant="h6" component="h2">
-          FHIRCap projects
+          Redmatch projects
         </Typography>
         <Box className={classes.content}>{renderContent()}</Box>
         <Button
@@ -116,7 +116,7 @@ export default function FhircapProjects() {
           Add project
         </Button>
       </CardContent>
-      <NewFhircapProject
+      <NewRedmatchProject
         open={newProjectOpen}
         onSuccess={handleNewProjectSuccess}
         onCancel={handleNewProjectCancel}

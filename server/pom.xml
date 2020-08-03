@@ -171,22 +171,6 @@
         <artifactId>antlr4-maven-plugin</artifactId>
         <version>${antlr.version}</version>
         <executions>
-          <!-- Used to create the Javascript files. -->
-          <execution>
-            <id>antlr-javascript</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>antlr4</goal>
-            </goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/generated-sources/antlr4/javascript</outputDirectory>
-              <arguments>
-                <argument>-Dlanguage=JavaScript</argument>
-                <argument>-no-listener</argument>
-                <argument>-no-visitor</argument>
-              </arguments>
-            </configuration>
-          </execution>
           <!-- Used to create the Java files. -->
           <execution>
             <id>antlr-java</id>

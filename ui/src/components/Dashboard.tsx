@@ -1,5 +1,5 @@
 import { Grid } from "@material-ui/core";
-import FhircapProjects from "./FhircapProjects";
+import RedmatchProjects from "./RedmatchProjects";
 import React from "react";
 
 interface Props {
@@ -12,7 +12,7 @@ export default function Dashboard(props: Props) {
   return (
     <Grid className={className} container spacing={3}>
       <Grid item xs={12} md={6}>
-        <FhircapProjects />
+        <RedmatchProjects />
       </Grid>
     </Grid>
   );

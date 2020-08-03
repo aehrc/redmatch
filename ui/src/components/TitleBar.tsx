@@ -17,7 +17,7 @@ export default function TitleBar(props: Props) {
     <AppBar className={className} position="static">
       <Toolbar>
         <Typography variant="h6" component="h1">
-          FHIRCap
+          Redmatch
         </Typography>
       </Toolbar>
     </AppBar>

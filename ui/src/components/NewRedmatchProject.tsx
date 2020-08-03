@@ -15,10 +15,10 @@ import {
   DialogTitle,
   TextField
 } from "@material-ui/core";
-import FhircapApi, {
-  FhircapProject,
-  UnsavedFhircapProject
-} from "../api/FhircapApi";
+import RedmatchApi, {
+  RedmatchProject,
+  UnsavedRedmatchProject
+} from "../api/RedmatchApi";
 import { Config } from "./App";
 import { ApiError } from "./ApiError";
 
@@ -28,16 +28,16 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function NewFhircapProject(props: Props) {
+export default function NewRedmatchProject(props: Props) {
   const { open, onSuccess, onCancel } = props,
-    { fhircapUrl } = useContext(Config),
-    initialRequest = {
-      name: "",
-      reportId: "",
-      redcapUrl: "",
-      token: ""
-    },
-    [request, setRequest] = useState<UnsavedFhircapProject>(initialRequest);
+  { redmatchUrl } = useContext(Config),
+  initialRequest = {
+    name: "",
+    reportId: "",
+    redcapUrl: "",
+    token: ""
+  },
+  [request, setRequest] = useState<UnsavedRedmatchProject>(initialRequest);
 
   const handleSuccess = () => {
     setRequest(initialRequest);
@@ -50,16 +50,16 @@ export default function NewFhircapProject(props: Props) {
   };
 
   const [register, { status, error }] = useMutation<
-    FhircapProject,
-    UnsavedFhircapProject
-  >(FhircapApi(fhircapUrl).createProject, {
+    RedmatchProject,
+    UnsavedRedmatchProject
+  >(RedmatchApi(redmatchUrl).createProject, {
     onSuccess: handleSuccess,
     onError: handleError
   });
 
   function renderTextField(
     name: string,
-    field: keyof UnsavedFhircapProject,
+    field: keyof UnsavedRedmatchProject,
     autoFocus: boolean = false
   ) {
     return (
@@ -81,10 +81,10 @@ export default function NewFhircapProject(props: Props) {
   return (
     <Fragment>
       <Dialog open={open}>
-        <DialogTitle>Create new FHIRCap project</DialogTitle>
+        <DialogTitle>Create new Redmatch project</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Enter the details of your FHIRCap project.
+            Enter the details of your Redmatch project.
           </DialogContentText>
           {renderTextField("Name", "name", true)}
           {renderTextField("Report ID", "reportId")}
