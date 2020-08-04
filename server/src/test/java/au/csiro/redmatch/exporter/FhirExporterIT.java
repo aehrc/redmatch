@@ -36,7 +36,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyServer;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
-import au.csiro.redmatch.exporter.FhirExporter;
 import au.csiro.redmatch.importer.RedcapImporter;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Mapping;

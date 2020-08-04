@@ -104,15 +104,14 @@ fragment HEX
 
 mode FHIR_CONCEPT;
 
-// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*, and uri definition \S*
 CONCEPT_VALUE
-    : '(' ~[ \r\n\t]+ '|' (~[ \r\n\t]+) ([ \r\n\t] ~[ \r\n\t]+)* ('|' STRING)? ')' -> popMode
+    : '(' .+? '|' .*? ('|' STRING)? ')' -> popMode
     ;
 
 mode FHIR_CODE;
 
-// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*
 CODE_VALUE
-    : '(' ~[ \r\n\t]+ ([ \r\n\t] ~[ \r\n\t]+)* ')' -> popMode
+    : '(' .*? ')' -> popMode
     ;
+
 

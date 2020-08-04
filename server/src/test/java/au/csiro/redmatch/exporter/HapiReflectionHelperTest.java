@@ -42,7 +42,6 @@ import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import ca.uhn.fhir.context.FhirContext;
 

@@ -26,12 +26,12 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyServer;
-import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
 import au.csiro.redmatch.model.grammar.redmatch.Body;
+import au.csiro.redmatch.model.grammar.redmatch.CodeLiteralValue;
 import au.csiro.redmatch.model.grammar.redmatch.ConceptLiteralValue;
 import au.csiro.redmatch.model.grammar.redmatch.ConceptValue;
 import au.csiro.redmatch.model.grammar.redmatch.Condition;
@@ -72,6 +72,86 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);
+  }
+  
+  /**
+   * Unit test for FHIR-39.
+   */
+  @Test
+  public void testValidOneLiners() {
+    String rule = "VALUE(pat_sex) = 1 { Patient<p> -> gender = CODE_LITERAL(male); }\n" + 
+        "VALUE(pat_sex) = 2 { Patient<p> -> gender = CODE_LITERAL(female); }";
+    
+    final Metadata metadata = loadMetadata("tutorial");
+    Document doc = compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+    
+    List<Rule> rules = doc.getRules();
+    assertEquals(2, rules.size());
+    
+    Rule r1 = rules.get(0);
+    Condition c1 = r1.getCondition();
+    assertTrue (c1 instanceof ConditionExpression);
+    ConditionExpression ce1 = (ConditionExpression) c1;
+    assertEquals(ConditionType.EXPRESSION, ce1.getConditionType());
+    assertEquals(1, ce1.getIntValue().intValue());
+    assertEquals(ConditionExpressionOperator.EQ, ce1.getOperator());
+    assertEquals("pat_sex", ce1.getFieldId());
+    Body b1 = r1.getBody();
+    List<Resource> ress1 = b1.getResources();
+    assertEquals(1, ress1.size());
+    Resource res1 = ress1.get(0);
+    assertEquals("Patient", res1.getResourceType());
+    assertEquals("p", res1.getResourceId());
+    List<AttributeValue> avs1 = res1.getResourceAttributeValues();
+    assertEquals(1, avs1.size());
+    AttributeValue av1 = avs1.get(0);
+    List<Attribute> atts1 = av1.getAttributes();
+    assertEquals(1, atts1.size());
+    Attribute att1 = atts1.get(0);
+    assertEquals("gender", att1.getName());
+    Value val1 = av1.getValue();
+    assertTrue(val1 instanceof CodeLiteralValue);
+    CodeLiteralValue clv1 = (CodeLiteralValue) val1;
+    assertEquals("male", clv1.getCode());
+    
+    Rule r2 = rules.get(1);
+    Condition c2 = r2.getCondition();
+    assertTrue (c2 instanceof ConditionExpression);
+    ConditionExpression ce2 = (ConditionExpression) c2;
+    assertEquals(ConditionType.EXPRESSION, ce2.getConditionType());
+    assertEquals(2, ce2.getIntValue().intValue());
+    assertEquals(ConditionExpressionOperator.EQ, ce2.getOperator());
+    assertEquals("pat_sex", ce2.getFieldId());
+    Body b2 = r2.getBody();
+    List<Resource> ress2 = b2.getResources();
+    assertEquals(1, ress2.size());
+    Resource res2 = ress2.get(0);
+    assertEquals("Patient", res2.getResourceType());
+    assertEquals("p", res2.getResourceId());
+    List<AttributeValue> avs2 = res2.getResourceAttributeValues();
+    assertEquals(1, avs2.size());
+    AttributeValue av2 = avs2.get(0);
+    List<Attribute> atts2 = av2.getAttributes();
+    assertEquals(1, atts2.size());
+    Attribute att2 = atts2.get(0);
+    assertEquals("gender", att2.getName());
+    Value val2 = av2.getValue();
+    assertTrue(val2 instanceof CodeLiteralValue);
+    CodeLiteralValue clv2 = (CodeLiteralValue) val2;
+    assertEquals("female", clv2.getCode());
+  }
+  
+  @Test
+  public void testInvalidOneLiner() {
+    String rule = "TTRUE { Patient<p> -> gender = CODE_LITERAL(male); }";
+    final Metadata metadata = loadMetadata("tutorial");
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertFalse(errors.isEmpty());
   }
   
   @Test

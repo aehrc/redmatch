@@ -6,6 +6,10 @@ package au.csiro.redmatch.client;
 
 import java.util.Collection;
 
+import javax.annotation.PostConstruct;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Parameters;
@@ -28,11 +32,19 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 @Qualifier("ontoserver")
 public class OntoserverClient implements ITerminologyServer {
   
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(OntoserverClient.class);
+  
   @Value("${ontoserver.url}")
   private String ontoUrl;
   
   @Autowired
   private FhirContext ctx;
+  
+  @PostConstruct
+  private void init() {
+    log.info("Using Ontoserver at " + ontoUrl);
+  }
   
   public Parameters lookups (String code) {
     IGenericClient client = ctx.newRestfulGenericClient(ontoUrl);

@@ -9,22 +9,23 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.DiagnosticErrorListener;
-import org.antlr.v4.runtime.InputMismatchException;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.atn.ATNConfigSet;
+import org.antlr.v4.runtime.dfa.DFA;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.logging.Log;
@@ -62,13 +63,15 @@ import au.csiro.redmatch.grammar.RedmatchGrammar.RepeatsClauseContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ResourceContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ValueContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.VariableIdentifierContext;
+import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
+import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.importer.CompilerException;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.AnnotationType;
 import au.csiro.redmatch.model.Field;
-import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Field.FieldType;
 import au.csiro.redmatch.model.Field.TextValidationType;
+import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
@@ -81,12 +84,15 @@ import au.csiro.redmatch.model.grammar.redmatch.ConceptSelectedValue;
 import au.csiro.redmatch.model.grammar.redmatch.ConceptValue;
 import au.csiro.redmatch.model.grammar.redmatch.Condition;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionNode;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionNode.ConditionNodeOperator;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
 import au.csiro.redmatch.model.grammar.redmatch.DoubleValue;
 import au.csiro.redmatch.model.grammar.redmatch.FieldBasedValue;
 import au.csiro.redmatch.model.grammar.redmatch.FieldValue;
 import au.csiro.redmatch.model.grammar.redmatch.IntegerValue;
+import au.csiro.redmatch.model.grammar.redmatch.InvalidSyntaxException;
 import au.csiro.redmatch.model.grammar.redmatch.ReferenceValue;
 import au.csiro.redmatch.model.grammar.redmatch.RepeatsClause;
 import au.csiro.redmatch.model.grammar.redmatch.Resource;
@@ -96,13 +102,9 @@ import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
 import au.csiro.redmatch.model.grammar.redmatch.VariableIdentifier;
 import au.csiro.redmatch.model.grammar.redmatch.Variables;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionNode.ConditionNodeOperator;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.PathInfo;
+import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.ValidationResult;
-import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
-import au.csiro.redmatch.grammar.RedmatchLexer;
 
 /**
  * The compiler for the Redmatch rules language.
@@ -160,23 +162,25 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rulesDocument));
     final RedmatchGrammar parser = new RedmatchGrammar(new BufferedTokenStream(lexer));
+    
+    /*
     parser.setErrorHandler(new DefaultErrorStrategy() {
       @Override
-      public void reportInputMismatch(Parser recognizer, InputMismatchException e)
-          throws RecognitionException {
-        final Token token = recognizer.getCurrentToken();
-        final int currentTokenType = token.getType();
-        final String msg = "Mismatched input " + getTokenErrorDisplay(e.getOffendingToken())
-          + " expecting " + e.getExpectedTokens().toString(recognizer.getVocabulary()) + " found "
-          + (currentTokenType >= 0 ? recognizer.getVocabulary().getDisplayName(currentTokenType)
-                : "end of input");
+      public void recover(Parser recognizer, RecognitionException e) {
+        throw new RuntimeException(e);
+      }
+      
+      @Override
+      public Token recoverInline(Parser recognizer) throws RecognitionException {
+        throw new RuntimeException(new InputMismatchException(recognizer));
+      }
+      
+      @Override
+      public void sync(Parser recognizer) throws RecognitionException {
         
-        
-        addError(errorMessages, token.getText(), token.getLine(), 
-            token.getCharPositionInLine(), msg);
-        //recognizer.notifyErrorListeners(e.getOffendingToken(), msg, e);
       }
     });
+    */
 
     lexer.removeErrorListeners();
     lexer.addErrorListener(new DiagnosticErrorListener() {
@@ -189,20 +193,72 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     });
 
     parser.removeErrorListeners();
-    parser.addErrorListener(new BaseErrorListener() {
+    parser.addErrorListener(new DiagnosticErrorListener() {
       @Override
       public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line,
           int charPositionInLine, String msg, RecognitionException e) {
         addError(errorMessages, offendingSymbol != null ? offendingSymbol.toString() : "", 
             line, charPositionInLine, msg);
       }
+      
+      @Override
+      public void reportAmbiguity(Parser recognizer,
+                    DFA dfa,
+                    int startIndex,
+                    int stopIndex,
+                    boolean exact,
+                    BitSet ambigAlts,
+                    ATNConfigSet configs) {
+        String format = "reportAmbiguity d=%s: ambigAlts=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        BitSet conflictingAlts = getConflictingAlts(ambigAlts, configs);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, conflictingAlts, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
+      
+      @Override
+      public void reportAttemptingFullContext(Parser recognizer,
+                          DFA dfa,
+                          int startIndex,
+                          int stopIndex,
+                          BitSet conflictingAlts,
+                          ATNConfigSet configs) {
+        String format = "reportAttemptingFullContext d=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
+
+      @Override
+      public void reportContextSensitivity(Parser recognizer,
+                         DFA dfa,
+                         int startIndex,
+                         int stopIndex,
+                         int prediction,
+                         ATNConfigSet configs) {
+        String format = "reportContextSensitivity d=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
     });
     
     final DocumentContext docCtx = parser.document();
-    String tree = docCtx.toStringTree(parser);
-    if (log.isDebugEnabled()) {
-      printPrettyLispTree(tree);
+    
+    // We need to make sure the document context is well formed
+    if (docCtx.getStop() == null) {
+      Token start = docCtx.getStart();
+      addError(errorMessages, "" , 0, 0, "The document is invalid: START token is " 
+          + lexer.getVocabulary().getDisplayName(start.getType()) + " and STOP token is null.");
     }
+    
+    String tree = docCtx.toStringTree(parser);
+    //if (log.isDebugEnabled()) {
+      printPrettyLispTree(tree);
+    //}
     
     try {
       GrammarObject res = docCtx.accept(this);
@@ -977,16 +1033,37 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       String literal = removeEnds(ctx.CONCEPT_VALUE().getText());
       String[] parts = literal.split("[|]");
       if (parts.length == 2) {
-        return new ConceptLiteralValue(parts[0], parts[1]);
+        try {
+          return new ConceptLiteralValue(parts[0], parts[1]);
+        } catch (InvalidSyntaxException e) {
+          Token t = ctx.CONCEPT_VALUE().getSymbol();
+          addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+              e.getLocalizedMessage());
+          return null;
+        }
       } else if(parts.length == 3) {
-        return new ConceptLiteralValue(parts[0], parts[1], removeEnds(parts[2]));
+        try {
+          return new ConceptLiteralValue(parts[0], parts[1], removeEnds(parts[2]));
+        } catch (InvalidSyntaxException e) {
+          Token t = ctx.CONCEPT_VALUE().getSymbol();
+          addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+              e.getLocalizedMessage());
+          return null;
+        }
       } else {
         throw new CompilerException("Invalid code literal: " + literal 
             + ". This should not happen!");
       }
     } else if (ctx.CODE_VALUE() != null) {
       String literal = removeEnds(ctx.CODE_VALUE().getText());
-      return new CodeLiteralValue(literal);
+      try {
+        return new CodeLiteralValue(literal);
+      } catch (InvalidSyntaxException e) {
+        Token t = ctx.CODE_VALUE().getSymbol();
+        addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+            e.getLocalizedMessage());
+        return null;
+      }
     } else if (ctx.variableIdentifier() != null) {
       String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, false).getFullId();
       
