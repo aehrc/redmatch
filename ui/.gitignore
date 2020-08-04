@@ -1,7 +1,3 @@
-src/grammar/RedmatchGrammar.interp
-src/grammar/RedmatchGrammar.js
-src/grammar/RedmatchLexer.interp
-src/grammar/RedmatchLexer.js
 config/config.json
 node_modules
 dist

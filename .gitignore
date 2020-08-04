@@ -1,8 +1,16 @@
 # Files specific to this project
 ui/src/grammar/au/csiro/redmatch/grammar/.antlr/
-ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar*
-ui/src/grammar/au/csiro/redmatch/grammar/RedmatchLexer*
 /server/src/main/antlr4/au/csiro/redmatch/grammar/.antlr/
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar.g4
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar.interp
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar.tokens
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar.ts
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammarListener.ts
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchGrammarVisitor.ts
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchLexer.g4
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchLexer.interp
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchLexer.tokens
+ui/src/grammar/au/csiro/redmatch/grammar/RedmatchLexer.ts
 
 target/
 .checkstyle
