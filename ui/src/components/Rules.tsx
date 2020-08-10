@@ -4,11 +4,8 @@ import { makeStyles } from "@material-ui/core/styles";
 import { RedmatchTokensProvider } from "../editor/RedmatchTokensProvider";
 import { Box, Toolbar, IconButton } from "@material-ui/core";
 import { Button, CircularProgress } from "@material-ui/core";
-import React, { Fragment, useContext, useState } from "react";
-import { Config } from "./App";
-import { ApiError } from "./ApiError";
-import { useMutation } from "react-query";
-import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
+import React, { useContext, useState } from "react";
+import { RedmatchProject } from "../api/RedmatchApi";
 
 const useStyles = makeStyles({
   editor: {
@@ -18,32 +15,38 @@ const useStyles = makeStyles({
 
 interface Props {
   project: RedmatchProject;
-  onSuccess: () => void;
+  updateStatus: string;
+  onSave: (newRules: string) => void;
 }
 
 export default function Rules(props: Props) {
   const classes = useStyles(),
-    { project, onSuccess } = props,
-    { redmatchUrl } = useContext(Config),
-    [request, setRequest] = useState<RedmatchProject>(project);
-    
-
-  const handleSuccess = () => {
-    //setRequest(initialRequest);
-    return onSuccess();
-  };
+    { project, updateStatus, onSave } = props,
+    [request, setRequest] = useState<RedmatchProject>(project),
+    [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
 
   const onChangeRules = (value: string) => {
     request.rulesDocument = value;
     setRequest(request);
   }
 
-  const [updateRules, { status: updateStatus, error: updateError }] = 
-    useMutation<RedmatchProject,RedmatchProject>(
-      RedmatchApi(redmatchUrl).updateRules, {
-        onSuccess: handleSuccess
+  React.useEffect(() => {
+    if (model !== undefined) {
+      let markers = project.issues.map((item) => {
+        return {
+          startLineNumber: item.rowStart,
+          startColumn: item.colStart,
+          endLineNumber: item.rowEnd,
+          endColumn: item.colEnd,
+          message: item.text,
+          severity: item.annotationType === 'ERROR' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning
+        };
+      });
+      if (model !== null) {
+        monaco.editor.setModelMarkers(model, "owner", markers);
       }
-    );
+    }
+  }, [project]);
 
   function editorWillMount(monaco: typeof monacoEditor) {
     monaco.languages.register({ id: "redmatch" });
@@ -66,7 +69,14 @@ export default function Rules(props: Props) {
           'literalFg': '#3b8737'
       }
     });
+  }
 
+  function editorDidMount(editor: monacoEditor.editor.IStandaloneCodeEditor, _monaco: typeof monacoEditor) {
+    let m = editor.getModel();
+    if (m !== null) {
+      setModel(m);
+      console.log('Model: ' + model);
+    }
   }
 
   return (
@@ -74,10 +84,10 @@ export default function Rules(props: Props) {
       <Toolbar>
         <Button
           type="submit"
-          onClick={() => updateRules(request)}
+          onClick={() => onSave(request.rulesDocument)}
           color="primary"
           endIcon={
-            status === "loading" ? (
+            updateStatus === "loading" ? (
               <CircularProgress size={20} color="inherit" />
             ) : null
           }
@@ -87,12 +97,12 @@ export default function Rules(props: Props) {
       </Toolbar>
       <MonacoEditor
         language="redmatch"
-        value={project.rulesDocument}
+        value={request.rulesDocument}
         editorWillMount={editorWillMount}
+        editorDidMount={editorDidMount}
         options={{ extraEditorClassName: classes.editor }}
         onChange={onChangeRules}
       />
-      <ApiError error={updateError} />
     </Box>
   );
 }

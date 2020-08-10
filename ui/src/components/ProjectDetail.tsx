@@ -17,6 +17,7 @@ import { Config } from "./App";
 import { ApiError } from "./ApiError";
 import ProjectInfo from "./ProjectInfo";
 import Rules from "./Rules";
+import { useMutation, queryCache } from "react-query";
 
 
 const useStyles = makeStyles(theme =>
@@ -69,10 +70,40 @@ export default function ProjectDetail(props: Props) {
       ["RedmatchProject", reportId], RedmatchApi(redmatchUrl).getProject
     );
 
+  const handleOnSave = (newRules: string) => {
+    console.log('Save detected... handling mutation');
+    // Rules were updated so run mutation
+    updateRules([reportId, newRules]);
+  }
 
-  const handleRulesSave = () => {
-    return refetch();
-  };
+  const [updateRules, { status: updateStatus, error: updateError }] = 
+    useMutation<RedmatchProject,[string, string]>(
+      RedmatchApi(redmatchUrl).updateRules, {
+        onMutate: (params: string[]) => {
+          console.log('Param 0' + params[0]);
+          console.log('Param 1' + params[1]);
+
+          queryCache.cancelQueries('RedmatchProject');
+       
+          const previousProject = queryCache.getQueryData('RedmatchProject');
+          console.log('Previous: ' + previousProject);
+      
+          // Optimistically update to the new value
+          // Need to clone old project and set new rules
+          const newProject: RedmatchProject = Object.assign({id:'', reportId: '', redcapUrl: '', token: '', name: '', rulesDocument: '', issues: []}, previousProject);
+          newProject.rulesDocument = params[1];
+          queryCache.setQueryData('RedmatchProject', newProject);
+      
+          // Return the snapshotted value
+          return () => queryCache.setQueryData('RedmatchProject', previousProject);
+        },
+        onError: (_err: Error, rollback: any) => rollback(),
+        onSettled: () => {
+          console.log('Settled');
+          queryCache.invalidateQueries('RedmatchProject')
+        }
+      }
+    );
 
   function renderProjectDetail() {
     if (!project) {
@@ -94,7 +125,7 @@ export default function ProjectDetail(props: Props) {
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <Rules project={project} onSuccess={handleRulesSave}/>
+          <Rules project={project} onSave={handleOnSave} updateStatus={updateStatus}/>
         </TabPanel>
       </Card>
     );

@@ -16,7 +16,17 @@ export interface UnsavedRedmatchProject {
 export interface RedmatchProject extends UnsavedRedmatchProject {
   id: string;
   rulesDocument: string;
-  // TODO: add mappings
+  issues: Issue[];
+}
+
+export interface Issue {
+  id: string;
+  rowStart: number;
+  colStart: number;
+  rowEnd: number;
+  colEnd: number;
+  text: string;
+  annotationType: string;
 }
 
 export interface RedmatchApi {
@@ -24,7 +34,7 @@ export interface RedmatchApi {
   getProject: QueryFunction<RedmatchProject, [string, string]>;
   createProject: MutationFunction<RedmatchProject, UnsavedRedmatchProject>;
   // updateProject: MutationFunction<RedmatchProject, RedmatchProject>;
-  updateRules: MutationFunction<RedmatchProject, RedmatchProject>;
+  updateRules: MutationFunction<RedmatchProject, [string, string]>;
 }
 
 export default (redmatchUrl: string): RedmatchApi => {
@@ -41,10 +51,10 @@ export default (redmatchUrl: string): RedmatchApi => {
         unsavedRedmatchProject
       );
     },
-    updateRules: async function(redmatchProject) {
+    updateRules: async function(params: string[]) {
       return post<RedmatchProject>(
-        `${redmatchUrl}/project/${redmatchProject.id}/$update-rules`,
-        `${redmatchProject.rulesDocument}`
+        `${redmatchUrl}/project/${params[0]}/$update-rules`,
+        `${params[1]}`
       );
     }
   };
