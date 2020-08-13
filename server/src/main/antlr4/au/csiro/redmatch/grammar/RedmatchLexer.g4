@@ -28,9 +28,9 @@ CONCEPT           : 'CONCEPT';
 CONCEPT_SELECTED  : 'CONCEPT_SELECTED';
 CODE_SELECTED     : 'CODE_SELECTED';
 REF               : 'REF';
-OPEN_CURLY_DOLLAR : '${';
 CLOSE_CURLY       : '}';
 OPEN_CURLY        : '{';
+OPEN_CURLY_DOLLAR : '${';
 DOTDOT            : '..';
 COLON             : ':';
 
@@ -42,8 +42,12 @@ CODE_LITERAL
     : 'CODE_LITERAL' -> pushMode(FHIR_CODE)
     ;
 
+fragment LOWERCASE  : [a-z] ;
+fragment UPPERCASE  : [A-Z] ;
+fragment DIGIT : [0-9];
+
 IDENTIFIER
-    : ([A-Za-z_-])([A-Za-z0-9_-])*
+    : (LOWERCASE | UPPERCASE | '_' | '-')+ (LOWERCASE | UPPERCASE | DIGIT | '_' | '-')*
     ;
 
 STRING
@@ -51,7 +55,7 @@ STRING
     ;
 
 NUMBER
-    : [0-9]+('.' [0-9]+)?
+    : DIGIT+('.' DIGIT+)?
     ;
         
 COMMENT
@@ -113,5 +117,3 @@ mode FHIR_CODE;
 CODE_VALUE
     : '(' .*? ')' -> popMode
     ;
-
-

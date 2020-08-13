@@ -23,13 +23,13 @@ condition
     | condition AND condition
     | condition OR condition
     | (TRUE | FALSE)
-    | (NULL | NOTNULL) OPEN variableIdentifier CLOSE
-    | VALUE OPEN variableIdentifier CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
+    | (NULL | NOTNULL) OPEN variable CLOSE
+    | VALUE OPEN variable CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
     | OPEN condition CLOSE
     ;
 
 resource
-    : IDENTIFIER LT variableIdentifier GT THEN attribute EQ value (COMMA attribute EQ value)* END
+    : IDENTIFIER LT variable GT THEN attribute EQ value (COMMA attribute EQ value)* END
     ;
   
 attribute
@@ -43,14 +43,15 @@ value
     | reference
     | CONCEPT_LITERAL CONCEPT_VALUE
     | CODE_LITERAL CODE_VALUE
-    | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN variableIdentifier CLOSE
+    | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN variable CLOSE
     ;
 
 reference
-    : REF OPEN IDENTIFIER LT variableIdentifier GT CLOSE
+    : REF OPEN IDENTIFIER LT variable GT CLOSE
     ;
 
-variableIdentifier
-    : IDENTIFIER  (OPEN_CURLY_DOLLAR IDENTIFIER CLOSE_CURLY)?
+variable
+    : IDENTIFIER (OPEN_CURLY_DOLLAR IDENTIFIER CLOSE_CURLY)?
     ;
+
 

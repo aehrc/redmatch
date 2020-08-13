@@ -36,6 +36,9 @@ import au.csiro.redmatch.model.grammar.redmatch.ConceptLiteralValue;
 import au.csiro.redmatch.model.grammar.redmatch.ConceptValue;
 import au.csiro.redmatch.model.grammar.redmatch.Condition;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionType;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionNode;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
 import au.csiro.redmatch.model.grammar.redmatch.FieldBasedValue;
 import au.csiro.redmatch.model.grammar.redmatch.FieldValue;
@@ -44,9 +47,6 @@ import au.csiro.redmatch.model.grammar.redmatch.Resource;
 import au.csiro.redmatch.model.grammar.redmatch.Rule;
 import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionType;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionNode;
 import au.csiro.redmatch.validation.MockTerminolgyServer;
 
 /**
@@ -72,6 +72,24 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);
+  }
+  
+  @Test
+  public void testInvalidKeyword() {
+    String rule = "TRUE { \n" + 
+        "  Patient<p-1> -> \n" + 
+        "    identifier[0].value = VALUE(record_id); \n" + 
+        "}\n" + 
+        "\n" + 
+        "BALUE(pat_sex_xy) = 21 { \n" + 
+        "  Patient<p> -> \n" + 
+        "    gender = CODE_LITERAL(male); \n" + 
+        "}";
+    final Metadata metadata = loadMetadata("tutorial");
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertFalse(errors.isEmpty());
   }
   
   /**

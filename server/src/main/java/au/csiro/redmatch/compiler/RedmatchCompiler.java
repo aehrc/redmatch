@@ -62,7 +62,7 @@ import au.csiro.redmatch.grammar.RedmatchGrammar.ReferenceContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.RepeatsClauseContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ResourceContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ValueContext;
-import au.csiro.redmatch.grammar.RedmatchGrammar.VariableIdentifierContext;
+import au.csiro.redmatch.grammar.RedmatchGrammar.VariableContext;
 import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
 import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.importer.CompilerException;
@@ -163,24 +163,24 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rulesDocument));
     final RedmatchGrammar parser = new RedmatchGrammar(new BufferedTokenStream(lexer));
     
-    /*
-    parser.setErrorHandler(new DefaultErrorStrategy() {
+    
+    /*parser.setErrorHandler(new DefaultErrorStrategy() {
       @Override
       public void recover(Parser recognizer, RecognitionException e) {
-        throw new RuntimeException(e);
+        System.err.println("RECOVER: " + recognizer + ", " + e);
       }
       
       @Override
       public Token recoverInline(Parser recognizer) throws RecognitionException {
-        throw new RuntimeException(new InputMismatchException(recognizer));
+        System.err.println("RECOVER: " + recognizer);
+        return null;
       }
       
       @Override
       public void sync(Parser recognizer) throws RecognitionException {
-        
+        System.err.println("SYNC: " + recognizer);
       }
-    });
-    */
+    });*/
 
     lexer.removeErrorListeners();
     lexer.addErrorListener(new DiagnosticErrorListener() {
@@ -248,17 +248,20 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     final DocumentContext docCtx = parser.document();
     
-    // We need to make sure the document context is well formed
-    if (docCtx.getStop() == null) {
-      Token start = docCtx.getStart();
-      addError(errorMessages, "" , 0, 0, "The document is invalid: START token is " 
-          + lexer.getVocabulary().getDisplayName(start.getType()) + " and STOP token is null.");
+    // We need to check if the EOF token was matched. If not, then there is a problem.
+    final Token finalToken = lexer.getToken();
+    if (finalToken.getType() != Token.EOF) {
+      Token stop = docCtx.getStop();
+      System.out.println("STOP: " + stop);
+      
+      addError(errorMessages, finalToken.getText(), finalToken.getLine(), 
+          finalToken.getCharPositionInLine(), "Unexpected token '" + finalToken.getText() + "'.");
     }
     
     String tree = docCtx.toStringTree(parser);
-    //if (log.isDebugEnabled()) {
+    if (log.isDebugEnabled()) {
       printPrettyLispTree(tree);
-    //}
+    }
     
     try {
       GrammarObject res = docCtx.accept(this);
@@ -789,8 +792,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * repeatsClause
-   *     : 'REPEAT' '(' NUMBER '..' NUMBER ':' IDENTIFIER ')'
-   *     ;
+   *    : REPEAT OPEN NUMBER DOTDOT NUMBER COLON IDENTIFIER CLOSE
+   *    ;
    */
   private RepeatsClause visitRepeatsClauseInternal(RepeatsClauseContext ctx) {
     int start = Integer.parseInt(ctx.NUMBER(0).getText());
@@ -808,15 +811,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * condition
-   *     : '^' condition
-   *     | condition '&' condition
-   *     | condition '|' condition
-   *     | ('TRUE' | 'FALSE')
-   *     | ('NULL' | 'NOTNULL') '(' variableIdentifier ')'
-   *     | 'VALUE' '(' variableIdentifier ')'('=' | '!=' | '<' | '>' | '<=' | '>=') 
-   *          (STRING | NUMBER | 'CONCEPT' '(' CODE ')')
-   *     | '(' condition ')'
-   *     ;
+   *    : NOT condition
+   *    | condition AND condition
+   *    | condition OR condition
+   *    | (TRUE | FALSE)
+   *    | (NULL | NOTNULL) OPEN variable CLOSE
+   *    | VALUE OPEN variable CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
+   *    | OPEN condition CLOSE
+   *    ;
    *     
    *     Example:
    *     
@@ -836,8 +838,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else if ("FALSE".equals(text)) {
         return new ConditionExpression(false);
       } else if ("NULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
+        VariableIdentifier vi = visitVariableInternal(ctx.variable(), var, false);
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
             + " does not exist in REDCap report."));
@@ -845,8 +846,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           return new ConditionExpression(vi.getFullId(), true);
         }
       } else if ("NOTNULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
+        VariableIdentifier vi = visitVariableInternal(ctx.variable(), var, false);
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
             + " does not exist in REDCap report."));
@@ -860,8 +860,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           return null;
         }
         
-        VariableIdentifier vi = (VariableIdentifier) visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
+        VariableIdentifier vi = (VariableIdentifier) visitVariableInternal(ctx.variable(), 
+            var, false);
         
         if (!metadata.hasField(vi.getFullId())) {
           errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
@@ -919,8 +919,12 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return new ConditionExpression(false);
   }
   
-  private VariableIdentifier visitVariableIdentifierInternal(VariableIdentifierContext ctx, 
-      Variables var, boolean inResource) { 
+  /*
+   * variable
+   *    : IDENTIFIER (OPEN_CURLY_DOLLAR IDENTIFIER CLOSE_CURLY)?
+   *    ;
+   */
+  private VariableIdentifier visitVariableInternal(VariableContext ctx, Variables var, boolean inResource) { 
     String id = ctx.IDENTIFIER().get(0).getText();
     
     // Check if this is compliant 
@@ -930,7 +934,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
     
     if (ctx.IDENTIFIER().size() > 1) {
-      return new VariableIdentifier(id, var.getValue(ctx.IDENTIFIER().get(1).getText()));
+      return new VariableIdentifier(id, 
+          var.getValue(ctx.IDENTIFIER().get(1).getText()));
     } else {
       return new VariableIdentifier(id);
     }
@@ -956,8 +961,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * resource
-   *   : IDENTIFIER '<' variableIdentifier '>' '->' attribute '=' 
-   *        value (',' attribute '=' value)* ';'
+   *     : IDENTIFIER LT variable GT THEN attribute EQ value (COMMA attribute EQ value)* END
+   *     ;
    *   
    *   Example: Encounter<final> -> status = "FINISHED";
    */
@@ -968,7 +973,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
     res.setResourceType(ctx.IDENTIFIER().getText());
     
-    VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, true);
+    VariableIdentifier vi = visitVariableInternal(ctx.variable(), var, true);
     res.setResourceId(vi.getFullId());
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
@@ -985,8 +990,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * attribute
-   *   : IDENTIFIER ('[' NUMBER ']')? ('.' attribute)?
-   *   ;
+   *     : IDENTIFIER (OPEN_SQ NUMBER CLOSE_SQ)? (DOT attribute)?
+   *     ;
    */
   private List<Attribute> visitAttributeInternal(AttributeContext ctx) {
     final List<Attribute> res = new ArrayList<>();
@@ -1007,18 +1012,21 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * value
-   *   : ('TRUE' | 'FALSE')
-   *   | STRING
-   *   | NUMBER
-   *   | reference
-   *   | 'CONCEPT_LITERAL' '(' CONCEPT ')'
-   *   | 'CODE_LITERAL' '(' CODE ')'
-   *   | ('CONCEPT' | 'CONCEPT_SELECTED' | 'CODE_SELECTED' | 'VALUE' | 'LABEL' | 'LABEL_SELECTED' )
-   *        '(' variableIdentifier ')'
-   *   ;
+   *     : (TRUE | FALSE)
+   *     | STRING
+   *     | NUMBER
+   *     | reference
+   *     | CONCEPT_LITERAL CONCEPT_VALUE
+   *     | CODE_LITERAL CODE_VALUE
+   *     | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN variable CLOSE
+   *     ;
    */
   private Value visitValueInternal(ValueContext ctx, Variables var) {
-    if (ctx.STRING() != null) {
+    if (ctx.TRUE() != null) {
+      return new BooleanValue(true);
+    } else if (ctx.FALSE() != null) {
+      return new BooleanValue(false);
+    } else if (ctx.STRING() != null) {
       return new StringValue(removeEnds(ctx.STRING().getText()));
     } else if (ctx.NUMBER() != null) {
       String num = ctx.NUMBER().getText();
@@ -1064,8 +1072,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             e.getLocalizedMessage());
         return null;
       }
-    } else if (ctx.variableIdentifier() != null) {
-      String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, false).getFullId();
+    } else if (ctx.variable() != null) {
+      String id = visitVariableInternal(ctx.variable(), var, false).getFullId();
       
       TerminalNode tn = (TerminalNode) ctx.getChild(0);
       String enumConstant = tn.getText();
@@ -1081,36 +1089,30 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         throw new CompilerException("Unexpected value type " + enumConstant);
       }
     } else {
-      String text = ((TerminalNode) ctx.getChild(0)).getText();
-      if ("TRUE".equals(text)) {
-        return new BooleanValue(true);
-      } else if ("FALSE".endsWith(text)){
-        return new BooleanValue(false);
-      } else {
-        errorMessages.add(getAnnotationFromContext(ctx, 
-            "Expected TRUE or FALSE but found " + text));
-        return null;
-      }
+      errorMessages.add(getAnnotationFromContext(ctx, "Unexpected value context: " 
+          + ctx.toString()));
+      return null;
     }
   }
   
   /*
    * reference
-   *   : 'REF' '(' IDENTIFIER '<' variableIdentifier '>' ')'
-   *   ;
+   *     : REF OPEN IDENTIFIER LT variable GT CLOSE
+   *     ;
    *   
    * Example: REF(Patient<p>)
    */
   private Value visitReferenceInternal(ReferenceContext ctx, Variables var) {
     final ReferenceValue res = new ReferenceValue();
     res.setResourceType(ctx.IDENTIFIER().getText());
-    res.setResourceId(visitVariableIdentifierInternal(
-        ctx.variableIdentifier(), var, true).getFullId());
+    // TODO: check format
+    res.setResourceId(visitVariableInternal(ctx.variable(), var, true).getFullId());
     
     return res;
   }
 
-  private void addError(List<Annotation> errors, String token, int line, int charPositionInLine, String msg) {
+  private void addError(List<Annotation> errors, String token, int line, int charPositionInLine, 
+      String msg) {
     errors.add(new Annotation(line, charPositionInLine, line, charPositionInLine + token.length(),
         msg, AnnotationType.ERROR));
   }
@@ -1131,7 +1133,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     if (stop != null) {
       endRow = stop.getLine();
-      endCol = stop.getCharPositionInLine() + (stop.getText() != null ? stop.getText().length() : 1);
+      endCol = stop.getCharPositionInLine() + (stop.getText() != null ? 
+          stop.getText().length() : 1);
     } else {
       endRow = startRow;
       endCol = startCol + 1;
