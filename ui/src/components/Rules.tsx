@@ -35,9 +35,9 @@ export default function Rules(props: Props) {
       let markers = project.issues.map((item) => {
         return {
           startLineNumber: item.rowStart,
-          startColumn: item.colStart,
+          startColumn: item.colStart + 1,
           endLineNumber: item.rowEnd,
-          endColumn: item.colEnd,
+          endColumn: item.colEnd + 1,
           message: item.text,
           severity: item.annotationType === 'ERROR' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning
         };
@@ -51,19 +51,32 @@ export default function Rules(props: Props) {
   function editorWillMount(monaco: typeof monacoEditor) {
     monaco.languages.register({ id: "redmatch" });
     monaco.languages.setTokensProvider("redmatch", new RedmatchTokensProvider());
-    const literalFg = '3b8737';
-    const idFg = '344482';
-    //const symbolsFg = '000000';
-    //const keywordFg = '7132a8';
-    const errorFg = 'ff0000';
-    monaco.editor.defineTheme('myCoolTheme', {
+    monaco.editor.defineTheme('redmatchTheme', {
         base: 'vs',
         inherit: false,
         rules: [
-          { token: 'true.rdm',          foreground: literalFg },
-          { token: 'false.rdm',         foreground: literalFg },
-          { token: 'identifier.rdm',    foreground: idFg,         fontStyle: 'italic' },
-          { token: 'unrecognized.rdm',  foreground: errorFg }
+          { token: 'true.rdm',             foreground: '7707a4' },
+          { token: 'false.rdm',            foreground: '7707a4' },
+          { token: 'value.rdm',            foreground: '7707a4' },
+          { token: 'not.rdm',              foreground: '7707a4' },
+          { token: 'and.rdm',              foreground: '7707a4' },
+          { token: 'or.rdm',               foreground: '7707a4' },
+          { token: 'null.rdm',             foreground: '7707a4' },
+          { token: 'notnull.rdm',          foreground: '7707a4' },
+          { token: 'ref.rdm',              foreground: '7707a4' },
+          { token: 'concept_literal.rdm',  foreground: '7707a4' },
+          { token: 'code_literal.rdm',     foreground: '7707a4' },
+          { token: 'concept.rdm',          foreground: '7707a4' },
+          { token: 'concept_selected.rdm', foreground: '7707a4' },
+          { token: 'code_selected.rdm',    foreground: '7707a4' },
+          { token: 'string.rdm',           foreground: 'dc8426'},
+          { token: 'number.rdm',           foreground: 'dc8426'},
+          { token: 'code_value.rdm',       foreground: 'dc8426'},
+          { token: 'comment.rdm',          foreground: '2ad121'},
+          { token: 'line_comment.rdm',     foreground: '2ad121'},
+          { token: 'identifier.rdm',       foreground: '2432e8' },
+          { token: 'then.rdm',             foreground: '33bc48'},
+          { token: 'unrecognized.rdm',     foreground: 'e83f24' }
         ],
         colors: {
           'literalFg': '#3b8737'
@@ -73,10 +86,8 @@ export default function Rules(props: Props) {
 
   function editorDidMount(editor: monacoEditor.editor.IStandaloneCodeEditor, _monaco: typeof monacoEditor) {
     let m = editor.getModel();
-    if (m !== null) {
-      setModel(m);
-      console.log('Model: ' + model);
-    }
+    console.log('editorDidMount, model: ' + model);
+    setModel(m);
   }
 
   return (
@@ -97,6 +108,7 @@ export default function Rules(props: Props) {
       </Toolbar>
       <MonacoEditor
         language="redmatch"
+        theme="redmatchTheme"
         value={request.rulesDocument}
         editorWillMount={editorWillMount}
         editorDidMount={editorDidMount}

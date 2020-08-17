@@ -9,7 +9,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -18,14 +17,10 @@ import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.DiagnosticErrorListener;
 import org.antlr.v4.runtime.Lexer;
-import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.atn.ATNConfigSet;
-import org.antlr.v4.runtime.dfa.DFA;
-import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.logging.Log;
@@ -162,25 +157,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rulesDocument));
     final RedmatchGrammar parser = new RedmatchGrammar(new BufferedTokenStream(lexer));
-    
-    
-    /*parser.setErrorHandler(new DefaultErrorStrategy() {
-      @Override
-      public void recover(Parser recognizer, RecognitionException e) {
-        System.err.println("RECOVER: " + recognizer + ", " + e);
-      }
-      
-      @Override
-      public Token recoverInline(Parser recognizer) throws RecognitionException {
-        System.err.println("RECOVER: " + recognizer);
-        return null;
-      }
-      
-      @Override
-      public void sync(Parser recognizer) throws RecognitionException {
-        System.err.println("SYNC: " + recognizer);
-      }
-    });*/
 
     lexer.removeErrorListeners();
     lexer.addErrorListener(new DiagnosticErrorListener() {
@@ -201,7 +177,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             line, charPositionInLine, msg);
       }
       
-      @Override
+      /*@Override
       public void reportAmbiguity(Parser recognizer,
                     DFA dfa,
                     int startIndex,
@@ -244,16 +220,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         String message = String.format(format, decision, text);
         addError(errorMessages, "" , 0, 0, message);
       }
+      */
     });
     
     final DocumentContext docCtx = parser.document();
     
     // We need to check if the EOF token was matched. If not, then there is a problem.
     final Token finalToken = lexer.getToken();
-    if (finalToken.getType() != Token.EOF) {
-      Token stop = docCtx.getStop();
-      System.out.println("STOP: " + stop);
-      
+    if (finalToken.getType() != Token.EOF) {      
       addError(errorMessages, finalToken.getText(), finalToken.getLine(), 
           finalToken.getCharPositionInLine(), "Unexpected token '" + finalToken.getText() + "'.");
     }
