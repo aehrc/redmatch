@@ -14,8 +14,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.DiagnosticErrorListener;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -155,7 +155,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     this.metadata = metadata;
     
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rulesDocument));
-    final RedmatchGrammar parser = new RedmatchGrammar(new BufferedTokenStream(lexer));
+    final RedmatchGrammar parser = new RedmatchGrammar(new CommonTokenStream(lexer));
 
     lexer.removeErrorListeners();
     lexer.addErrorListener(new DiagnosticErrorListener() {

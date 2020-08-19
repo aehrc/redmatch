@@ -59,15 +59,15 @@ STRING
 NUMBER
     : DIGIT+('.' DIGIT+)?
     ;
-        
+
 COMMENT
-    : '/*' .*? '*/' -> skip
+    : '/*' .*? '*/' -> channel(HIDDEN)
     ;
 
 LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
+    : '//' ~[\r\n]* -> channel(HIDDEN)
     ;
-        
+
 WS
     : [ \r\n\t]+ -> skip
     ;
