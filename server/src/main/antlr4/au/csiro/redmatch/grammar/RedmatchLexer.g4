@@ -18,12 +18,8 @@ LT                : '<';
 GT                : '>';
 LTE               : '<='; 
 GTE               : '>=';
-THEN              : '->';
 COMMA             : ',';
 END               : ';';
-OPEN_SQ           : '[';
-CLOSE_SQ          : ']';
-DOT               : '.';
 CONCEPT           : 'CONCEPT';
 CONCEPT_SELECTED  : 'CONCEPT_SELECTED';
 CODE_SELECTED     : 'CODE_SELECTED';
@@ -33,21 +29,27 @@ OPEN_CURLY        : '{';
 OPEN_CURLY_DOLLAR : '${';
 DOTDOT            : '..';
 COLON             : ':';
-
-CONCEPT_LITERAL
-    : 'CONCEPT_LITERAL' -> pushMode(FHIR_CONCEPT)
-    ;
-    
-CODE_LITERAL
-    : 'CODE_LITERAL' -> pushMode(FHIR_CODE)
-    ;
+ATTRIBUTE_START   : '*' -> pushMode(ATTRIBUTES) ;
 
 fragment LOWERCASE  : [a-z] ;
 fragment UPPERCASE  : [A-Z] ;
-fragment DIGIT : [0-9];
+fragment DIGIT      : [0-9];
 
-IDENTIFIER
-    : (LOWERCASE | UPPERCASE | '_' | '-')+ (LOWERCASE | UPPERCASE | DIGIT | '_' | '-')*
+// A FHIR resource identifier.
+RESOURCE
+    : UPPERCASE (LOWERCASE | UPPERCASE)*
+    ;
+
+// An identifier of a REDCap form, a FHIR resource created in the rules or a Redmatch variable. Can 
+// include a reference to a Redmatch variable anywhere, except on the first character and when a
+// Redmatch variable is being defined.
+ID
+    : LOWERCASE (REDMATCH_ID | LOWERCASE | UPPERCASE | DIGIT | '_'  | '-')*
+    ;
+
+// A reference to a Redmatch variable
+REDMATCH_ID
+    : OPEN_CURLY_DOLLAR (LOWERCASE | UPPERCASE | DIGIT | '_')+ CLOSE_CURLY
     ;
 
 STRING
@@ -106,14 +108,20 @@ fragment HEX
     : [0-9a-fA-F]
     ;
 
-mode FHIR_CONCEPT;
-
-CONCEPT_VALUE
-    : '(' .+? '|' .*? ('|' STRING)? ')' -> popMode
+CONCEPT_LITERAL
+    :  'CONCEPT_LITERAL' OPEN .*? '|' .*? ('|' STRING)? CLOSE
     ;
 
-mode FHIR_CODE;
-
-CODE_VALUE
-    : '(' .*? ')' -> popMode
+CODE_LITERAL
+    :  'CODE_LITERAL' OPEN .*? CLOSE
     ;
+    
+mode ATTRIBUTES;
+
+OPEN_SQ           : '[';
+CLOSE_SQ          : ']';
+DOT               : '.';
+INDEX             : [0-9]+;
+PATH              : LOWERCASE (LOWERCASE | UPPERCASE)*;
+WHITE_SPACE       : [ \r\n\t]+ -> skip;
+ATTRIBUTE_END     : '=' -> popMode;

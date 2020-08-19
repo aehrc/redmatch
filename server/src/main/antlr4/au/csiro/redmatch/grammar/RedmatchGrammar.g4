@@ -15,7 +15,7 @@ fcBody
     ;
     
 repeatsClause
-    : REPEAT OPEN NUMBER DOTDOT NUMBER COLON IDENTIFIER CLOSE
+    : REPEAT OPEN NUMBER DOTDOT NUMBER COLON ID CLOSE
     ;
 
 condition
@@ -23,17 +23,21 @@ condition
     | condition AND condition
     | condition OR condition
     | (TRUE | FALSE)
-    | (NULL | NOTNULL) OPEN variable CLOSE
-    | VALUE OPEN variable CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
+    | (NULL | NOTNULL) OPEN ID CLOSE
+    | VALUE OPEN ID CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
     | OPEN condition CLOSE
     ;
 
 resource
-    : IDENTIFIER LT variable GT THEN attribute EQ value (COMMA attribute EQ value)* END
+    : RESOURCE LT ID GT COLON attribute value (COMMA attribute value)* END
     ;
   
 attribute
-    : IDENTIFIER (OPEN_SQ NUMBER CLOSE_SQ)? (DOT attribute)?
+    : ATTRIBUTE_START attributePath (DOT attributePath)* ATTRIBUTE_END
+    ;
+
+attributePath
+    : PATH (OPEN_SQ INDEX CLOSE_SQ)?
     ;
 
 value
@@ -41,17 +45,13 @@ value
     | STRING
     | NUMBER
     | reference
-    | CONCEPT_LITERAL CONCEPT_VALUE
-    | CODE_LITERAL CODE_VALUE
-    | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN variable CLOSE
+    | CONCEPT_LITERAL
+    | CODE_LITERAL
+    | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN ID CLOSE
     ;
 
 reference
-    : REF OPEN IDENTIFIER LT variable GT CLOSE
-    ;
-
-variable
-    : IDENTIFIER (OPEN_CURLY_DOLLAR IDENTIFIER CLOSE_CURLY)?
+    : REF OPEN RESOURCE LT ID GT CLOSE
     ;
 
 

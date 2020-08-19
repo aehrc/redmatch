@@ -14,6 +14,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.FileNotFoundException;
 import java.util.List;
 
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.Lexer;
+import org.antlr.v4.runtime.Token;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Before;
@@ -26,6 +29,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
@@ -74,17 +78,28 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     compiler.getValidator().setClient(mockTerminologyServer);
   }
   
+  public void printTokens(String rule) {
+    System.out.println("TOKENS:");
+    final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rule));
+    for (Token tok : lexer.getAllTokens()) {
+      System.out.println(tok);
+    }
+    
+  }
+  
   @Test
   public void testInvalidKeyword() {
     String rule = "TRUE { \n" + 
-        "  Patient<p-1> -> \n" + 
-        "    identifier[0].value = VALUE(record_id); \n" + 
+        "  Patient<p-1>: \n" + 
+        "    *identifier[0].value = VALUE(record_id); \n" + 
         "}\n" + 
         "\n" + 
         "BALUE(pat_sex_xy) = 21 { \n" + 
-        "  Patient<p> -> \n" + 
-        "    gender = CODE_LITERAL(male); \n" + 
+        "  Patient<p>: \n" + 
+        "    *gender = CODE_LITERAL(male); \n" + 
         "}";
+    
+    printTokens(rule);
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -97,8 +112,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
    */
   @Test
   public void testValidOneLiners() {
-    String rule = "VALUE(pat_sex) = 1 { Patient<p> -> gender = CODE_LITERAL(male); }\n" + 
-        "VALUE(pat_sex) = 2 { Patient<p> -> gender = CODE_LITERAL(female); }";
+    String rule = "VALUE(pat_sex) = 1 { Patient<p>: *gender = CODE_LITERAL(male); }\n" + 
+        "VALUE(pat_sex) = 2 { Patient<p>: *gender = CODE_LITERAL(female); }";
+    
+    printTokens(rule);
     
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
@@ -164,7 +181,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testInvalidOneLiner() {
-    String rule = "TTRUE { Patient<p> -> gender = CODE_LITERAL(male); }";
+    String rule = "TTRUE { Patient<p>: *gender = CODE_LITERAL(male); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -174,7 +194,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testLoincConceptLiteral() {
-    String rule = "TRUE { Observation<o> -> code = CONCEPT_LITERAL(http://loinc.org|48018-6); }";
+    String rule = "TRUE { Observation<o>: *code = CONCEPT_LITERAL(http://loinc.org|48018-6); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -188,7 +211,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testComplexCondition() {
     String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 "
-        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -206,7 +232,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testEvenMoreComplexCondition() {
     String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 | VALUE(oph) = 2"
-        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -224,7 +253,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testComplexConditionWithParenthesis() {
     String rule = "VALUE(facial) = 1 & (VALUE(ptosis) = 1 | VALUE(oph) = 2)"
-        + "{ Patient<p> -> identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -241,7 +273,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testInvalidField() {
-    final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(stud_num); }";
+    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(stud_num); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -251,7 +286,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testValidId() {
-    final String rule = "TRUE { Patient<p-1> -> identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p-1>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -264,7 +302,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
    */
   @Test
   public void testInvalidId() {
-    final String rule = "TRUE { Patient<p_1> -> identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p_1>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -276,7 +317,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void testInvalidId2() {
     final String rule = "// Might lose some detail here if other is specified - should migrate to "
         + "Ontoserver plugin\nVALUE(m_weak) = 1 { "
-        + "Observation<mito_cd_atax> -> status = CODE_LITERAL(final); }";
+        + "Observation<mito_cd_atax>: *status = CODE_LITERAL(final); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -286,7 +330,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testListExplicit() {
-    final String rule = "TRUE { Patient<p> -> identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -330,7 +377,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testListImplicit() {
-    final String rule = "TRUE { Patient<p> -> identifier.value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifier.value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -374,7 +424,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testWrongAttribute() {
-    final String rule = "TRUE { Patient<p> -> identifiers.value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifiers.value = VALUE(record_id); }";
+    
+    printTokens(rule);
+    
     final Metadata metadata = loadMetadata("tutorial");
     compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -387,12 +440,15 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void testTutorialPatient() {
     final String rule = 
         "TRUE { \n" + 
-        "  Patient<p> ->\n" + 
-        "    identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC),\n" + 
-        "    identifier.type.text = 'Medicare Number',\n" + 
-        "    identifier.system = \'http://ns.electronichealth.net.au/id/medicare-number\',\n" + 
-        "    identifier.value = VALUE(pat_medicare);\n" + 
+        "  Patient<p>:\n" + 
+        "    *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC),\n" + 
+        "    *identifier.type.text = 'Medicare Number',\n" + 
+        "    *identifier.system = \'http://ns.electronichealth.net.au/id/medicare-number\',\n" + 
+        "    *identifier.value = VALUE(pat_medicare);\n" + 
         "}";
+    
+    printTokens(rule);
+    
     Metadata metadata = this.loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
@@ -448,16 +504,19 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "  REPEAT(1..2: x)\n" + 
         "  VALUE(dx_${x}) = \'NOT_FOUND\' {\n" + 
         "    // No code was found so we use the free text\n" + 
-        "    Condition<c${x}> -> \n" + 
-        "      code.text = VALUE(dx_text_${x}),\n" + 
-        "      subject = REF(Patient<p>);\n" + 
+        "    Condition<c${x}>: \n" + 
+        "      *code.text = VALUE(dx_text_${x}),\n" + 
+        "      *subject = REF(Patient<p>);\n" + 
         "  } ELSE {\n" + 
         "    // We use the code selected using the terminology server\n" + 
-        "    Condition<c${x}> -> \n" + 
-        "      code = CONCEPT(dx_${x}),\n" + 
-        "      subject = REF(Patient<p>);\n" + 
+        "    Condition<c${x}>: \n" + 
+        "      *code = CONCEPT(dx_${x}),\n" + 
+        "      *subject = REF(Patient<p>);\n" + 
         "  }\n" + 
         "}";
+    
+    printTokens(rule);
+    
     Metadata metadata = this.loadMetadata("tutorial");
     Document doc = compiler.compile(rule, metadata);
     List<Annotation> errors = compiler.getErrorMessages();
