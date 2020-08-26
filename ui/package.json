@@ -12,6 +12,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "@ahryman40k/ts-fhir-types": "^4.0.32",
     "@material-ui/core": "^4.11.0",
     "@material-ui/icons": "^4.9.1",
     "@material-ui/lab": "^4.0.0-alpha.56",
@@ -27,7 +28,7 @@
     "css-loader": "^4.2.0",
     "file-loader": "^6.0.0",
     "html-webpack-plugin": "^4.3.0",
-    "lodash": "^4.17.19",
+    "lodash": "^4.17.20",
     "mini-css-extract-plugin": "^0.9.0",
     "monaco-editor": "^0.20.0",
     "monaco-editor-webpack-plugin": "^1.9.0",

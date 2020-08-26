@@ -17,6 +17,8 @@ export interface RedmatchProject extends UnsavedRedmatchProject {
   id: string;
   rulesDocument: string;
   issues: Issue[];
+  metadata: Metadata;
+  mappings: Mapping[];
 }
 
 export interface Issue {
@@ -27,6 +29,29 @@ export interface Issue {
   colEnd: number;
   text: string;
   annotationType: string;
+}
+
+export interface Metadata {
+  fields: Field[];
+}
+
+export interface Field {
+  id: string;
+  fieldType: string;
+  textValidationType: string;
+  fieldId: string;
+  fieldLabel: string;
+}
+
+export interface Mapping {
+  id: string;
+  redcapFieldId: string;
+  redcapLabel: string;
+  redcapFieldType: string;
+  text: string;
+  targetSystem: string;
+  targetCode: string;
+  targetDisplay: string;
 }
 
 export interface RedmatchApi {

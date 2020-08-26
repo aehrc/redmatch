@@ -12,13 +12,21 @@ import {
 } from "@material-ui/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "react-query";
-import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
+import RedmatchApi, { RedmatchProject, Mapping } from "../api/RedmatchApi";
 import { Config } from "./App";
 import { ApiError } from "./ApiError";
 import ProjectInfo from "./ProjectInfo";
+import ProjectMetadata from "./ProjectMetadata";
 import Rules from "./Rules";
+import Mappings from "./Mappings";
 import { useMutation, queryCache } from "react-query";
 
+
+export interface CodeSystem {
+  url: string;
+  name: string;
+  vs: string;
+}
 
 const useStyles = makeStyles(theme =>
   createStyles({
@@ -61,19 +69,24 @@ interface TabPanelProps {
 }
 
 export default function ProjectDetail(props: Props) {
-  const classes = useStyles(),
-  { redmatchUrl } = useContext(Config),
-  { className, reportId } = props,
-  [activeTab, setActiveTab] = useState<number>(0),
-  { status, data: project, error, refetch } = 
+  const classes = useStyles();
+  const { redmatchUrl, terminologyUrl } = useContext(Config);
+  const { className, reportId } = props;
+  const [activeTab, setActiveTab] = useState<number>(0);
+  const { status, data: project, error, refetch } = 
     useQuery<RedmatchProject, [string, string]>(
       ["RedmatchProject", reportId], RedmatchApi(redmatchUrl).getProject
     );
 
-  const handleOnSave = (newRules: string) => {
+  const handleOnSaveRules = (newRules: string) => {
     console.log('Save detected... handling mutation');
     // Rules were updated so run mutation
     updateRules([reportId, newRules]);
+  }
+  
+  // TODO: update type
+  const handleOnSaveMappings = (_newMappings: Mapping[]) => {
+    console.log('Save mappings detected... handling mutation');
   }
 
   const [updateRules, { status: updateStatus, error: updateError }] = 
@@ -90,7 +103,22 @@ export default function ProjectDetail(props: Props) {
       
           // Optimistically update to the new value
           // Need to clone old project and set new rules
-          const newProject: RedmatchProject = Object.assign({id:'', reportId: '', redcapUrl: '', token: '', name: '', rulesDocument: '', issues: []}, previousProject);
+          const newProject: RedmatchProject = 
+            Object.assign(
+              {
+                id:'', 
+                reportId: '', 
+                redcapUrl: '', 
+                token: '', 
+                name: '', 
+                rulesDocument: '', 
+                metadata: {
+                  fields: []
+                },
+                mappings: [],
+                issues: []
+              }, 
+              previousProject);
           newProject.rulesDocument = params[1];
           queryCache.setQueryData('RedmatchProject', newProject);
       
@@ -118,14 +146,22 @@ export default function ProjectDetail(props: Props) {
         <AppBar position="static" color="inherit">
           <Tabs value={activeTab}>
             <Tab label="Info" onClick={() => setActiveTab(0)} />
-            <Tab label="Rules" onClick={() => setActiveTab(1)} />
+            <Tab label="Metadata" onClick={() => setActiveTab(1)} />
+            <Tab label="Rules" onClick={() => setActiveTab(2)} />
+            <Tab label="Mappings" onClick={() => setActiveTab(3)} />
           </Tabs>
         </AppBar>
         <TabPanel className={classes.tabContent} index={0} value={activeTab}>
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <Rules project={project} onSave={handleOnSave} updateStatus={updateStatus}/>
+          <ProjectMetadata project={project} />
+        </TabPanel>
+        <TabPanel className={classes.tabContent} index={2} value={activeTab}>
+          <Rules project={project} onSave={handleOnSaveRules} updateStatus={updateStatus}/>
+        </TabPanel>
+        <TabPanel className={classes.tabContent} index={3} value={activeTab}>
+          <Mappings project={project} onSave={handleOnSaveMappings} updateStatus={updateStatus}/>
         </TabPanel>
       </Card>
     );

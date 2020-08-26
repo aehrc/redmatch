@@ -46,7 +46,7 @@ export default function Rules(props: Props) {
         monaco.editor.setModelMarkers(model, "owner", markers);
       }
     }
-  }, [project]);
+  }, []);
 
   function editorWillMount(monaco: typeof monacoEditor) {
     monaco.languages.register({ id: "redmatch" });
@@ -55,6 +55,10 @@ export default function Rules(props: Props) {
         base: 'vs',
         inherit: false,
         rules: [
+          { token: 'comment.rdm',          foreground: '3bb517' },
+          { token: 'line_comment.rdm',     foreground: '3bb517' },
+          { token: 'attribute_start.rdm',  foreground: 'b52217' },
+          { token: 'index.rdm',            foreground: 'dc8426' },
           { token: 'true.rdm',             foreground: '7707a4' },
           { token: 'false.rdm',            foreground: '7707a4' },
           { token: 'value.rdm',            foreground: '7707a4' },
@@ -64,17 +68,15 @@ export default function Rules(props: Props) {
           { token: 'null.rdm',             foreground: '7707a4' },
           { token: 'notnull.rdm',          foreground: '7707a4' },
           { token: 'ref.rdm',              foreground: '7707a4' },
-          { token: 'concept_literal.rdm',  foreground: '7707a4' },
-          { token: 'code_literal.rdm',     foreground: '7707a4' },
           { token: 'concept.rdm',          foreground: '7707a4' },
           { token: 'concept_selected.rdm', foreground: '7707a4' },
-          { token: 'code_selected.rdm',    foreground: '7707a4' },
+          { token: 'code_selected.rdm',    foreground: '7707a4'},
+          { token: 'concept_literal.rdm',  foreground: 'c9bc19', fontStyle: 'italic' },
+          { token: 'code_literal.rdm',     foreground: 'c9bc19', fontStyle: 'italic' },
           { token: 'string.rdm',           foreground: 'dc8426'},
           { token: 'number.rdm',           foreground: 'dc8426'},
           { token: 'code_value.rdm',       foreground: 'dc8426'},
-          { token: 'comment.rdm',          foreground: '2ad121'},
-          { token: 'line_comment.rdm',     foreground: '2ad121'},
-          { token: 'identifier.rdm',       foreground: '2432e8' },
+          { token: 'id.rdm',               foreground: '2432e8' },
           { token: 'then.rdm',             foreground: '33bc48'},
           { token: 'unrecognized.rdm',     foreground: 'e83f24' }
         ],
