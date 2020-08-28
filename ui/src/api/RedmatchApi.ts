@@ -52,6 +52,7 @@ export interface Mapping {
   targetSystem: string;
   targetCode: string;
   targetDisplay: string;
+  valueSet: string;
 }
 
 export interface RedmatchApi {
@@ -60,6 +61,7 @@ export interface RedmatchApi {
   createProject: MutationFunction<RedmatchProject, UnsavedRedmatchProject>;
   // updateProject: MutationFunction<RedmatchProject, RedmatchProject>;
   updateRules: MutationFunction<RedmatchProject, [string, string]>;
+  updateMappings: MutationFunction<RedmatchProject, [string, Mapping[]]>;
 }
 
 export default (redmatchUrl: string): RedmatchApi => {
@@ -80,6 +82,12 @@ export default (redmatchUrl: string): RedmatchApi => {
       return post<RedmatchProject>(
         `${redmatchUrl}/project/${params[0]}/$update-rules`,
         `${params[1]}`
+      );
+    },
+    updateMappings: async function(params: any[]) {
+      return post<RedmatchProject>(
+        `${redmatchUrl}/project/${params[0]}/$update-mappings`,
+        params[1]
       );
     }
   };

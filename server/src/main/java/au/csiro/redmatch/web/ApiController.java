@@ -289,7 +289,6 @@ public class ApiController {
           case UPDATED:
             return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
           case CREATED:
-            return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
           default:
             throw new RuntimeException(
                 "Unexpected status " + rr.getStatus() + ". This should never happen!");
@@ -300,6 +299,48 @@ public class ApiController {
       }
     } else {
       return getResponse(HttpStatus.BAD_REQUEST, "The mappings file is empty!");
+    }
+  }
+  
+  /**
+   * Updates the project's mappings.
+   * 
+   * @param file The Excel file with the mappings.
+   * @param projectId The project id.
+   * @return The response entity.
+   * @throws IOException If an IO error happens.
+   */
+  @ApiOperation(value = "Imports mappings in Excel format.")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "The operation completed successfully."),
+      @ApiResponse(code = 406, message = "The uploaded file is empty."),
+      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "project/{redmatchId}/$update-mappings", 
+      method = RequestMethod.POST, produces = "application/json")
+  @Transactional
+  public ResponseEntity<?> updateMappings(
+      @PathVariable String redmatchId,
+      @RequestBody List<Mapping> mappings,
+      UriComponentsBuilder b) {
+    if (mappings != null && !mappings.isEmpty()) {
+      OperationResponse rr = api.updateMappings(redmatchId, mappings);
+      final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+
+      final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+      final HttpHeaders headers = new HttpHeaders();
+      headers.setLocation(uriComponents.toUri());
+      headers.setContentType(MediaType.APPLICATION_JSON);
+
+      switch (rr.getStatus()) {
+        case UPDATED:
+          return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+        case CREATED:
+        default:
+          throw new RuntimeException(
+              "Unexpected status " + rr.getStatus() + ". This should never happen!");
+      }
+    } else {
+      return getResponse(HttpStatus.BAD_REQUEST, "The mappings are empty!");
     }
   }
   

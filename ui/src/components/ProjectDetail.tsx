@@ -20,13 +20,7 @@ import ProjectMetadata from "./ProjectMetadata";
 import Rules from "./Rules";
 import Mappings from "./Mappings";
 import { useMutation, queryCache } from "react-query";
-
-
-export interface CodeSystem {
-  url: string;
-  name: string;
-  vs: string;
-}
+import Export from "./Export";
 
 const useStyles = makeStyles(theme =>
   createStyles({
@@ -79,27 +73,20 @@ export default function ProjectDetail(props: Props) {
     );
 
   const handleOnSaveRules = (newRules: string) => {
-    console.log('Save detected... handling mutation');
     // Rules were updated so run mutation
     updateRules([reportId, newRules]);
   }
   
-  // TODO: update type
-  const handleOnSaveMappings = (_newMappings: Mapping[]) => {
-    console.log('Save mappings detected... handling mutation');
+  const handleOnSaveMappings = (newMappings: Mapping[]) => {
+    updateMappings([reportId, newMappings]);
   }
 
-  const [updateRules, { status: updateStatus, error: updateError }] = 
+  const [updateRules, { status: updateStatusRules, error: updateErrorRules }] = 
     useMutation<RedmatchProject,[string, string]>(
       RedmatchApi(redmatchUrl).updateRules, {
         onMutate: (params: string[]) => {
-          console.log('Param 0' + params[0]);
-          console.log('Param 1' + params[1]);
-
           queryCache.cancelQueries('RedmatchProject');
-       
           const previousProject = queryCache.getQueryData('RedmatchProject');
-          console.log('Previous: ' + previousProject);
       
           // Optimistically update to the new value
           // Need to clone old project and set new rules
@@ -133,6 +120,48 @@ export default function ProjectDetail(props: Props) {
       }
     );
 
+  const [updateMappings, { status: updateStatusMappings, error: updateErrorMappings }] = 
+    useMutation<RedmatchProject,[string, Mapping[]]>(
+      RedmatchApi(redmatchUrl).updateMappings, {
+        onMutate: (params: any[]) => {
+
+          console.log(JSON.stringify(params));
+
+          queryCache.cancelQueries('RedmatchProject');
+          const previousProject = queryCache.getQueryData('RedmatchProject');
+      
+          // Optimistically update to the new value
+          // Need to clone old project and set new mappings
+          const newProject: RedmatchProject = 
+            Object.assign(
+              {
+                id:'', 
+                reportId: '', 
+                redcapUrl: '', 
+                token: '', 
+                name: '', 
+                rulesDocument: '', 
+                metadata: {
+                  fields: []
+                },
+                mappings: [],
+                issues: []
+              }, 
+              previousProject);
+          
+          newProject.mappings = params[1];
+          queryCache.setQueryData('RedmatchProject', newProject);
+      
+          // Return the snapshotted value
+          return () => queryCache.setQueryData('RedmatchProject', previousProject);
+        },
+        onError: (_err: Error, rollback: any) => rollback(),
+        onSettled: () => {
+          queryCache.invalidateQueries('RedmatchProject')
+        }
+      }
+    );
+
   function renderProjectDetail() {
     if (!project) {
       return (
@@ -149,6 +178,7 @@ export default function ProjectDetail(props: Props) {
             <Tab label="Metadata" onClick={() => setActiveTab(1)} />
             <Tab label="Rules" onClick={() => setActiveTab(2)} />
             <Tab label="Mappings" onClick={() => setActiveTab(3)} />
+            <Tab label="Export" onClick={() => setActiveTab(4)} />
           </Tabs>
         </AppBar>
         <TabPanel className={classes.tabContent} index={0} value={activeTab}>
@@ -158,10 +188,13 @@ export default function ProjectDetail(props: Props) {
           <ProjectMetadata project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={2} value={activeTab}>
-          <Rules project={project} onSave={handleOnSaveRules} updateStatus={updateStatus}/>
+          <Rules project={project} onSave={handleOnSaveRules} updateStatus={updateStatusRules}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={3} value={activeTab}>
-          <Mappings project={project} onSave={handleOnSaveMappings} updateStatus={updateStatus}/>
+          <Mappings project={project} onSave={handleOnSaveMappings} updateStatus={updateStatusMappings}/>
+        </TabPanel>
+        <TabPanel className={classes.tabContent} index={4} value={activeTab}>
+          <Export projectId={project.id}/>
         </TabPanel>
       </Card>
     );

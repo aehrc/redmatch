@@ -224,6 +224,42 @@ public class RedmatchApi {
   public List<Mapping> getMappings(String projectId) {
     return resolveRedmatchProject(projectId).getMappings();
   }
+  
+  /**
+   * Updates a project's mappings.
+   * 
+   * @param mappings The new mappings.
+   * @return The result of the update.
+   */
+  @Transactional
+  public OperationResponse updateMappings(String projectId, List<Mapping> newMappings) {
+    log.info("Updating mappings.");
+    final RedmatchProject project = resolveRedmatchProject(projectId);
+    log.info("Project " + projectId + " has " + project.getMappings().size() + " mappings.");
+    log.info("Received " + newMappings.size() + " new mappings.");
+    
+    final List<Mapping> oldMappings = project.getMappings();
+    
+    if (newMappings.size() != oldMappings.size()) {
+      throw new InvalidMappingsException("Received " + newMappings.size() 
+        + " mappings but expected " + oldMappings.size());
+    }
+    
+    for (int i = 0; i < oldMappings.size(); i++) {
+      final Mapping oldMapping = oldMappings.get(i);
+      final Mapping newMapping = newMappings.get(i);
+      
+      if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
+        throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
+            + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
+            + newMapping.getRedcapFieldId());
+      }
+    }
+    
+    project.replaceMappings(newMappings);
+    dao.saveRedmatchProject(project);
+    return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
+  }
 
   /**
    * Imports the mappings from an Excel spreadsheat.
@@ -243,27 +279,7 @@ public class RedmatchApi {
       final List<Mapping> newMappings = excelImporter.importMappings(wb);
       log.info("Imported " + newMappings.size() + " from Excel.");
       
-      final List<Mapping> oldMappings = project.getMappings();
-      
-      if (newMappings.size() != oldMappings.size()) {
-        throw new InvalidMappingsException("Uploaded " + newMappings.size() 
-          + " mappings but expected " + oldMappings.size());
-      }
-      
-      for (int i = 0; i < oldMappings.size(); i++) {
-        final Mapping oldMapping = oldMappings.get(i);
-        final Mapping newMapping = newMappings.get(i);
-        
-        if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
-          throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
-              + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
-              + newMapping.getRedcapFieldId());
-        }
-      }
-      
-      project.replaceMappings(newMappings);
-      dao.saveRedmatchProject(project);
-      return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
+      return updateMappings(projectId, newMappings);
     } catch (IOException e) {
       throw new RedmatchException("There was an I/O problem importing the mappings from Excel.", e);
     }
@@ -481,6 +497,7 @@ public class RedmatchApi {
             mapping.setTargetSystem(oldMapping.getTargetSystem());
             mapping.setTargetCode(oldMapping.getTargetCode());
             mapping.setTargetDisplay(oldMapping.getTargetDisplay());
+            mapping.setValueSet(oldMapping.getValueSet());
           }
         }
       }

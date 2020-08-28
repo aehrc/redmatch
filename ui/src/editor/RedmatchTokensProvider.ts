@@ -67,7 +67,7 @@ export function tokensForLine(input: string): monaco.languages.ILineTokens {
                 const tokenTypeName = RedmatchLexer.VOCABULARY.getSymbolicName(token.type);
                 if (tokenTypeName !== undefined) {
                   let myToken = new RedmatchToken(tokenTypeName, token.charPositionInLine);
-                  console.log('TOKEN: ' + JSON.stringify(myToken));
+                  //console.log('TOKEN: ' + JSON.stringify(myToken));
                   myTokens.push(myToken);
               }
             }

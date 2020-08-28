@@ -54,6 +54,11 @@ public class Mapping {
    * A representation of the meaning of the code in the system, following the rules of the system.
    */
   private String targetDisplay;
+  
+  /**
+   * The value set that contains this code.
+   */
+  private String valueSet;
 
   public Mapping() {
 
@@ -135,11 +140,20 @@ public class Mapping {
     return this.targetDisplay != null;
   }
 
+  public String getValueSet() {
+    return valueSet;
+  }
+
+  public void setValueSet(String valueSet) {
+    this.valueSet = valueSet;
+  }
+
   @Override
   public String toString() {
     return "Mapping [id=" + id + ", redcapFieldId=" + redcapFieldId + ", redcapLabel=" + redcapLabel
         + ", redcapFieldType=" + redcapFieldType + ", text=" + text + ", targetSystem="
-        + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay + "]";
+        + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay
+        + ", valueSet=" + valueSet + "]";
   }
 
 }
