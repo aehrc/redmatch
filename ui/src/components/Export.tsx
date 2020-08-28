@@ -15,6 +15,23 @@ export default function Export(props: Props) {
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
 
+  useEffect(() =>{
+
+  });
+
+  const download = () => {
+    if (value === '') {
+      return;
+    }
+
+    const element = document.createElement("a");
+    const file = new Blob([value], {type: 'application/json'});
+    element.href = URL.createObjectURL(file);
+    element.download = `${projectId}.json`;
+    document.body.appendChild(element); // Required for this to work in FireFox
+    element.click();
+  };
+
   const onExport = (projectId: string) => {
     console.log('Exporting project ' + projectId);
     fetchData(projectId)
@@ -69,6 +86,13 @@ export default function Export(props: Props) {
           }
         >
           Export
+        </Button>
+        <Button
+          type="submit"
+          onClick={() => download()}
+          color="primary"
+        >
+          Download
         </Button>
       </Toolbar>
       <TextField
