@@ -22,14 +22,25 @@ export default function Mappings(props: Props) {
   const [mappings, setMappings] = useState<Mapping[]>(project.mappings);
   // The options available in the value sets autocomplete for each mapping
   const [options, setOptions] = useState<IValueSet[]>([]);
-
   // The selected value sets for each mapping
   const [valueSets, setValueSets] = useState<(IValueSet | null)[]>(() : (IValueSet | null)[] => {
     let data : (IValueSet | null)[] = [];
     // Initialise selected value sets so autocompletes are controlled
-    mappings.forEach((_m) => {
-      data.push(null);
+    mappings.forEach((m) => {
+      console.log('Mapping: ' + JSON.stringify(m));
+      if(m.valueSetUrl) {
+        let v : IValueSet = {
+          resourceType: 'ValueSet',
+          url: m.valueSetUrl,
+          name: m.valueSetName
+        };
+        data.push(v);
+      } else {
+        data.push(null);
+      }
+      
     });
+    console.log(data);
     return data;
   });
 
@@ -52,53 +63,83 @@ export default function Mappings(props: Props) {
   });
 
   useEffect(() => {
-    // Load implicit value sets
-    http.get<IBundle>(`${terminologyUrl}/CodeSystem`)
-      .then((response: AxiosResponse) => {
-        if (response.data && response.data.entry) {
-          const cs : IValueSet[] = response.data.entry
-            .filter((e: any) => {
-              if (e.resource) {
-                const ccs : ICodeSystem  = e.resource as ICodeSystem;
-                return ccs.valueSet !== 'http://csiro.au/redmatch-fhir?vs';
-              } else {
-                return false;
-              }
-            })
-            .map((e: any) => {
-              if (e.resource) {
-                const ccs : ICodeSystem  = e.resource as ICodeSystem;
-                const v: IValueSet = {
-                  resourceType: 'ValueSet',
-                  url: ccs.valueSet ? ccs.valueSet : '',
-                  name: ccs.name ? ccs.name + ' Implicit Value Set' : ''
-                };
-                return v;
-              } else {
-                const v: IValueSet = {
-                  resourceType: 'ValueSet',
-                  url: '',
-                  name: ''
-                };
-                return v;
+    const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem`);
+    const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_elements=url,name`);
+
+    http.all([implicit, explicit]).then(http.spread(function (imp, exp) {
+      let o = [];
+
+      // Process implicit value sets
+      if (imp.data && imp.data.entry) {
+        const cs : IValueSet[] = imp.data.entry
+        .filter((e: any) => {
+          if (e.resource) {
+            const ccs : ICodeSystem  = e.resource as ICodeSystem;
+            return ccs.valueSet !== 'http://csiro.au/redmatch-fhir?vs';
+          } else {
+            return false;
+          }
+        })
+        .map((e: any) => {
+          if (e.resource) {
+            const ccs : ICodeSystem  = e.resource as ICodeSystem;
+            const v: IValueSet = {
+              resourceType: 'ValueSet',
+              url: ccs.valueSet ? ccs.valueSet : '',
+              name: ccs.name ? ccs.name + ' Implicit Value Set' : ''
+            };
+            return v;
+          } else {
+            const v: IValueSet = {
+              resourceType: 'ValueSet',
+              url: '',
+              name: ''
+            };
+            return v;
+          };}); 
+        o.push(...cs);
+      }
+
+      // Process explicit value sets
+      if (exp.data && exp.data.entry) {
+        const cs : IValueSet[] = exp.data.entry
+          .map((e: any) => {
+            if (e.resource) {
+              const ccs : IValueSet = e.resource as IValueSet;
+              const v: IValueSet = {
+                resourceType: 'ValueSet',
+                url: ccs.url,
+                name: ccs.name
               };
-            }); 
-          setOptions(cs);
-        }
-      });
+              return v;
+            } else {
+              const v: IValueSet = {
+                resourceType: 'ValueSet',
+                url: '',
+                name: ''
+              };
+              return v;
+            };
+          }); 
+        o.push(...cs);
+      }
+
+      setOptions(o);
+    }));
   }, []);
 
-
   const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
+    console.log('option: ' + JSON.stringify(option) + ', value: ' + JSON.stringify(value));
     if (option == null && value == null) {
       return true;
     } else if (option && value && option.url === value.url) {
+      console.log('Returning true');
       return true;
     } else {
+      console.log('Returning false');
       return false;
     }
   };
-
 
   function renderContent() {
     if (!mappings || mappings.length < 1) {
@@ -147,7 +188,7 @@ export default function Mappings(props: Props) {
                       <Autocomplete
                         //id="system-combo-box-demo"
                         options={options}
-                        getOptionLabel={(option) => !Array.isArray(option) ? (option ? (option.name ? option.name : '') : '') : ''}
+                        getOptionLabel={(option) => option ? (option.name ? option.name : '') : ''}
                         onChange={(_, value: IValueSet | null) => {
                           setValueSets(prevArray => {
                             // Create new array and copy - otherwise will not re-render
@@ -166,12 +207,13 @@ export default function Mappings(props: Props) {
                             // Create new array and copy - otherwise will not re-render
                             const newArr = prevArray.map((m, j) => {
                               if (i === j && value) {
-                                if (m.valueSet === value.url) {
+                                if (m.valueSetUrl === value.url) {
                                   return m;
                                 } else {
                                   // Clone mapping, replace valueSet, and clear targetSystem, targetCode and targetDisplay
                                   var clone = { ...m };
-                                  clone.valueSet = value.url ? value.url : '';
+                                  clone.valueSetUrl = value.url ? value.url : '';
+                                  clone.valueSetName = value.name ? value.name : '';
                                   clone.targetSystem = '';
                                   clone.targetCode = '';
                                   clone.targetDisplay = '';
@@ -193,7 +235,7 @@ export default function Mappings(props: Props) {
                     <TableCell>
                       <CodeSearch
                         url={terminologyUrl}
-                        valueSetUrl={mapping.valueSet}
+                        valueSetUrl={mapping.valueSetUrl}
                         coding={codings[i]}
                         onChange={(newCoding: ICoding | null) => {
                           setMappings(prevArray => {

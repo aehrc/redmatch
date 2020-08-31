@@ -52,7 +52,8 @@ export interface Mapping {
   targetSystem: string;
   targetCode: string;
   targetDisplay: string;
-  valueSet: string;
+  valueSetUrl: string;
+  valueSetName: string;
 }
 
 export interface RedmatchApi {
