@@ -36,6 +36,7 @@ services:
       - ONTOSERVER_INSECURE=true
       - ontoserver.security.enabled=false
       - ontoserver.security.readOnly.fhir=true
+      - atom.syndication.feedLocation=https://r4.ontoserver.csiro.au/synd/syndication.xml
       #- ontoserver.fhir.base=http://ontoserver/fhir
     volumes:
       - onto:/var/onto
