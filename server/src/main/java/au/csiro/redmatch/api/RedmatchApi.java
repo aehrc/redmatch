@@ -497,7 +497,8 @@ public class RedmatchApi {
             mapping.setTargetSystem(oldMapping.getTargetSystem());
             mapping.setTargetCode(oldMapping.getTargetCode());
             mapping.setTargetDisplay(oldMapping.getTargetDisplay());
-            mapping.setValueSet(oldMapping.getValueSet());
+            mapping.setValueSetUrl(oldMapping.getValueSetUrl());
+            mapping.setValueSetName(oldMapping.getValueSetName());
           }
         }
       }

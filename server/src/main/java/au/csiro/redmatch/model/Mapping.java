@@ -56,9 +56,14 @@ public class Mapping {
   private String targetDisplay;
   
   /**
-   * The value set that contains this code.
+   * The URL of the value set that contains this code.
    */
-  private String valueSet;
+  private String valueSetUrl;
+  
+  /**
+   * The name of the value set that contains this code.
+   */
+  private String valueSetName;
 
   public Mapping() {
 
@@ -140,12 +145,20 @@ public class Mapping {
     return this.targetDisplay != null;
   }
 
-  public String getValueSet() {
-    return valueSet;
+  public String getValueSetUrl() {
+    return valueSetUrl;
   }
 
-  public void setValueSet(String valueSet) {
-    this.valueSet = valueSet;
+  public void setValueSetUrl(String valueSetUrl) {
+    this.valueSetUrl = valueSetUrl;
+  }
+
+  public String getValueSetName() {
+    return valueSetName;
+  }
+
+  public void setValueSetName(String valueSetName) {
+    this.valueSetName = valueSetName;
   }
 
   @Override
@@ -153,7 +166,7 @@ public class Mapping {
     return "Mapping [id=" + id + ", redcapFieldId=" + redcapFieldId + ", redcapLabel=" + redcapLabel
         + ", redcapFieldType=" + redcapFieldType + ", text=" + text + ", targetSystem="
         + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay
-        + ", valueSet=" + valueSet + "]";
+        + ", valueSetUrl=" + valueSetUrl + ", valueSetName=" + valueSetName + "]";
   }
 
 }
