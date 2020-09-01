@@ -1,4 +1,4 @@
-import MonacoEditor from "react-monaco-editor";
+import MonacoEditor, { MonacoEditorProps } from "react-monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 import { makeStyles } from "@material-ui/core/styles";
 import { RedmatchTokensProvider } from "../editor/RedmatchTokensProvider";
@@ -20,34 +20,33 @@ interface Props {
 }
 
 export default function Rules(props: Props) {
-  const classes = useStyles(),
-    { project, updateStatus, onSave } = props,
-    [request, setRequest] = useState<RedmatchProject>(project),
-    [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
+  const classes = useStyles();
+  const { project, updateStatus, onSave } = props;
+  const [request, setRequest] = useState<RedmatchProject>(project);
+  const [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
 
   const onChangeRules = (value: string) => {
+    console.log("onChangeRules");
     request.rulesDocument = value;
     setRequest(request);
+    console.log("onChange");
   }
 
+  /*
+   * Runs every time the project is updated and process any error markers.
+   */
   React.useEffect(() => {
-    if (model !== undefined) {
-      let markers = project.issues.map((item) => {
-        return {
-          startLineNumber: item.rowStart,
-          startColumn: item.colStart + 1,
-          endLineNumber: item.rowEnd,
-          endColumn: item.colEnd + 1,
-          message: item.text,
-          severity: item.annotationType === 'ERROR' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning
-        };
-      });
-      if (model !== null) {
-        monaco.editor.setModelMarkers(model, "owner", markers);
-      }
+    if (model) {
+      let markers = getMarkers(project);
+      monaco.editor.setModelMarkers(model, "owner", markers);
     }
-  }, []);
+  }, [project]);
 
+  /**
+   * Sets ups syntax highlighting.
+   * 
+   * @param monaco The Monaco editor instance.
+   */
   function editorWillMount(monaco: typeof monacoEditor) {
     monaco.languages.register({ id: "redmatch" });
     monaco.languages.setTokensProvider("redmatch", new RedmatchTokensProvider());
@@ -86,10 +85,34 @@ export default function Rules(props: Props) {
     });
   }
 
+  /*
+   * Creates the Monaco editor model.
+   */
   function editorDidMount(editor: monacoEditor.editor.IStandaloneCodeEditor, _monaco: typeof monacoEditor) {
-    let m = editor.getModel();
-    console.log('editorDidMount, model: ' + model);
-    setModel(m);
+    var model = monaco.editor.createModel(request.rulesDocument, "redmatch");
+    editor.setModel(model);
+    setModel(model);
+    let markers = getMarkers(project);
+    monaco.editor.setModelMarkers(model, "owner", markers);
+  }
+
+  /*
+   *
+   * Transforms the errors in a Redmatch project into the format required by Monaco.
+   *  
+   * @param project 
+   */
+  function getMarkers (project: RedmatchProject) {
+    return project.issues.map((item) => {
+      return {
+        startLineNumber: item.rowStart,
+        startColumn: item.colStart + 1,
+        endLineNumber: item.rowEnd,
+        endColumn: item.colEnd + 1,
+        message: item.text,
+        severity: item.annotationType === 'ERROR' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning
+      };
+    });
   }
 
   return (
