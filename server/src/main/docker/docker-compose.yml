@@ -36,8 +36,8 @@ services:
       - ONTOSERVER_INSECURE=true
       - ontoserver.security.enabled=false
       - ontoserver.security.readOnly.fhir=true
-      - atom.syndication.feedLocation=https://r4.ontoserver.csiro.au/synd/syndication.xml
-      #- ontoserver.fhir.base=http://ontoserver/fhir
+      #- authentication.oauth.endpoint.client_id.0=NCTS_ACCESS_CODE
+      #- authentication.oauth.endpoint.client_secret.0=NCTS_CLIENT_SECRET
     volumes:
       - onto:/var/onto
   mongo:
