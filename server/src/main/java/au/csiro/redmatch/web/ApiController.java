@@ -428,9 +428,25 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{projectId}/$update", 
       method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<Void> refreshRedcapData(@PathVariable String projectId) {
-    api.refreshRedcapMetadata(projectId);
-    return new ResponseEntity<Void>(HttpStatus.OK);
+  public ResponseEntity<RedmatchProject> refreshRedcapMetadata(
+      @PathVariable String projectId,
+      UriComponentsBuilder b) {
+    OperationResponse rr = api.refreshRedcapMetadata(projectId);
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    
+    final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setLocation(uriComponents.toUri());
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    switch (rr.getStatus()) {
+      case UPDATED:
+        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+      case CREATED:
+      default:
+        throw new RuntimeException(
+            "Unexpected status " + rr.getStatus() + ". This should never happen!");
+    }
   }
   
   @RequestMapping(value = "/username", method = RequestMethod.GET)

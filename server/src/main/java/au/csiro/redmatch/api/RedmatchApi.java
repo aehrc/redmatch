@@ -372,13 +372,15 @@ public class RedmatchApi {
   }
 
   /**
-   * Updated the REDCap data in a Redmatch project.
+   * Updates the REDCap metadata in a Redmatch project.
    * 
    * @param redmatchProjectId
    *          The id of the Redmatch project.
+   * @return The result of the update.
    */
   @Transactional
-  public void refreshRedcapMetadata(String redmatchProjectId) {
+  public OperationResponse refreshRedcapMetadata(String redmatchProjectId) {
+    log.info("Refreshing REDCap metadata for project " + redmatchProjectId);
     // We need to get the Redmatch project
     final Optional<RedmatchProject> fcp = dao.getRedmatchProject(redmatchProjectId);
     if (!fcp.isPresent()) {
@@ -386,9 +388,18 @@ public class RedmatchApi {
           + " was not found.");
     }
     
-    final RedmatchProject fp = fcp.get();
-    processRedmatchProject(fp);
-    dao.saveRedmatchProject(fp);
+    final RedmatchProject project = fcp.get();
+    
+    // Update metadata
+    log.info("Getting new metadata from REDCap");
+    project.setMetadata(getMetadataFromRedcap(project.getRedcapUrl(), project.getToken(), 
+        project.getReportId()));
+    
+    processRedmatchProject(project);
+    dao.saveRedmatchProject(project);
+    
+    log.info("Finished updating metadata");
+    return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
   }
   
   /**
