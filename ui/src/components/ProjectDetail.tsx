@@ -81,6 +81,19 @@ export default function ProjectDetail(props: Props) {
     updateMappings([reportId, newMappings]);
   }
 
+  const handleUpdate = () => {
+    updateMetadata([reportId]);
+  }
+
+  const [updateMetadata, { status: updateStatusMetadata, error: updateErrorMetadata }] = 
+    useMutation<RedmatchProject,[string]>(
+      RedmatchApi(redmatchUrl).updateMetadata, {
+        onSettled: () => {
+          queryCache.invalidateQueries('RedmatchProject')
+        }
+      }
+    );
+
   const [updateRules, { status: updateStatusRules, error: updateErrorRules }] = 
     useMutation<RedmatchProject,[string, string]>(
       RedmatchApi(redmatchUrl).updateRules, {
@@ -185,7 +198,7 @@ export default function ProjectDetail(props: Props) {
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <ProjectMetadata project={project} />
+          <ProjectMetadata metadata={project.metadata} onUpdate={handleUpdate} updateStatus={updateStatusMetadata}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={2} value={activeTab}>
           <Rules project={project} onSave={handleOnSaveRules} updateStatus={updateStatusRules}/>

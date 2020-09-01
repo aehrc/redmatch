@@ -60,9 +60,9 @@ export interface RedmatchApi {
   getProjects: QueryFunction<RedmatchProject[], [string]>;
   getProject: QueryFunction<RedmatchProject, [string, string]>;
   createProject: MutationFunction<RedmatchProject, UnsavedRedmatchProject>;
-  // updateProject: MutationFunction<RedmatchProject, RedmatchProject>;
   updateRules: MutationFunction<RedmatchProject, [string, string]>;
   updateMappings: MutationFunction<RedmatchProject, [string, Mapping[]]>;
+  updateMetadata: MutationFunction<RedmatchProject, [string]>;
 }
 
 export default (redmatchUrl: string): RedmatchApi => {
@@ -89,6 +89,12 @@ export default (redmatchUrl: string): RedmatchApi => {
       return post<RedmatchProject>(
         `${redmatchUrl}/project/${params[0]}/$update-mappings`,
         params[1]
+      );
+    },
+    updateMetadata: async function(params: any[]) {
+      return post<RedmatchProject>(
+        `${redmatchUrl}/project/${params[0]}/$update`,
+        null
       );
     }
   };
