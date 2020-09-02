@@ -52,5 +52,10 @@ public class ReferenceValue extends Value {
   public String toString() {
     return "REF(" + resourceType + "<" + resourceId + ">)";
   }
+
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

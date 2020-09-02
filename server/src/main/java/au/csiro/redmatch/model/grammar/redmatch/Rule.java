@@ -177,6 +177,19 @@ public class Rule extends GrammarObject {
     
     return res;
   }
+  
+  /**
+   * Indicates if this rule references any fields in the REDCap form. For example, the rule 
+   * <b>TRUE { Observation<o> : * status = CODE_LITERAL(final) }</b> does not reference any elements
+   * in the data and therefore should only generate a single resource, not a resource per row.
+   * 
+   * @return True if the rule references any form fields (including the condition), or false 
+   * otherwise.
+   */
+  public boolean referencesData() {
+    return condition.referencesData() || body.referencesData() 
+        || (elseBody != null ? elseBody.referencesData() : false);
+  }
 
   private Collection<Resource> doGetResourcesToCreate(Metadata metadata, Map<String, String> data, 
       Body body) {

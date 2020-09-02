@@ -67,5 +67,9 @@ public class ConceptLiteralValue extends Value {
   public String toString() {
     return system + "|" + code + display != null ? ("|" + display) : "";
   }
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

@@ -45,4 +45,9 @@ public class CodeLiteralValue extends Value {
     return "CodeLiteralValue [code=" + code + "]";
   }
 
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
+
 }

@@ -143,7 +143,31 @@ public class FhirExporter {
     final Map<String, DomainResource> res = new HashMap<>();
     final String uniqueField = metadata.getUniqueFieldId();
     
+    final Map<String, Set<String>> uniqueResources = new HashMap<>();
+    
     if (rulesDocument != null) {
+      // First iterate over the rules that don't depend on the data
+      for (Rule rule : rulesDocument.getRules()) {
+        if (!rule.referencesData()) {
+          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
+            Set<String> s = uniqueResources.get(r.getResourceType());
+            if (s == null) {
+              s = new HashSet<>();
+              uniqueResources.put(r.getResourceType(), s);
+            }
+            s.add(r.getResourceId());
+          }
+        }
+      }
+      
+      for (Rule rule : rulesDocument.getRules()) {
+        if (!rule.referencesData()) {
+          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
+            createResource(r, res, metadata, null, mappings, null, uniqueResources);
+          }
+        }
+      }
+      
       // Iterate over data and create resources
       for (Row row : rows) {
         final Map<String, String> data = row.getData();
@@ -154,8 +178,10 @@ public class FhirExporter {
         }
         
         for (Rule rule : rulesDocument.getRules()) {
-          for(Resource r : rule.getResourcesToCreate(metadata, data)) {
-            createResource(r, res, metadata, data, mappings, recordId);
+          if (rule.referencesData()) {
+            for(Resource r : rule.getResourcesToCreate(metadata, data)) {
+              createResource(r, res, metadata, data, mappings, recordId, uniqueResources);
+            }
           }
         }
       }
@@ -177,12 +203,14 @@ public class FhirExporter {
    * @param metadata The REDCap metadata.
    * @param data The row of REDCap data.
    * @param recordId The id of this record. Used to create the FHIR ids.
+   * @param uniqueResources Map of resources that have a single instance.
    */
   @Transactional
   private void createResource(Resource r, Map<String, DomainResource> res, Metadata metadata, 
-      Map<String, String> data, List<Mapping> mappings, String recordId) {
+      Map<String, String> data, List<Mapping> mappings, String recordId, 
+      Map<String, Set<String>> uniqueResources) {
     final String resourceId = r.getResourceId();
-    final String fhirId = resourceId + "-" + recordId;
+    final String fhirId = resourceId + (recordId != null ? ("-" + recordId) : "");
 
     DomainResource resource = res.get(fhirId);
     if (resource == null) {
@@ -201,7 +229,7 @@ public class FhirExporter {
     }
     for (AttributeValue attVal : r.getResourceAttributeValues()) {
       setValue(resource, attVal.getAttributes(), attVal.getValue(), metadata, data, mappings, 
-          recordId);
+          recordId, uniqueResources);
     }
   }
   
@@ -216,12 +244,14 @@ public class FhirExporter {
    * @param metadata The REDCap metadata.
    * @param row The row of data to be used to set this value.
    * @param mappings Mappings of REDCap codes to codes in a terminology.
-   * @param recordId
+   * @param recordId The id of this record. Used to create the FHIR ids.
+   * @param uniqueResources Map of resources that have a single instance.
    */
   @Transactional
   private void setValue(DomainResource resource, List<Attribute> attributes,
       au.csiro.redmatch.model.grammar.redmatch.Value value, Metadata metadata, 
-      Map<String, String> row, List<Mapping> mappings, String recordId) {
+      Map<String, String> row, List<Mapping> mappings, String recordId, 
+      Map<String, Set<String>> uniqueResources) {
 
     // Get chain of attribute names
     final List<Attribute> attributesCopy = new ArrayList<>();
@@ -258,7 +288,8 @@ public class FhirExporter {
         }
       }
       
-      theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory);
+      theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory, 
+          uniqueResources);
       if (theValue == null) {
         throw new RuleApplicationException("Unable to get value: " + value);
       }
@@ -302,12 +333,13 @@ public class FhirExporter {
    * @param mappings A list of mappings between REDCap values and codes in a terminology.
    * @param recordId The id of this record. Used to create the references to FHIR ids.
    * @param enumFactory If the type is an enumeration, this is the fatory to create an instance.
+   * @param uniqueResources Map of resources that have a single instance.
    * @return The value or null if the value cannot be determined. This can also be a list.
    */
   @Transactional
   private Base getValue(au.csiro.redmatch.model.grammar.redmatch.Value value, Class<?> fhirType,
       Metadata metadata, Map<String, String> row, List<Mapping> mappings, String recordId, 
-      Class<?> enumFactory) {
+      Class<?> enumFactory, Map<String, Set<String>> uniqueResources) {
     if(value instanceof BooleanValue) {
       return new BooleanType(((BooleanValue) value).getValue());
     } else if (value instanceof CodeLiteralValue) {
@@ -327,8 +359,18 @@ public class FhirExporter {
     } else if (value instanceof ReferenceValue) {
       ReferenceValue rv = (ReferenceValue) value;
       Reference ref = new Reference();
+      
+      String resourceType = rv.getResourceType();
       String resourceId = rv.getResourceId();
-      ref.setReference("/" + rv.getResourceType() + "/" + resourceId + "-" + recordId);
+      
+      Set<String> s = uniqueResources.get(resourceType);
+      if (s != null && s.contains(resourceId)) {
+        // This is a reference to a unique resource - no need to append row id
+        ref.setReference("/" + rv.getResourceType() + "/" + resourceId);
+      } else {
+        ref.setReference("/" + rv.getResourceType() + "/" + resourceId + "-" + recordId);
+      }
+      
       return ref;
     } else if (value instanceof StringValue) {
       if (fhirType.equals(StringType.class)) {
@@ -688,6 +730,10 @@ public class FhirExporter {
   
   
   private String getValue(Map<String, String> row, String fieldId) {
+    if (row == null) {
+      throw new RuntimeException("Row was null when getting value for field " + fieldId + ". This "
+          + "should never happen!");
+    }
     String s = row.get(fieldId);
     if (s == null) {
       throw new RuleApplicationException("Coudln't find any value for field " + fieldId + " in row "
@@ -708,6 +754,10 @@ public class FhirExporter {
    */
   private Mapping getSelectedMapping(String fieldId, Map<String, String> row, Metadata metadata, 
       List<Mapping> mappings) {
+    if (row == null) {
+      throw new RuntimeException("Row was null when getting selected mapping for field " 
+          + fieldId + ". This should never happen!");
+    }
     au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
     FieldType ft = f.getFieldType();
     if (ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOWN)) {

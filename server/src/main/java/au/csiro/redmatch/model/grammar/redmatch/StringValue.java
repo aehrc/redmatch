@@ -33,5 +33,10 @@ public class StringValue extends Value {
   public String toString() {
     return "'" + stringValue + "'";
   }
+
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

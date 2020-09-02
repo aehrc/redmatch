@@ -89,4 +89,9 @@ public class ConditionNode extends Condition {
     return leftCondition + " " + op + " " + rightCondition;
   }
 
+  @Override
+  public boolean referencesData() {
+    return leftCondition.referencesData() || rightCondition.referencesData();
+  }
+
 }

@@ -60,4 +60,9 @@ public class AttributeValue extends GrammarObject {
     return sb.toString();
   }
 
+  @Override
+  public boolean referencesData() {
+    return value.referencesData();
+  }
+
 }

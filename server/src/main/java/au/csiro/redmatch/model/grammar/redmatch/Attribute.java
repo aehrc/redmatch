@@ -62,4 +62,9 @@ public class Attribute extends GrammarObject {
     return "." + name + ((attributeIndex != null) ? "[" + attributeIndex + "]" : "");
   }
 
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
+
 }

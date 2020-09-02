@@ -26,5 +26,14 @@ public class RuleList extends GrammarObject {
   public List<Rule> getRules() {
     return rules;
   }
+
+  @Override
+  public boolean referencesData() {
+    boolean referencesData = false;
+    for (Rule r : rules) {
+      referencesData = referencesData || r.referencesData();
+    }
+    return referencesData;
+  }
   
 }

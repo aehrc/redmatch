@@ -79,4 +79,13 @@ public class Resource extends GrammarObject {
     return sb.toString();
   }
 
+  @Override
+  public boolean referencesData() {
+    boolean referencesData = false;
+    for (AttributeValue av : resourceAttributeValues) {
+      referencesData = referencesData || av.referencesData();
+    }
+    return referencesData;
+  }
+
 }

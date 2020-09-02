@@ -24,6 +24,7 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationStatus;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.ResearchStudy;
 import org.hl7.fhir.r4.model.Type;
 import org.junit.Before;
 import org.junit.Test;
@@ -99,7 +100,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     
     System.out.println(res.keySet());
     
-    assertEquals(2, res.keySet().size());
+    assertEquals(3, res.keySet().size());
 
     assertTrue(res.containsKey("pat-gene-1"));
     DomainResource dr = res.get("pat-gene-1");
@@ -128,6 +129,23 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals("http://www.genenames.org/geneId", c.getSystem());
     assertEquals("HGNC:1101", c.getCode());
     assertEquals("BRCA2", c.getDisplay());
+    
+    assertTrue(res.containsKey("rstud"));
+    dr = res.get("rstud");
+    assertTrue(dr instanceof ResearchStudy);
+    ResearchStudy rs = (ResearchStudy) dr;
+    assertTrue(rs.hasIdentifier());
+    assertEquals(1, rs.getIdentifier().size());
+    Identifier id = rs.getIdentifierFirstRep();
+    assertTrue(id.hasType());
+    CodeableConcept idType = id.getType();
+    assertTrue(idType.hasCoding());
+    Coding cod = idType.getCodingFirstRep();
+    assertEquals("http://genomics.ontoserver.csiro.au/clipi/CodeSystem/IdentifierType", cod.getSystem());
+    assertEquals("RSI", cod.getCode());
+    assertEquals("Research study identifier", cod.getDisplay());
+    assertEquals("http://www.australiangenomics.org.au/id/research-study", id.getSystem());
+    assertEquals("mito", id.getValue());
   }
   
   @Test

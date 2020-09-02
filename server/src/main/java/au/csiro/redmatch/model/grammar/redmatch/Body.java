@@ -92,5 +92,19 @@ public class Body extends GrammarObject {
     
     return sb.toString();
   }
+  
+  public boolean referencesData() {
+    boolean referencesData = false;
+    
+    for(Rule rule : rules) {
+      referencesData = referencesData || rule.referencesData();
+    }
+    
+    for (Resource res : resources) {
+      referencesData = referencesData || res.referencesData();
+    }
+    
+    return referencesData;
+  }
 
 }

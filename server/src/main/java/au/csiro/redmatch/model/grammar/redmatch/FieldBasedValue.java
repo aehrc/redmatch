@@ -30,4 +30,9 @@ public abstract class FieldBasedValue extends Value {
   public void setFieldId(String fieldId) {
     this.fieldId = fieldId;
   }
+  
+  @Override
+  public boolean referencesData() {
+    return true;
+  }
 }
