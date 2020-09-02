@@ -1,24 +1,24 @@
 // Always create a patient.
 TRUE { 
   Patient<p>:
-    * identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC),
-    * identifier.type.text = 'Medicare Number',
-    * identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number',
-    * identifier.value = VALUE(pat_medicare);
+    * identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
+    * identifier.type.text = 'Medicare Number'
+    * identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number'
+    * identifier.value = VALUE(pat_medicare)
 }
 
 // Set the 'deceased' attribute for the patient depending on the information that is available. This
 // is an example of value[x] types.
 VALUE(pat_dead) = 1 {
   NOTNULL(pat_dead_date) {
-    Patient<p>: * deceasedDateTime = VALUE(pat_dead_date);
+    Patient<p>: * deceasedDateTime = VALUE(pat_dead_date)
   } ELSE {
-    Patient<p>: * deceasedBoolean = TRUE;
+    Patient<p>: * deceasedBoolean = TRUE
   }
 }
 
 VALUE(pat_dead) = 0 {
-  Patient<p>: * deceasedBoolean = FALSE;
+  Patient<p>: * deceasedBoolean = FALSE
 }
 
 // The 'pat_sex' field is a radio button. The condition evaluates to true if any value is selected.
@@ -26,7 +26,7 @@ VALUE(pat_dead) = 0 {
 // expression is used because the gender attribute in a FHIR patient is of type code.
 NOTNULL(pat_sex) {
   Patient<p>:
-    * gender = CODE_SELECTED(pat_sex);
+    * gender = CODE_SELECTED(pat_sex)
 }
 
 // This rule transforms a pattern that can be used in REDCap to capture multiple items. A drop down
@@ -42,14 +42,14 @@ VALUE(dx_num) > 0 {
     VALUE(dx_${x}) = 'NOT_FOUND' {
       // No code was found so we use the free text
       Condition<c${x}>: 
-        * code.text = VALUE(dx_text_${x}),
-        * subject = REF(Patient<p>);
+        * code.text = VALUE(dx_text_${x})
+        * subject = REF(Patient<p>)
     } ELSE {
       // We use the code selected using the terminology server. The CONCEPT keyword is used to
       // create a FHIR coding or codeable concept.
       Condition<c${x}>: 
-        * code = CONCEPT(dx_${x}),
-        * subject = REF(Patient<p>);
+        * code = CONCEPT(dx_${x})
+        * subject = REF(Patient<p>)
     }
   }
 }
@@ -62,145 +62,145 @@ VALUE(dx_num) > 0 {
 REPEAT(1..4: x)
 NOTNULL(phenotype___${x}) {
   Observation<obs${x}>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(phenotype___${x}),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(phenotype___${x})
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
 }
 
 // Some forms use yes / no matrixes to capture information
 VALUE(m_weak) = 1 {
   Observation<m-weak>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(m_weak),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(m_weak)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
 }
 
 VALUE(m_weak) = 0 {
   Observation<m-weak>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(m_weak),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(m_weak)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG)
 }
 
 VALUE(facial) = 1 {
   Observation<facial>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(facial),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(facial)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
 }
 
 VALUE(facial) = 2 {
   Observation<facial>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(facial),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(facial)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG)
 }
 
 VALUE(ptosis) = 1 {
   Observation<ptosis>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(ptosis),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(ptosis)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
 }
 
 VALUE(ptosis) = 2 {
   Observation<ptosis>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(ptosis),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(ptosis)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG)
 }
 
 VALUE(oph) = 1 {
   Observation<oph>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(oph),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(oph)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
 }
 
 VALUE(oph) = 2 {
   Observation<oph>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(oph),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG);
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(oph)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|NEG)
 }
 
 // Some matrixes have several options
 VALUE(left_bicep___1) = 1 {
   Observation<left-bicep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(left_bicep___1),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(left_bicep___1)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left')
 }
 
 VALUE(left_bicep___3) = 1 {
   Observation<left-bicep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(left_bicep___3),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(left_bicep___3)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left')
 }
 
 VALUE(right_bicep___1) = 1 {
   Observation<right-bicep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(right_bicep___1),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(right_bicep___1)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right')
 }
 
 VALUE(right_bicep___3) = 1 {
   Observation<right-bicep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(right_bicep___3),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(right_bicep___3)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699956003|'Biceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right')
 }
 
 VALUE(left_tricep___1) = 1 {
   Observation<left-tricep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(left_tricep___1),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(left_tricep___1)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left')
 }
 
 VALUE(left_tricep___3) = 1 {
   Observation<left-tricep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(left_tricep___3),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(left_tricep___3)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012835|'Left')
 }
 
 VALUE(right_tricep___1) = 1 {
   Observation<right-tricep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(right_tricep___1),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(right_tricep___1)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right')
 }
 
 VALUE(right_tricep___3) = 1 {
   Observation<right-tricep>:
-    * status = CODE_LITERAL(final),
-    * code = CONCEPT(right_tricep___3),
-    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS),
-    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure'),
-    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality'),
-    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right');
+    * status = CODE_LITERAL(final)
+    * code = CONCEPT(right_tricep___3)
+    * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+    * bodySite = CONCEPT_LITERAL(http://snomed.info/sct|699996001|'Triceps brachii muscle and/or tendon structure')
+    * component[0].code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012831|'Laterality')
+    * component[0].valueCodeableConcept = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0012834|'Right')
 }

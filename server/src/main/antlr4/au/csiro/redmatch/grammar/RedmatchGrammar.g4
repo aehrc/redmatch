@@ -29,7 +29,7 @@ condition
     ;
 
 resource
-    : RESOURCE LT ID GT COLON attribute value (COMMA attribute value)* END
+    : RESOURCE LT ID GT COLON attribute value (attribute value)*
     ;
   
 attribute

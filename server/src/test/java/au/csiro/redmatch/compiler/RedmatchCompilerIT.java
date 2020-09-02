@@ -91,12 +91,12 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void testInvalidKeyword() {
     String rule = "TRUE { \n" + 
         "  Patient<p-1>: \n" + 
-        "    *identifier[0].value = VALUE(record_id); \n" + 
+        "    *identifier[0].value = VALUE(record_id) \n" + 
         "}\n" + 
         "\n" + 
         "BALUE(pat_sex_xy) = 21 { \n" + 
         "  Patient<p>: \n" + 
-        "    *gender = CODE_LITERAL(male); \n" + 
+        "    *gender = CODE_LITERAL(male) \n" + 
         "}";
     
     printTokens(rule);
@@ -112,8 +112,8 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
    */
   @Test
   public void testValidOneLiners() {
-    String rule = "VALUE(pat_sex) = 1 { Patient<p>: *gender = CODE_LITERAL(male); }\n" + 
-        "VALUE(pat_sex) = 2 { Patient<p>: *gender = CODE_LITERAL(female); }";
+    String rule = "VALUE(pat_sex) = 1 { Patient<p>: *gender = CODE_LITERAL(male) }\n" + 
+        "VALUE(pat_sex) = 2 { Patient<p>: *gender = CODE_LITERAL(female) }";
     
     printTokens(rule);
     
@@ -181,7 +181,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testInvalidOneLiner() {
-    String rule = "TTRUE { Patient<p>: *gender = CODE_LITERAL(male); }";
+    String rule = "TTRUE { Patient<p>: *gender = CODE_LITERAL(male) }";
     
     printTokens(rule);
     
@@ -194,7 +194,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testLoincConceptLiteral() {
-    String rule = "TRUE { Observation<o>: *code = CONCEPT_LITERAL(http://loinc.org|48018-6); }";
+    String rule = "TRUE { Observation<o>: *code = CONCEPT_LITERAL(http://loinc.org|48018-6) }";
     
     printTokens(rule);
     
@@ -211,7 +211,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testComplexCondition() {
     String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 "
-        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -232,7 +232,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testEvenMoreComplexCondition() {
     String rule = "VALUE(facial) = 1 & VALUE(ptosis) = 1 | VALUE(oph) = 2"
-        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -253,7 +253,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Test
   public void testComplexConditionWithParenthesis() {
     String rule = "VALUE(facial) = 1 & (VALUE(ptosis) = 1 | VALUE(oph) = 2)"
-        + "{ Patient<p>: *identifier[0].value = VALUE(record_id); }";
+        + "{ Patient<p>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -273,7 +273,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testInvalidField() {
-    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(stud_num); }";
+    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(stud_num) }";
     
     printTokens(rule);
     
@@ -286,7 +286,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testValidId() {
-    final String rule = "TRUE { Patient<p-1>: *identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p-1>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -302,7 +302,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
    */
   @Test
   public void testInvalidId() {
-    final String rule = "TRUE { Patient<p_1>: *identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p_1>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -317,7 +317,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void testInvalidId2() {
     final String rule = "// Might lose some detail here if other is specified - should migrate to "
         + "Ontoserver plugin\nVALUE(m_weak) = 1 { "
-        + "Observation<mito_cd_atax>: *status = CODE_LITERAL(final); }";
+        + "Observation<mito_cd_atax>: *status = CODE_LITERAL(final) }";
     
     printTokens(rule);
     
@@ -330,7 +330,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testListExplicit() {
-    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifier[0].value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -377,7 +377,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testListImplicit() {
-    final String rule = "TRUE { Patient<p>: *identifier.value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifier.value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -424,7 +424,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testWrongAttribute() {
-    final String rule = "TRUE { Patient<p>: *identifiers.value = VALUE(record_id); }";
+    final String rule = "TRUE { Patient<p>: *identifiers.value = VALUE(record_id) }";
     
     printTokens(rule);
     
@@ -441,10 +441,10 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     final String rule = 
         "TRUE { \n" + 
         "  Patient<p>:\n" + 
-        "    *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC),\n" + 
-        "    *identifier.type.text = 'Medicare Number',\n" + 
-        "    *identifier.system = \'http://ns.electronichealth.net.au/id/medicare-number\',\n" + 
-        "    *identifier.value = VALUE(pat_medicare);\n" + 
+        "    *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)\n" + 
+        "    *identifier.type.text = 'Medicare Number'\n" + 
+        "    *identifier.system = \'http://ns.electronichealth.net.au/id/medicare-number\'\n" + 
+        "    *identifier.value = VALUE(pat_medicare)\n" + 
         "}";
     
     printTokens(rule);
@@ -505,13 +505,13 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "  VALUE(dx_${x}) = \'NOT_FOUND\' {\n" + 
         "    // No code was found so we use the free text\n" + 
         "    Condition<c${x}>: \n" + 
-        "      *code.text = VALUE(dx_text_${x}),\n" + 
-        "      *subject = REF(Patient<p>);\n" + 
+        "      *code.text = VALUE(dx_text_${x})\n" + 
+        "      *subject = REF(Patient<p>)\n" + 
         "  } ELSE {\n" + 
         "    // We use the code selected using the terminology server\n" + 
         "    Condition<c${x}>: \n" + 
-        "      *code = CONCEPT(dx_${x}),\n" + 
-        "      *subject = REF(Patient<p>);\n" + 
+        "      *code = CONCEPT(dx_${x})\n" + 
+        "      *subject = REF(Patient<p>)\n" + 
         "  }\n" + 
         "}";
     

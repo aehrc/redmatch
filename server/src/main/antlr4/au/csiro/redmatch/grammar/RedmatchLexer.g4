@@ -18,8 +18,6 @@ LT                : '<';
 GT                : '>';
 LTE               : '<='; 
 GTE               : '>=';
-COMMA             : ',';
-END               : ';';
 CONCEPT           : 'CONCEPT';
 CONCEPT_SELECTED  : 'CONCEPT_SELECTED';
 CODE_SELECTED     : 'CODE_SELECTED';
