@@ -60,8 +60,7 @@ public class RedmatchGrammarCodeSystemGenerator {
   private Map<String, String> pathToTypeMap = new HashMap<>();
   private List<ConceptDefinitionComponentElementDefinitionPair> missingTypes = new ArrayList<>();
   private final String fhirpathBase = "http://hl7.org/fhirpath/";
-  
-  private CodeSystem cs;
+   
   private FhirVersionEnum fhirVersion;
   
   private Set<String> allCodes = new HashSet<>();
@@ -69,16 +68,121 @@ public class RedmatchGrammarCodeSystemGenerator {
   
   public RedmatchGrammarCodeSystemGenerator(FhirVersionEnum fhirVersion) {
     this.fhirVersion = fhirVersion;
+  }
+  
+  public CodeSystem[] createCodeSystems(Bundle types, Bundle resources) 
+      throws FileNotFoundException {
+    log.info("Indexing structure definitions");
+    for (BundleEntryComponent bec : types.getEntry()) {
+      org.hl7.fhir.r4.model.Resource res = bec.getResource();
+      if (res.getResourceType().equals(ResourceType.StructureDefinition) 
+          && !((StructureDefinition) res).getAbstract()) {
+        StructureDefinition sd = (StructureDefinition) res;
+        switch (sd.getKind()) {
+        case COMPLEXTYPE:
+          complexTypeMap.put(sd.getName(), sd);
+          break;
+        case PRIMITIVETYPE:
+          primitiveTypeMap.put(sd.getName(), sd);
+          break;
+        case LOGICAL:
+        case NULL:
+        case RESOURCE:
+        default:
+          log.debug("Ignoring " + sd.getName());
+          break;
+        }
+      }
+    }
     
-    cs = new CodeSystem();
-    cs.setId("redmatch-fhir");
-    cs.setUrl("http://csiro.au/redmatch-fhir");
+    for (BundleEntryComponent bec : resources.getEntry()) {
+      org.hl7.fhir.r4.model.Resource res = bec.getResource();
+      if (res.getResourceType().equals(ResourceType.StructureDefinition)
+          && !((StructureDefinition) res).getAbstract()) {
+        resourceMap.put(((StructureDefinition) res).getName(), (StructureDefinition) res);
+      }
+    }
+    
+    // Create resource code system
+    log.info("Creating resources code system");
+    CodeSystem resCs = createBaseResourceCodeSystem();
+    
+    for (String key : resourceMap.keySet()) {
+      StructureDefinition res = resourceMap.get(key);
+      processStructureDefinition(resCs, res, false, "", true);
+    }
+    
+    allCodes.add("DomainResource");
+    addMissingTypes();
+    
+    allParents.removeAll(allCodes);
+    for (String code : allParents) {
+      log.warn("Parent code " + code + " does not exist.");
+    }
+    
+    allCodes.clear();
+    allParents.clear();
+    log.info("Creating complex types code system");
+    CodeSystem ctCs = createBaseComplexTypesCodeSystem();
+    
+    for (String key : complexTypeMap.keySet()) {
+      StructureDefinition ct = complexTypeMap.get(key);
+      log.info("Processing " + ct.getName());
+      processStructureDefinition(ctCs, ct, false, "", false);
+    }
+    allCodes.add("Element");
+    addMissingTypes();
+    
+    allParents.removeAll(allCodes);
+    for (String code : allParents) {
+      log.warn("Parent code " + code + " does not exist.");
+    }
+    
+    return new CodeSystem[] { resCs, ctCs };
+  }
+  
+  private void addMissingTypes() {
+    // Add the types for missing concepts
+    for (ConceptDefinitionComponentElementDefinitionPair cdcEd : missingTypes) {
+      ElementDefinition ed = cdcEd.getEd();
+      ConceptDefinitionComponent cdc = cdcEd.getCdc();
+      if (ed.hasContentReference()) {
+        String ref = ed.getContentReference();
+        if (ref.startsWith("#")) {
+          ref = ref.substring(1);
+        }
+        
+        String type = this.pathToTypeMap.get(ref);
+        if (type == null) {
+          throw new RuntimeException("Could not find referenced type " + ref 
+              + ". This should never happen!");
+        }
+        cdc.addProperty().setCode("type").setValue(new StringType(type));
+      } else {
+        // This is a resource path
+        
+        String code = cdc.getCode();
+        if (code.contains(".")) {
+          throw new RuntimeException("Code " + code 
+              + " contains a dot. This should never happen!");
+        }
+        // TODO: we might want to use the StructureDefinition instead
+        cdc.addProperty().setCode("type").setValue(new StringType(cdc.getCode()));
+      }
+    }
+    missingTypes.clear();
+  }
+  
+  private CodeSystem createBaseResourceCodeSystem() {
+    CodeSystem cs = new CodeSystem();
+    cs.setId("redmatch-fhir-resources");
+    cs.setUrl("http://csiro.au/redmatch-fhir/resources");
     cs.setVersion("1.0");
-    cs.setName("Redmatch Grammar for FHIR " + this.fhirVersion.getFhirVersionString());
+    cs.setName("Redmatch Grammar for FHIR Resources " + this.fhirVersion.getFhirVersionString());
     cs.setStatus(PublicationStatus.ACTIVE);
-    cs.setDescription("A code system with all the valid paths used to refer to attributes in "
-        + "Redmatch for the base FHIR model version " + this.fhirVersion.getFhirVersionString());
-    cs.setValueSet("http://csiro.au/redmatch-fhir?vs");
+    cs.setDescription("A code system with all the valid paths used to refer to attributes of "
+        + "resources in FHIR version " + this.fhirVersion.getFhirVersionString());
+    cs.setValueSet("http://csiro.au/redmatch-fhir/resources?vs");
     cs.setHierarchyMeaning(CodeSystemHierarchyMeaning.ISA);
     cs.setContent(CodeSystemContentMode.COMPLETE);
     cs.setExperimental(false);
@@ -129,86 +233,71 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDisplay("DomainResource");
     root.addProperty().setCode("root").setValue(new BooleanType(true));
     root.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    
+    return cs;
   }
   
-  public CodeSystem createRedmatchBaseFhirCodeSystem(Bundle types, Bundle resources) 
-      throws FileNotFoundException {
-    log.info("Indexing structure definitions");
-    for (BundleEntryComponent bec : types.getEntry()) {
-      org.hl7.fhir.r4.model.Resource res = bec.getResource();
-      if (res.getResourceType().equals(ResourceType.StructureDefinition) 
-          && !((StructureDefinition) res).getAbstract()) {
-        StructureDefinition sd = (StructureDefinition) res;
-        switch (sd.getKind()) {
-        case COMPLEXTYPE:
-          complexTypeMap.put(sd.getName(), sd);
-          break;
-        case PRIMITIVETYPE:
-          primitiveTypeMap.put(sd.getName(), sd);
-          break;
-        case LOGICAL:
-        case NULL:
-        case RESOURCE:
-        default:
-          log.debug("Ignoring " + sd.getName());
-          break;
-        }
-      }
-    }
+  private CodeSystem createBaseComplexTypesCodeSystem() {
+    CodeSystem cs = new CodeSystem();
+    cs.setId("redmatch-fhir-complex-types");
+    cs.setUrl("http://csiro.au/redmatch-fhir/complex-types");
+    cs.setVersion("1.0");
+    cs.setName("Redmatch Grammar for FHIR Complex Types " 
+        + this.fhirVersion.getFhirVersionString());
+    cs.setStatus(PublicationStatus.ACTIVE);
+    cs.setDescription("A code system with all the valid paths used to refer to attributes of "
+        + "complex types in FHIR version " + this.fhirVersion.getFhirVersionString());
+    cs.setValueSet("http://csiro.au/redmatch-fhir/complex-types?vs");
+    cs.setHierarchyMeaning(CodeSystemHierarchyMeaning.ISA);
+    cs.setContent(CodeSystemContentMode.COMPLETE);
+    cs.setExperimental(false);
+    cs.setCompositional(false);
+    cs.setVersionNeeded(false);
+    cs.addProperty()
+      .setCode("parent")
+      .setDescription("Parent codes.")
+      .setType(PropertyType.CODE);
+    cs.addProperty()
+      .setCode("root")
+      .setDescription("Indicates if this concept is a root concept (i.e. Thing is equivalent or "
+          + "a direct parent)")
+      .setType(PropertyType.BOOLEAN);
+    cs.addProperty()
+      .setCode("deprecated")
+      .setDescription("Indicates if this concept is deprecated.")
+      .setType(PropertyType.BOOLEAN);
+    cs.addProperty()
+      .setCode("min")
+      .setDescription("Minimun cardinality")
+      .setType(PropertyType.INTEGER);
+    cs.addProperty()
+      .setCode("max")
+      .setDescription("Maximum cardinality")
+      .setType(PropertyType.STRING);
+    cs.addProperty()
+      .setCode("type")
+      .setDescription("Data type for this element.")
+      .setType(PropertyType.STRING);
+    cs.addProperty()
+      .setCode("targetProfile")
+      .setDescription("If this code represents a Reference attribute, this property contains an "
+          + "allowed target profile.")
+      .setType(PropertyType.STRING);
+    cs.addFilter()
+      .setCode("root")
+      .setValue("True or false.")
+      .addOperator(FilterOperator.EQUAL);
+    cs.addFilter()
+      .setCode("deprecated")
+      .setValue("True or false.")
+      .addOperator(FilterOperator.EQUAL);
     
-    for (BundleEntryComponent bec : resources.getEntry()) {
-      org.hl7.fhir.r4.model.Resource res = bec.getResource();
-      if (res.getResourceType().equals(ResourceType.StructureDefinition)
-          && !((StructureDefinition) res).getAbstract()) {
-        resourceMap.put(((StructureDefinition) res).getName(), (StructureDefinition) res);
-      }
-    }
-    
-    // Create code system
-    log.info("Creating code system");
-    
-    
-    for (String key : resourceMap.keySet()) {
-      StructureDefinition res = resourceMap.get(key);
-      processStructureDefinition(res, false, "");
-    }
-    
-    allCodes.add("DomainResource");
-    
-    // Add the types for missing concepts
-    for (ConceptDefinitionComponentElementDefinitionPair cdcEd : missingTypes) {
-      ElementDefinition ed = cdcEd.getEd();
-      ConceptDefinitionComponent cdc = cdcEd.getCdc();
-      if (ed.hasContentReference()) {
-        String ref = ed.getContentReference();
-        if (ref.startsWith("#")) {
-          ref = ref.substring(1);
-        }
-        
-        String type = this.pathToTypeMap.get(ref);
-        if (type == null) {
-          throw new RuntimeException("Could not find referenced type " + ref 
-              + ". This should never happen!");
-        }
-        cdc.addProperty().setCode("type").setValue(new StringType(type));
-      } else {
-        // This is a resource path
-        
-        String code = cdc.getCode();
-        if (code.contains(".")) {
-          throw new RuntimeException("Code " + code 
-              + " contains a dot. This should never happen!");
-        }
-        // TODO: we might want to use the StructureDefinition instead
-        cdc.addProperty().setCode("type").setValue(new StringType(cdc.getCode()));
-      }
-    }
-    missingTypes.clear();
-
-    allParents.removeAll(allCodes);
-    for (String code : allParents) {
-      log.warn("Parent code " + code + " does not exist.");
-    }
+    // Create root concept
+    ConceptDefinitionComponent root = cs.addConcept()
+      .setCode("Element")
+      .setDisplay("Element");
+    root.addProperty().setCode("root").setValue(new BooleanType(true));
+    root.addProperty().setCode("deprecated").setValue(new BooleanType(false));
     
     return cs;
   }
@@ -224,14 +313,23 @@ public class RedmatchGrammarCodeSystemGenerator {
   /**
    * Creates codes for all the valid paths of a structure definition.
    * 
+   * @param cs The code system.
    * @param sd The structure definition.
    * @param nested True if this is being processed as an attribute of another structure definition.
    * @param prefix If nested is true, then this contains the base path for all the paths in this 
    * structure definition.
    */
-  private void processStructureDefinition(StructureDefinition sd, boolean nested, String prefix) {
+  private void processStructureDefinition(CodeSystem cs, StructureDefinition sd, boolean nested, 
+      String prefix, boolean isResource) {
     
     if (sd.getName().equals("Extension")) {
+      return;
+    }
+    
+    // Prevent creating duplicate codes when complex types are based on others, e.g. MoneyQuantity
+    // and Quantity
+    String realType = sd.getSnapshot().getElementFirstRep().getId();
+    if (allCodes.contains(realType)) {
       return;
     }
     
@@ -251,17 +349,18 @@ public class RedmatchGrammarCodeSystemGenerator {
         // Process for each type, replacing path with actual type
         for (TypeRefComponent trc : ed.getType()) {
           String path = removeX(getPath(ed, nested)) + capitaliseFirst(trc.getCode());
-          processElementDefinition(nested, prefix, parents, ed, path, trc);
+          processElementDefinition(cs, nested, prefix, parents, ed, path, trc, isResource);
         }
       } else {
         String path = getPath(ed, nested);
-        processElementDefinition(nested, prefix, parents, ed, path, null);
+        processElementDefinition(cs, nested, prefix, parents, ed, path, null, isResource);
       }
     }
   }
 
-  private void processElementDefinition(boolean nested, String prefix, final Deque<String> parents,
-      ElementDefinition ed, String path, TypeRefComponent trc) {
+  private void processElementDefinition(CodeSystem cs, boolean nested, String prefix, 
+      final Deque<String> parents, ElementDefinition ed, String path, TypeRefComponent trc, 
+      boolean isResource) {
     String currentParent = parents.peek();
     
     // Look for the right parent
@@ -294,7 +393,8 @@ public class RedmatchGrammarCodeSystemGenerator {
     String trcCode = trc.getCode();
     
     ConceptDefinitionComponent cdc = 
-        createCode(path, ed.getMin(), ed.getMax(), parent, prefix, nested, trcCode, ed);
+        createCode(cs, path, ed.getMin(), ed.getMax(), parent, prefix, nested, trcCode, ed, 
+            isResource);
     
     // Special case: reference types - add target profile properties
     if ("Reference".equals(trcCode)) {
@@ -306,7 +406,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     } else if (!"Resource".equals(trcCode) && isComplexType(trc)) {
       StructureDefinition nestedSd = getComplexType(trc);
       String pre = prefix + (prefix.isEmpty() ? "" : ".") + path;
-      processStructureDefinition(nestedSd, true, pre);
+      processStructureDefinition(cs, nestedSd, true, pre, isResource);
     }
     
     // Now adjust the path
@@ -348,8 +448,9 @@ public class RedmatchGrammarCodeSystemGenerator {
     return s.replace("[]", "");
   }
   
-  private ConceptDefinitionComponent createCode (String path, int min, String max, 
-      String parentCode, String prefix, boolean nested, String type, ElementDefinition ed) {
+  private ConceptDefinitionComponent createCode (CodeSystem cs, String path, int min, String max, 
+      String parentCode, String prefix, boolean nested, String type, ElementDefinition ed, 
+      boolean isResource) {
     String code = prefix + (nested ? "." : "") +  path;
     
     ConceptDefinitionComponent cdc = 
@@ -362,8 +463,13 @@ public class RedmatchGrammarCodeSystemGenerator {
       cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(parentCode)));
       allParents.add(removeAllBrackets(parentCode));
     } else {
-      cdc.addProperty().setCode("parent").setValue(new CodeType("DomainResource"));
-      allParents.add("DomainResource");
+      if (isResource) {
+        cdc.addProperty().setCode("parent").setValue(new CodeType("DomainResource"));
+        allParents.add("DomainResource");
+      } else {
+        cdc.addProperty().setCode("parent").setValue(new CodeType("Element"));
+        allParents.add("Element");
+      }
     }
     cdc.addProperty().setCode("root").setValue(new BooleanType(false));
     cdc.addProperty().setCode("deprecated").setValue(new BooleanType(false));
@@ -473,10 +579,11 @@ public class RedmatchGrammarCodeSystemGenerator {
         final Bundle resources = parser.doParseResource(Bundle.class, 
             new FileReader(profileResources));
         
-        CodeSystem cs = fi.createRedmatchBaseFhirCodeSystem(types, resources);
+        CodeSystem[] css = fi.createCodeSystems(types, resources);
         Bundle b = new Bundle();
         b.setType(BundleType.BATCH);
-        b.addEntry().setResource(cs);
+        b.addEntry().setResource(css[0]);
+        b.addEntry().setResource(css[1]);
         try (FileWriter writer = new FileWriter (output)) {
           parser.encodeResourceToWriter(b, writer);
         }
