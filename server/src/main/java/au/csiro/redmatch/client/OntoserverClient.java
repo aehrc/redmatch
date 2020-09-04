@@ -45,26 +45,6 @@ public class OntoserverClient implements ITerminologyServer {
   private void init() {
     log.info("Using Ontoserver at " + ontoUrl);
   }
-  
-  public Parameters lookups (String code) {
-    IGenericClient client = ctx.newRestfulGenericClient(ontoUrl);
-    Parameters in = new Parameters();
-    in.addParameter().setName("code").setValue(new CodeType(code));
-    in.addParameter().setName("system").setValue(new UriType("http://csiro.au/redmatch-fhir"));
-    in.addParameter().setName("property").setValue(new CodeType("min"));
-    in.addParameter().setName("property").setValue(new CodeType("max"));
-    in.addParameter().setName("property").setValue(new CodeType("type"));
-    in.addParameter().setName("property").setValue(new CodeType("targetProfile"));
-    
-    Parameters out = client
-      .operation()
-      .onType(CodeSystem.class)
-      .named("$lookup")
-      .withParameters(in)
-      .execute();
-    
-    return out;
-  }
 
   @Override
   public Parameters validateCode(String system, String code) {

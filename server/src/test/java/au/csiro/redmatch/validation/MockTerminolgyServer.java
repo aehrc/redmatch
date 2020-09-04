@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeSystem.ConceptDefinitionComponent;
 import org.hl7.fhir.r4.model.CodeSystem.ConceptDefinitionDesignationComponent;
@@ -41,7 +42,7 @@ public class MockTerminolgyServer implements ITerminologyServer {
   
   private static final Log log = LogFactory.getLog(MockTerminolgyServer.class);
   
-  private Map<String, ConceptDefinitionComponent> codeMap = new HashMap<>();
+  private Map<String, Map<String, ConceptDefinitionComponent>> codeMap = new HashMap<>();
   
   public MockTerminolgyServer() {
     log.info("Loading Redmatch grammar code system into memory");
@@ -49,13 +50,18 @@ public class MockTerminolgyServer implements ITerminologyServer {
     try (InputStreamReader reader = new InputStreamReader(
         new FileInputStream("src/test/resources/preload.json"))) {
       Bundle b = (Bundle) ctx.newJsonParser().parseResource(reader);
-      CodeSystem cs = (CodeSystem) b.getEntryFirstRep().getResource();
-      for (ConceptDefinitionComponent cdc : cs.getConcept()) {
-        codeMap.put(cdc.getCode(), cdc);
-        for (ConceptDefinitionDesignationComponent designation : cdc.getDesignation()) {
-          codeMap.put(designation.getValue(), cdc);
+      for (BundleEntryComponent bec : b.getEntry()) {
+        CodeSystem cs = (CodeSystem) bec.getResource();
+        final Map<String, ConceptDefinitionComponent> map = new HashMap<>();
+        codeMap.put(cs.getUrl(), map);
+        for (ConceptDefinitionComponent cdc : cs.getConcept()) {
+          map.put(cdc.getCode(), cdc);
+          for (ConceptDefinitionDesignationComponent designation : cdc.getDesignation()) {
+            map.put(designation.getValue(), cdc);
+          }
         }
       }
+      
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -63,12 +69,13 @@ public class MockTerminolgyServer implements ITerminologyServer {
   
   @Override
   public Parameters validateCode(String system, String code) {
-    if (!system.equals("http://csiro.au/redmatch-fhir")) {
-      throw new IllegalArgumentException("Mock implementation only supports system "
-          + "http://csiro.au/redmatch-fhir.");
+    final Map<String, ConceptDefinitionComponent> map = codeMap.get(system);
+    if (map == null) {
+      throw new IllegalArgumentException("System " + system + " is not supported by mock "
+          + "implementation.");
     }
     
-    boolean valid = codeMap.containsKey(code);
+    boolean valid = map.containsKey(code);
     Parameters out = new Parameters();
     out.addParameter().setName("result").setValue(new BooleanType(valid));
     return out;
@@ -76,17 +83,15 @@ public class MockTerminolgyServer implements ITerminologyServer {
 
   @Override
   public Parameters lookup(String system, String code, Collection<String> attributes) {
-    if (!system.equals("http://csiro.au/redmatch-fhir")) {
-      throw new IllegalArgumentException("Mock implementation only supports system "
-          + "http://csiro.au/redmatch-fhir.");
-    }
-    if (!codeMap.containsKey(code)) {
-      throw new IllegalArgumentException("Code " + code + " is not valid.");
+    final Map<String, ConceptDefinitionComponent> map = codeMap.get(system);
+    if (map == null) {
+      throw new IllegalArgumentException("System " + system + " is not supported by mock "
+          + "implementation.");
     }
     
     final Set<String> set = new HashSet<>(attributes);
     Parameters out = new Parameters();
-    ConceptDefinitionComponent cdc = codeMap.get(code);
+    ConceptDefinitionComponent cdc = map.get(code);
     for (ConceptPropertyComponent cpc : cdc.getProperty()) {
       String propCode = cpc.getCode();
       if (set.contains(propCode)) {

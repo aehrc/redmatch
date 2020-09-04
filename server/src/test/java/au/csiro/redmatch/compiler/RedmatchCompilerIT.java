@@ -88,6 +88,47 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   }
   
   @Test
+  public void testComplexExtension() {
+    String rule = "TRUE {\n" + 
+        "  ResearchStudy<rstud> :\n" + 
+        "    * Encounter.extension.valueQuantity.extension.valueQuantity.extension.valueQuantity."
+        + "system = 'http://mysystem.com'" + 
+        "}";
+    
+    printTokens(rule);
+    final Metadata metadata = loadMetadata("tutorial");
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+  }
+  
+  @Test
+  public void testExtension() {
+    String rule = "TRUE {\n" + 
+        "  ResearchStudy<rstud> :\n" + 
+        "    * identifier.type = CONCEPT_LITERAL(http://genomics.ontoserver.csiro.au/clipi/" + 
+        "CodeSystem/IdentifierType|RSI|'Research study identifier')\n" + 
+        "    * identifier.system = 'http://www.australiangenomics.org.au/id/research-study'\n" + 
+        "    * identifier.value = 'mito'\n" + 
+        "}\n" + 
+        "\n" + 
+        "TRUE {\n" + 
+        "  Encounter<enc> :\n" + 
+        "    * extension[0].url = "
+        + "'http://hl7.org/fhir/StructureDefinition/workflow-researchStudy'\n" + 
+        "    * extension[0].valueReference = REF(ResearchStudy<rstud>)\n" + 
+        "}";
+    
+    printTokens(rule);
+    final Metadata metadata = loadMetadata("tutorial");
+    compiler.compile(rule, metadata);
+    List<Annotation> errors = compiler.getErrorMessages();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+  }
+  
+  @Test
   public void testInvalidKeyword() {
     String rule = "TRUE { \n" + 
         "  Patient<p-1>: \n" + 

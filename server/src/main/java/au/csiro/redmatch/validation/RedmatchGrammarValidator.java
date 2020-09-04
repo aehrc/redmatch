@@ -4,6 +4,7 @@
  */
 package au.csiro.redmatch.validation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -84,20 +85,47 @@ public class RedmatchGrammarValidator {
           + code.indexOf(']'));
     }
     
-    // Validate the code with Ontoserver
+    if (hasExtension(code)) {
+      String first = getFirstExtension(code);
+      ValidationResult res = validateCode(first, path, true);
+      if (!res.getResult()) {
+        return res;
+      }
+      
+      List<String> others = new ArrayList<>();
+      getOtherExtensions(code, others);
+      
+      if (others.isEmpty()) {
+        return new ValidationResult(true, code);
+      }
+      
+      for(String other : others) {
+        res = validateCode(other, path, false);
+        if (!res.getResult()) {
+          return res;
+        }
+      }
+      
+      return new ValidationResult(true, code);
+      
+    } else {
+      return validateCode(code, path, true);
+    }
+  }
+  
+  private ValidationResult validateCode(String code, String path, boolean isResource) {
     Boolean res = null;
-    Parameters out = client.validateCode("http://csiro.au/redmatch-fhir", code);
-    
+    String url = isResource ? "http://csiro.au/redmatch-fhir/resources" : 
+      "http://csiro.au/redmatch-fhir/complex-types";
+    Parameters out = client.validateCode(url, code);
     for(ParametersParameterComponent param : out.getParameter()) {
         if (param.getName().equals("result")) {
           res = ((BooleanType) param.getValue()).getValue();
         }
     }
-    
     if (res == null) {
       throw new RuntimeException("Unexpected response (has no 'result' out parameter).");
     }
-    
     ValidationResult vr = new ValidationResult(res.booleanValue(), code);
     if (!res) {
       vr.getMessages().add("The path " + path + " is not valid.");
@@ -106,39 +134,149 @@ public class RedmatchGrammarValidator {
   }
   
   /**
+   * Returns true if a code contains one or more extensions.
+   * 
+   * @param code
+   * @return
+   */
+  private boolean hasExtension(String code) {
+    int dotIndex = code.indexOf('.');
+    int extensionIndex = -1;
+    if (dotIndex != -1) {
+      extensionIndex = code.substring(dotIndex).indexOf("extension");
+    }
+    
+    if(dotIndex != -1 && extensionIndex != -1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
+  /**
+   * Given a code with an extension, it returns the first extension, which belongs to a resource. 
+   * For example:
+   * 
+   * <ol>
+   *   <li>Encounter.extension -> Encounter.extension</li>
+   *   <li>Encounter.extension.valueQuantity.extension.url -> Encounter.extension</li>
+   *   <li>Encounter.extension.valueQuantity.system -> Encounter.extension</li>
+   *   <li>Encounter.extension.url -> Encounter.extension.url</li>
+   *   <li>Encounter.code -> undefined behaviour</li>
+   * </ol>
+   * 
+   * @param code
+   * @return
+   */
+  String getFirstExtension(String code) {
+    int dotIndex = code.indexOf('.');
+    
+    int extensionIndex = code.substring(dotIndex).indexOf("extension") + dotIndex;
+    String res = code.substring(0, extensionIndex + 9);
+    // Special case - look for extension.url
+    if (code.length() > res.length() && code.length() - res.length() >= 4) {
+      String suffix = code.substring(res.length(), res.length() + 4);
+      if (suffix.equals(".url")) {
+        return res + ".url";
+      }
+    }
+    return res;
+    
+  }
+  
+  /**
+   * Given a code with an extension, return a list of additional codes that need to be checked 
+   * against complex types. These can include nested extensions. For example:
+   * 
+   * <ol>
+   *   <li>Encounter.extension -> empty</li>
+   *   <li>Encounter.extension.valueQuantity.extension.url -> [Quantity.extension.url]</li>
+   *   <li>Encounter.extension.valueQuantity.system -> [Quantity.system]</li>
+   *   <li>Encounter.extension.url -> empty</li>
+   *   <li>Observation.valueRatio.extension.valueRatio.extension.url -> [Ratio.extension, 
+   *   Ratio.extension.url]</li>
+   *   <li>Encounter.extension.valueQuantity.extension.valueQuantity.extension.valueQuantity.system 
+   *   -> [Quantity.extension, Quantity.extension, Quantity.system]</li>
+   * </ol>
+   * 
+   * @param code
+   * @return
+   */
+  void getOtherExtensions(String code, List<String> res) {
+    // Get rid of first extension
+    String firstExtension = getFirstExtension(code);
+    code = code.substring(firstExtension.length());
+    
+    if (code.isEmpty()) {
+      return;
+    }
+    
+    if (code.startsWith(".value")) {
+      code = code.substring(6);
+    }
+    
+    if (!hasExtension(code)) {
+      res.add(code);
+      return;
+    } else {
+      String nextExtension = getFirstExtension(code);
+      res.add(nextExtension);
+      getOtherExtensions(code, res);
+    }
+  }
+  
+  /**
    * Returns properties of a FHIR path. This method assumes the path is valid.
    * 
    * @param path The path.
    * @return The properties of the path.
    */
-  public PathInfo getPathInfo (String path) {
-    Parameters out = client.lookup("http://csiro.au/redmatch-fhir", path, 
-        Arrays.asList("min", "max", "type", "targetProfile"));
+  public PathInfo getPathInfo(String path) {
+    if (hasExtension(path)) {
+      String first = getFirstExtension(path);
+      List<String> others = new ArrayList<>();
+      getOtherExtensions(path, others);
+      
+      if (others.isEmpty()) {
+        return getInfo(first, true);
+      } else {
+        // return info for last element
+        return getInfo(others.get(others.size() - 1), false);
+      }
+    } else {
+      return getInfo(path, true);
+    }
+  }
+  
+  private PathInfo getInfo(String path, boolean isResource) {
+    String url = isResource ? "http://csiro.au/redmatch-fhir/resources" : 
+      "http://csiro.au/redmatch-fhir/complex-types";
+    Parameters out = client.lookup(url, path, Arrays.asList("min", "max", "type", "targetProfile"));
     PathInfo res = new PathInfo(path);
     for(ParametersParameterComponent param : out.getParameter()) {
-        if (param.getName().equals("property")) {
-          List<ParametersParameterComponent> ppcs = param.getPart();
-          if (ppcs.size() == 2) {
-            ParametersParameterComponent code = ppcs.get(0);
-            if ("code".equals(code.getName())) {
-              String codeValue = ((StringType) code.getValue()).getValue();
-              ParametersParameterComponent value = ppcs.get(1);
-              if (value.getName().startsWith("value")) {
-                if ("min".equals(codeValue)) {
-                  res.setMin(((IntegerType) value.getValue()).getValue().intValue());
-                } else if ("max".equals(codeValue)) {
-                  res.setMax(((StringType) value.getValue()).getValue());
-                } else if ("type".equals(codeValue)) {
-                  res.setType(((StringType) value.getValue()).getValue());
-                } else if ("targetProfile".equals(codeValue)) {
-                  res.getTargetProfiles().add(((StringType) value.getValue()).getValue());
-                } else {
-                  log.warn("Unexpected property: " + codeValue);
-                }
+      if (param.getName().equals("property")) {
+        List<ParametersParameterComponent> ppcs = param.getPart();
+        if (ppcs.size() == 2) {
+          ParametersParameterComponent code = ppcs.get(0);
+          if ("code".equals(code.getName())) {
+            String codeValue = ((StringType) code.getValue()).getValue();
+            ParametersParameterComponent value = ppcs.get(1);
+            if (value.getName().startsWith("value")) {
+              if ("min".equals(codeValue)) {
+                res.setMin(((IntegerType) value.getValue()).getValue().intValue());
+              } else if ("max".equals(codeValue)) {
+                res.setMax(((StringType) value.getValue()).getValue());
+              } else if ("type".equals(codeValue)) {
+                res.setType(((StringType) value.getValue()).getValue());
+              } else if ("targetProfile".equals(codeValue)) {
+                res.getTargetProfiles().add(((StringType) value.getValue()).getValue());
+              } else {
+                log.warn("Unexpected property: " + codeValue);
               }
             }
           }
         }
+      }
     }
     return res;
   }
