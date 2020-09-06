@@ -114,6 +114,11 @@ public class RedmatchGrammarValidator {
   }
   
   private ValidationResult validateCode(String code, String path, boolean isResource) {
+    // Special case: codes ending with extension.url
+    if (code.endsWith("extension.url")) {
+      code = code.substring(0, code.length() - 4);
+    }
+    
     Boolean res = null;
     String url = isResource ? "http://csiro.au/redmatch-fhir/resources" : 
       "http://csiro.au/redmatch-fhir/complex-types";
@@ -251,7 +256,50 @@ public class RedmatchGrammarValidator {
   private PathInfo getInfo(String path, boolean isResource) {
     String url = isResource ? "http://csiro.au/redmatch-fhir/resources" : 
       "http://csiro.au/redmatch-fhir/complex-types";
-    Parameters out = client.lookup(url, path, Arrays.asList("min", "max", "type", "targetProfile"));
+    
+    if (hasExtension(path)) {
+      String first = getFirstExtension(path);
+      List<String> others = new ArrayList<>();
+      getOtherExtensions(path, others);
+      
+      if (others.isEmpty()) {
+        
+        // Special case: codes ending with extension.url
+        if (first.endsWith("extension.url")) {
+          return handleExtensionUrl(path);
+        }
+        
+        Parameters out = client.lookup(url, first, Arrays.asList("min", "max", "type", "targetProfile"));
+        return getPathInfo(path, out);
+      } else {
+        
+        String last = others.get(others.size() - 1);
+        
+        // Special case: codes ending with extension.url
+        if (last.endsWith("extension.url")) {
+          return handleExtensionUrl(path);
+        }
+        
+        Parameters out = client.lookup(url, last, 
+            Arrays.asList("min", "max", "type", "targetProfile"));
+        return getPathInfo(path, out);
+      }
+    } else {
+      Parameters out = client.lookup(url, path, Arrays.asList("min", "max", "type", "targetProfile"));
+      return getPathInfo(path, out);
+    }
+  }
+  
+  private PathInfo handleExtensionUrl(String path) {
+    PathInfo res = new PathInfo(path);
+    res.setMin(1);
+    res.setMax("1");
+    res.setType("uri");
+    
+    return res;
+  }
+  
+  private PathInfo getPathInfo(String path, Parameters out) {
     PathInfo res = new PathInfo(path);
     for(ParametersParameterComponent param : out.getParameter()) {
       if (param.getName().equals("property")) {

@@ -91,7 +91,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   public void testComplexExtension() {
     String rule = "TRUE {\n" + 
         "  ResearchStudy<rstud> :\n" + 
-        "    * Encounter.extension.valueQuantity.extension.valueQuantity.extension.valueQuantity."
+        "    * extension.valueQuantity.extension.valueQuantity.extension.valueQuantity."
         + "system = 'http://mysystem.com'" + 
         "}";
     
