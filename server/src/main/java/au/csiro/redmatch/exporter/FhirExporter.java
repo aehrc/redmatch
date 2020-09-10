@@ -5,9 +5,16 @@
 
 package au.csiro.redmatch.exporter;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -18,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import javax.annotation.PostConstruct;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -48,6 +57,7 @@ import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.UrlType;
 import org.hl7.fhir.r4.model.UuidType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +83,10 @@ import au.csiro.redmatch.model.grammar.redmatch.Resource;
 import au.csiro.redmatch.model.grammar.redmatch.Rule;
 import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.util.FitbitUrlValidator;
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.api.annotation.Child;
+import ca.uhn.fhir.parser.DataFormatException;
+import ca.uhn.fhir.parser.IParser;
 
 /**
  * Used the transformation rules to transform REDCap data into FHIR resources.
@@ -96,10 +109,42 @@ public class FhirExporter {
 
   private final Pattern codePattern = Pattern.compile("[^\\s]+([\\s]?[^\\s]+)*");
 
+  @Value("${redmatch.targetFolder}")
+  private String targetFolderName;
+  
+  private Path targetFolder;
+  
   @Autowired
   private HapiReflectionHelper helper;
-
   
+  @Autowired
+  private FhirContext ctx;
+  
+  /**
+   * Checks that the target folder is configured properly.
+   */
+  @PostConstruct
+  public void init() {
+    boolean valid = true;
+    if (targetFolderName != null) {
+      log.info("Validating target folder " + targetFolderName);
+      Path path = Paths.get(targetFolderName);
+      try {
+        targetFolder = Files.createDirectories(path);
+      } catch (IOException e) {
+        log.fatal("Unable to create target folder", e);
+        valid = false;
+      }
+    } else {
+      log.fatal("Target folder is null.");
+      valid = false;
+    }
+    
+    if (!valid) {
+      throw new RuntimeException("Target folder is invalid. Please set property "
+          + "redmatch.targetFolder.");
+    }
+  }
 
   /**
    * Exports a bundle with all the clinical resources (i.e. all the non-terminology resources).
@@ -116,12 +161,58 @@ public class FhirExporter {
       List<Mapping> mappings, List<Row> rows) {
     final Bundle res = new Bundle();
     res.setType(BundleType.TRANSACTION);
-    final Map<String, DomainResource> m = createClinicalResourcesFromRules(metadata, rows, mappings,
-        rulesDocument);
+    final Map<String, DomainResource> m = createClinicalResourcesFromRules(metadata, rulesDocument, 
+        mappings, rows);
     for (String key : m.keySet()) {
       final DomainResource dr = m.get(key);
       res.addEntry().setResource(dr).setRequest(new BundleEntryRequestComponent()
           .setMethod(HTTPVerb.PUT).setUrl(dr.fhirType() + "/" + key));
+    }
+    return res;
+  }
+  
+  /**
+   * Saves all the generated FHIR resources in ND-JSON format in a folder. Each file the same
+   * resource type. A map of resource types and filenames is returned.
+   * 
+   * @param metadata The REDCap metadata.
+   * @param rulesDocument The mapping rules.
+   * @param mappings The mappings from REDCap fields to codes in a terminology.
+   * @param rows The REDCap data. 
+   * @return A map of resource types and files where these resources were saved.
+   * @throws IOException 
+   * @throws DataFormatException 
+   */
+  public Map<String, String> saveResourcesToFolder(Metadata metadata, Document rulesDocument, 
+      List<Mapping> mappings, List<Row> rows) throws DataFormatException, IOException {
+    final Map<String, DomainResource> map = 
+        createClinicalResourcesFromRules(metadata, rulesDocument, mappings, rows);
+    
+    // Group resources by type
+    final Map<String, List<DomainResource>> grouped = new HashMap<>();
+    for (String key : map.keySet()) {
+      DomainResource dr = map.get(key);
+      String resourceType = dr.getResourceType().toString();
+      List<DomainResource> list = grouped.get(resourceType);
+      if (list == null) {
+        list = new ArrayList<>();
+        grouped.put(resourceType, list);
+      }
+      list.add(dr);
+    }
+    
+    // Save to folder in ND-JSON
+    final Map<String, String> res = new HashMap<>();
+    IParser jsonParser = ctx.newJsonParser();
+    for (String key : grouped.keySet()) {
+      File f = new File(targetFolder.toFile(), key + ".ndjson");
+      res.put(key, f.getAbsolutePath());
+      try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
+        for(DomainResource dr : grouped.get(key)) {
+          jsonParser.encodeResourceToWriter(dr, bw);
+          bw.newLine();
+        }
+      }
     }
     return res;
   }
@@ -131,15 +222,15 @@ public class FhirExporter {
    * indexed by resource id.
    * 
    * @param metadata The REDCap metadata.
-   * @param rows The REDCap data.
-   * @param mappings The mappings for the REDCap fields.
    * @param rulesDocument The mapping rules.
+   * @param mappings The mappings for the REDCap fields.
+   * @param rows The REDCap data.
    * 
    * @return The map of created resources, indexed by resource id.
    */
   @Transactional
   public Map<String, DomainResource> createClinicalResourcesFromRules(Metadata metadata, 
-      List<Row> rows, List<Mapping> mappings, Document rulesDocument) {
+      Document rulesDocument, List<Mapping> mappings, List<Row> rows) {
     final Map<String, DomainResource> res = new HashMap<>();
     final String uniqueField = metadata.getUniqueFieldId();
     
@@ -233,6 +324,14 @@ public class FhirExporter {
     }
   }
   
+  private boolean isValueX(Child hapiMetadata, Class<? extends Base> c) {
+    // Special case: extensions
+    if (c.getName().endsWith("Extension") && hapiMetadata.name().equals("value")) {
+      return true;
+    }
+    return hapiMetadata.type().length > 1;
+  }
+  
   /**
    * Assigns the value to the specified attribute of the resource. Tries to accomodate the types but
    * might fail if the specified value is incompatible with the attribute type.
@@ -270,7 +369,7 @@ public class FhirExporter {
     
       // We use the generated annotations in the FHIR model to get the type
       final Child hapiMetadata = f.getAnnotation(Child.class);
-      final boolean isValueX = hapiMetadata.type().length > 1;
+      final boolean isValueX = isValueX(hapiMetadata, theElement.getClass());
       final Class<?> fhirType = getTypeFromHapiAnnotations(hapiMetadata, f, leafAttributeName);
      // boolean isList = hapiMetadata.max() > 1;
       

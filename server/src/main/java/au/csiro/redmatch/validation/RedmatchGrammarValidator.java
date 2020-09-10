@@ -246,7 +246,14 @@ public class RedmatchGrammarValidator {
         return getInfo(first, true);
       } else {
         // return info for last element
-        return getInfo(others.get(others.size() - 1), false);
+        // special case extension.value
+        String newPath = others.get(others.size() - 1);
+        // If the new path does not contain a dot then the path info corresponds to extension.value
+        // e.g. extension.valueReference
+        if (!newPath.contains(".")) {
+          return handleExtensionValue(path);
+        }
+        return getInfo(newPath, false);
       }
     } else {
       return getInfo(path, true);
@@ -288,6 +295,15 @@ public class RedmatchGrammarValidator {
       Parameters out = client.lookup(url, path, Arrays.asList("min", "max", "type", "targetProfile"));
       return getPathInfo(path, out);
     }
+  }
+  
+  private PathInfo handleExtensionValue(String path) {
+    PathInfo res = new PathInfo(path);
+    res.setMin(0);
+    res.setMax("1");
+    res.setType("");
+    
+    return res;
   }
   
   private PathInfo handleExtensionUrl(String path) {

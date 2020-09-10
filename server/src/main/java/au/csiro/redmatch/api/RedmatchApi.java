@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -18,7 +19,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
+import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
@@ -42,6 +46,7 @@ import au.csiro.redmatch.model.OperationResponse.RegistrationStatus;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
 import au.csiro.redmatch.persistence.RedmatchDao;
 import au.csiro.redmatch.util.ReflectionUtils;
+import ca.uhn.fhir.parser.DataFormatException;
 
 /**
  * Main API for Redmatch.
@@ -312,12 +317,14 @@ public class RedmatchApi {
   }
   
   /**
-   * Transforms a Redmatch project using the current rules and mappings and returns a FHIR bundle
-   * with the generated resources.
+   * Transforms a Redmatch project using the current rules and mappings, stores the result in the
+   * target folder using ND-JSON and returns an operation outcome.
    * 
    * @param projectId The id of the Redmatch project to transform.
+   * @throws IOException 
+   * @throws DataFormatException 
    */
-  public Bundle transformProject(String projectId) {
+  public Parameters transformProject(String projectId) throws DataFormatException, IOException {
     log.info("Transforming Redmatch project " + projectId + ".");
     final RedmatchProject fcp = resolveRedmatchProject(projectId);
     if (fcp.hasErrors()) {
@@ -346,12 +353,21 @@ public class RedmatchApi {
     final List<Mapping> mappings = fcp.getMappings();
     
     log.info("Exporting data to FHIR.");
-    final Bundle res = fhirExporter.createClinicalBundle(metadata, rulesDocument, mappings, rows);
-    if (res.hasEntry()) {
-      log.info("Generated bundle with " + res.getEntry().size() + " entries.");
-    } else {
-      log.info("Generated bundle is empty.");
+    Map<String, String> map = fhirExporter.saveResourcesToFolder(metadata, rulesDocument, mappings, 
+        rows);
+    
+    Parameters res = new Parameters();
+    
+    for (String resourceType : map.keySet()) {
+      ParametersParameterComponent ppc = res.addParameter().setName("source");
+      ppc.addPart()
+        .setName("resourceType")
+        .setValue(new CodeType(resourceType));
+      ppc.addPart()
+        .setName("url")
+        .setValue(new UrlType("file://" + map.get(resourceType)));
     }
+    
     return res;
   }
   

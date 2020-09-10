@@ -12,7 +12,10 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
@@ -49,6 +52,7 @@ import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.OperationResponse;
 import au.csiro.redmatch.util.WebUtils;
+import ca.uhn.fhir.parser.DataFormatException;
 
 /**
  * The main controller.
@@ -387,9 +391,13 @@ public class ApiController {
   /**
    * Transforms the REDCap data using the current rules and mappings and returns the generated
    * resources in a bundle.
+   * 
+   * TODO: decide how to deal with warnings.
    *  
    * @param projectId The id of the Redmatch project.
    * @return The response entity.
+   * @throws IOException 
+   * @throws DataFormatException 
    */
   @ApiOperation(value = "Transforms the REDCap data using the current rules and mappings and "
       + "returns the generated resources in a bundle.")
@@ -398,9 +406,13 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "/project/{projectId}/$transform", 
       method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<Bundle>  transformProject(@PathVariable String projectId) {
-    final Bundle res = api.transformProject(projectId);
-    return new ResponseEntity<Bundle>(res, HttpStatus.OK);
+  public ResponseEntity<Parameters> transformProject(@PathVariable String projectId) {
+    try {
+      Parameters res = api.transformProject(projectId);
+      return new ResponseEntity<Parameters>(res, HttpStatus.OK);
+    } catch (Exception e) {
+      throw new RuntimeException(e); 
+    }
   }
   
   @ApiOperation(value = "Deletes a Redmatch project.")
@@ -456,60 +468,70 @@ public class ApiController {
   }
   
   @ExceptionHandler(HttpException.class)
-  private ResponseEntity<String> exceptionHandler(HttpException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(HttpException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(ex.getStatus(), ex.getMessage());
+    return getResponse(ex.getStatus(), "There was an HTTP error", ex);
   }
   
   @ExceptionHandler(CompilerException.class)
-  private ResponseEntity<String> exceptionHandler(CompilerException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(CompilerException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "There was an issue with the compiler.", ex);
   }
   
   @ExceptionHandler(InvalidMappingsException.class)
-  private ResponseEntity<String> exceptionHandler(InvalidMappingsException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(InvalidMappingsException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "There was an issue with the mappings.", ex);
   }
 
   @ExceptionHandler(ProjectNotFoundException.class)
-  private ResponseEntity<String> exceptionHandler(ProjectNotFoundException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(ProjectNotFoundException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    return getResponse(HttpStatus.NOT_FOUND, "The project was not found.", ex);
   }
 
   @ExceptionHandler(RuntimeException.class)
-  private ResponseEntity<String> exceptionHandler(RuntimeException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(RuntimeException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+    return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+        "There was an unexpected runtime exception.", ex);
   }
   
   @ExceptionHandler(ProjectAlreadyExistsException.class)
-  private ResponseEntity<String> exceptionHandler(ProjectAlreadyExistsException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(ProjectAlreadyExistsException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    return getResponse(HttpStatus.UNPROCESSABLE_ENTITY, "The project already exists.", ex);
   }
   
   @ExceptionHandler(InvalidProjectException.class)
-  private ResponseEntity<String> exceptionHandler(InvalidProjectException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(InvalidProjectException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "The project is invalid.", ex);
   }
   
   @ExceptionHandler(RuleApplicationException.class)
-  private ResponseEntity<String> exceptionHandler(RuleApplicationException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(RuleApplicationException ex) {
     log.error(ex.getMessage(), ex);
     return getResponse(HttpStatus.BAD_REQUEST, "The project could not be transformed to FHIR. "
-        + "Please check your transformation rules. Error message: " + ex.getLocalizedMessage());
+        + "Please check your transformation rules.", ex);
   }
   
   @ExceptionHandler(NoMappingFoundException.class)
-  private ResponseEntity<String> exceptionHandler(NoMappingFoundException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(NoMappingFoundException ex) {
     log.error(ex.getMessage(), ex);
     return getResponse(HttpStatus.BAD_REQUEST, "The project could not be transformed to FHIR "
-        + "because a mapping is missing. Please check your mappings. Error message: " 
-        + ex.getLocalizedMessage());
+        + "because a mapping is missing. Please check your mappings.", ex); 
+  }
+  
+  private ResponseEntity<OperationOutcome> getResponse(HttpStatus status, String msg, Exception e) {
+    OperationOutcome oo = new OperationOutcome();
+    oo
+      .addIssue()
+      .setSeverity(IssueSeverity.ERROR)
+      .setCode(IssueType.EXCEPTION)
+      .setDiagnostics(msg + " [" + e.getLocalizedMessage() + "]");
+    return new ResponseEntity<OperationOutcome>(oo, getHeaders(), status);
   }
 
   private ResponseEntity<String> getResponse(HttpStatus status, String message) {

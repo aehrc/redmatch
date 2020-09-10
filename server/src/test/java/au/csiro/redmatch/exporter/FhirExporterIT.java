@@ -18,12 +18,15 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationStatus;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResearchStudy;
 import org.hl7.fhir.r4.model.Type;
 import org.junit.Before;
@@ -95,12 +98,12 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     
     populateDataMappings(mappings);
     
-    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
-        mappings, rulesDocument);
+    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
+        rulesDocument, mappings, rows);
     
     System.out.println(res.keySet());
     
-    assertEquals(3, res.keySet().size());
+    assertEquals(4, res.keySet().size());
 
     assertTrue(res.containsKey("pat-gene-1"));
     DomainResource dr = res.get("pat-gene-1");
@@ -146,6 +149,30 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals("Research study identifier", cod.getDisplay());
     assertEquals("http://www.australiangenomics.org.au/id/research-study", id.getSystem());
     assertEquals("mito", id.getValue());
+    
+    assertTrue(res.containsKey("enc"));
+    dr = res.get("enc");
+    assertTrue(dr instanceof Encounter);
+    Encounter enc = (Encounter) dr;
+    assertTrue(enc.hasClass_());
+    Coding cl = enc.getClass_();
+    assertTrue(cl.hasSystem());
+    assertTrue(cl.hasCode());
+    assertTrue(cl.hasDisplay());
+    assertEquals("http://genomics.ontoserver.csiro.au/clipi/ValueSet/EncounterClassValueSet", 
+        cl.getSystem());
+    assertEquals("RS", cl.getCode());
+    assertEquals("research study", cl.getDisplay());
+    assertTrue(enc.hasExtension());
+    assertEquals(1, enc.getExtension().size());
+    Extension ext = enc.getExtension().get(0);
+    assertTrue(ext.hasUrl());
+    assertEquals("http://myurl.com", ext.getUrl());
+    assertTrue(ext.hasValue());
+    Type t = ext.getValue();
+    assertTrue(t instanceof Reference);
+    Reference ref = (Reference) t;
+    System.out.println(ref.getReference());
   }
   
   @Test
@@ -167,9 +194,8 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     populateMappings(mappings);
     
     try {
-      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
-          mappings, rulesDocument);
-    
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
+          rulesDocument, mappings, rows);
     
       System.out.println(res.keySet());
       

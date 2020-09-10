@@ -647,6 +647,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
         break;
       } else {
+        // TODO: check what happens with extension[0].valueReference = REF(ResearchStudy<rstud>)
+        // Add test case for FHIR exporter with an extension
         PathInfo info = validator.getPathInfo(path);
         lastInfo = info;
         
@@ -776,7 +778,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     } else if (ctx.reference() != null) {
       // Subclasses of DomainResource
       // TODO: this checks the type is not primitive but complex types can still slip through
-      if (!Character.isUpperCase(type.charAt(0))) {
+      if (!type.isEmpty() && !Character.isUpperCase(type.charAt(0))) {
         errorMessages.add(getAnnotationFromContext(ctx, 
             String.format(errorMsg, "Reference", type)));
       }

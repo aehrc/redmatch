@@ -10,3 +10,10 @@ TRUE {
     * identifier.system = 'http://www.australiangenomics.org.au/id/research-study'
     * identifier.value = 'mito'
 }
+
+TRUE {
+  Encounter<enc>:
+    * class = CONCEPT_LITERAL(http://genomics.ontoserver.csiro.au/clipi/ValueSet/EncounterClassValueSet|RS|'research study')
+    * extension.url = 'http://myurl.com'
+    * extension[0].valueReference = REF(ResearchStudy<rstud>)
+}
