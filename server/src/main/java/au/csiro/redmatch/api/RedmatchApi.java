@@ -9,11 +9,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -176,7 +178,9 @@ public class RedmatchApi {
       }
       
       if (newProject.hasMappings()) {
-        mergeMappings(newProject.getMappings(), existingProject.getMappings());
+        List<Mapping> mergedMappings = mergeMappings(existingProject.getMappings(), 
+            newProject.getMappings());
+        existingProject.replaceMappings(mergedMappings);
       }
       
       dao.saveRedmatchProject(existingProject);
@@ -227,7 +231,8 @@ public class RedmatchApi {
    * @return The current mappings.
    */
   public List<Mapping> getMappings(String projectId) {
-    return resolveRedmatchProject(projectId).getMappings();
+    return resolveRedmatchProject(projectId).getMappings().stream().filter(
+        m -> m.isActive()).collect(Collectors.toList());
   }
   
   /**
@@ -244,24 +249,10 @@ public class RedmatchApi {
     log.info("Received " + newMappings.size() + " new mappings.");
     
     final List<Mapping> oldMappings = project.getMappings();
+    final List<Mapping> mergedMappings = mergeMappings(oldMappings, newMappings);
     
-    if (newMappings.size() != oldMappings.size()) {
-      throw new InvalidMappingsException("Received " + newMappings.size() 
-        + " mappings but expected " + oldMappings.size());
-    }
-    
-    for (int i = 0; i < oldMappings.size(); i++) {
-      final Mapping oldMapping = oldMappings.get(i);
-      final Mapping newMapping = newMappings.get(i);
-      
-      if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
-        throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
-            + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
-            + newMapping.getRedcapFieldId());
-      }
-    }
-    
-    project.replaceMappings(newMappings);
+    log.info("Replacing project mappings with " + mergedMappings.size() + " mappings");
+    project.replaceMappings(mergedMappings);
     dao.saveRedmatchProject(project);
     return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
   }
@@ -350,7 +341,8 @@ public class RedmatchApi {
           + "issues. This should not happen!");
     }
     
-    final List<Mapping> mappings = fcp.getMappings();
+    final List<Mapping> mappings = fcp.getMappings().stream().filter(m -> m.isActive()).collect(
+        Collectors.toList());
     
     log.info("Exporting data to FHIR.");
     Map<String, String> map = fhirExporter.saveResourcesToFolder(metadata, rulesDocument, mappings, 
@@ -481,55 +473,81 @@ public class RedmatchApi {
     }
     
     // Generate mappings from rules
-    final List<Mapping> tgtMappings = redcapImporter.generateMappings(
+    final List<Mapping> newMappings = redcapImporter.generateMappings(
         metadata, 
         doc.getReferencedFields(metadata), 
         redcapImporter.getReport(rmp.getRedcapUrl(), rmp.getToken(), rmp.getReportId())
     );
     
     // Merge mappings
-    final List<Mapping> srcMappings = rmp.getMappings();
-    mergeMappings(srcMappings, tgtMappings);
+    final List<Mapping> oldMappings = rmp.getMappings();
+    final List<Mapping> mergedMappings = mergeMappings(oldMappings, newMappings);
     
-    rmp.replaceMappings(tgtMappings);
+    rmp.replaceMappings(mergedMappings);
   }
   
   /**
-   * Merges the <i>srcMappings</i> collection into the <i>tgtMappings</i> collection. Assumes 
-   * <i>tgtMappings</i> are the valid ones, i.e., the ones that have been generated from the most 
-   * recent version of  a rules document and REDCap metadata. Any existing mapped values that are 
-   * not in <i>tgtMappings</i> are copied over. Existing mappings in <i>tgtMappings</i> are not 
-   * overwritten and any additional mappings in <i>srcMappings</i> that are not present in 
-   * <i>tgtMappings</i> are discarded. Modifications are made in place in <i>tgtMappings</i>.
+   * Merges <i>newMappings</i> into <i>oldMappings</i>. Does the following:
    * 
-   * @param srcMappings The mappings to merge.
-   * @param tgtMappings The target mappings where the source mappings are merged. These are 
-   * modified in place.
+   * <ol>
+   *   <li>Overwrite any values in <i>oldMappings</i> that are set in <i>newMappings</i>.</li>
+   *   <li>Inactivates any mappings in <i>oldMappings</i> that are not in <i>newMappings</i>.</li>
+   *   <li>Copy additional mappings in <i>newMappings</i> to <i>oldMappings</i>.</li>
+   * </ol>
+   * 
+   * @param oldMappings The old mappings.
+   * @param newMappings The new mappings.
+   * 
+   * 
+   * @return The merged list.
    */
-  private void mergeMappings(List<Mapping> srcMappings, List<Mapping> tgtMappings) {
-    // Optimisation
-    if (srcMappings.isEmpty()) {
-      return;
-    }
+  private List<Mapping> mergeMappings(List<Mapping> oldMappings, List<Mapping> newMappings) {
+    log.info("Merging " + newMappings.size() + " new mappings into " + oldMappings.size() + 
+        " old mappings");
+    // Copy old mappings into new array
+    final List<Mapping> res = new ArrayList<>(oldMappings);
     
-    for (Mapping mapping : tgtMappings) {
-      // Look for a match in the old mappings - a match is a mapping with the same fieldId and the
-      // same text
-      for (Mapping oldMapping : srcMappings) {
-        if (mapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
-            && ((mapping.getText() == null && oldMapping.getText() == null) 
-                || (mapping.getText() != null && mapping.getText().equals(oldMapping.getText())))) {
-          if (oldMapping.hasTargetSystem() && !mapping.hasTargetSystem()) {
-            // Copy targets over
-            mapping.setTargetSystem(oldMapping.getTargetSystem());
-            mapping.setTargetCode(oldMapping.getTargetCode());
-            mapping.setTargetDisplay(oldMapping.getTargetDisplay());
-            mapping.setValueSetUrl(oldMapping.getValueSetUrl());
-            mapping.setValueSetName(oldMapping.getValueSetName());
+    Set<Mapping> allFound = new HashSet<>();
+    for (Mapping oldMapping : res) {
+      // Look for matching mappings - a match is a mapping with the same fieldId and the same text
+      boolean found = false;
+      for (Mapping newMapping : newMappings) {
+        if (newMapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
+            && newMapping.getText().equals(oldMapping.getText())) {
+          found = true;
+          oldMapping.setActive(true);
+          allFound.add(newMapping);
+          if (isSet(newMapping)) {
+            oldMapping.setValueSetName(newMapping.getValueSetName());
+            oldMapping.setValueSetUrl(newMapping.getValueSetUrl());
+            oldMapping.setTargetSystem(newMapping.getTargetSystem());
+            oldMapping.setTargetCode(newMapping.getTargetCode());
+            oldMapping.setTargetDisplay(newMapping.getTargetDisplay());
           }
         }
       }
+      if (!found) {
+        // Inactivate
+        oldMapping.setActive(false);
+      }
     }
+    
+    newMappings.removeAll(allFound);
+    
+    log.info("There are " + newMappings.size() + " additional mappings that will be added.");
+    
+    // Copy over any new mappings
+    res.addAll(newMappings);
+    Collections.sort(res);
+    return res;
+  }
+  
+  private boolean isSet(Mapping m) {
+    if (m.hasValueSetUrl() || m.hasValueSetName() || m.hasTargetSystem() || m.hasTargetCode() 
+        || m.hasTargetDisplay()) {
+      return true;
+    }
+    return false;
   }
   
   /**

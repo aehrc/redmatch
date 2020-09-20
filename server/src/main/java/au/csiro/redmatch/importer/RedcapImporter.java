@@ -327,6 +327,7 @@ public class RedcapImporter {
       }
     }
     
+    Collections.sort(res);
     return res;
   }
   

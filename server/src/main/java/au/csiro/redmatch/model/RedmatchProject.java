@@ -110,7 +110,7 @@ public class RedmatchProject {
   public boolean hasRulesDocument() {
     return this.rulesDocument != null;
   }
-
+  
   public List<Mapping> getMappings() {
     return mappings;
   }

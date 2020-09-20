@@ -15,7 +15,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
  *
  */
 @Document
-public class Mapping {
+public class Mapping implements Comparable<Mapping> {
 
   @Id
   private String id;
@@ -38,7 +38,7 @@ public class Mapping {
   /**
    * The free text that wants to be mapped.
    */
-  private String text;
+  private String text = "";
 
   /**
    * The system assigned by the mapper.
@@ -64,6 +64,11 @@ public class Mapping {
    * The name of the value set that contains this code.
    */
   private String valueSetName;
+  
+  /**
+   * Indicates if a mapping is active or not.
+   */
+  private boolean active = true;
 
   public Mapping() {
 
@@ -152,6 +157,10 @@ public class Mapping {
   public void setValueSetUrl(String valueSetUrl) {
     this.valueSetUrl = valueSetUrl;
   }
+  
+  public boolean hasValueSetUrl() {
+    return this.valueSetUrl != null;
+  }
 
   public String getValueSetName() {
     return valueSetName;
@@ -160,6 +169,91 @@ public class Mapping {
   public void setValueSetName(String valueSetName) {
     this.valueSetName = valueSetName;
   }
+  
+  public boolean hasValueSetName() {
+    return this.valueSetName != null;
+  }
+
+  public boolean isActive() {
+    return active;
+  }
+
+  public void setActive(boolean active) {
+    this.active = active;
+  }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((redcapFieldId == null) ? 0 : redcapFieldId.hashCode());
+    result = prime * result + ((redcapFieldType == null) ? 0 : redcapFieldType.hashCode());
+    result = prime * result + ((redcapLabel == null) ? 0 : redcapLabel.hashCode());
+    result = prime * result + ((targetCode == null) ? 0 : targetCode.hashCode());
+    result = prime * result + ((targetDisplay == null) ? 0 : targetDisplay.hashCode());
+    result = prime * result + ((targetSystem == null) ? 0 : targetSystem.hashCode());
+    result = prime * result + ((text == null) ? 0 : text.hashCode());
+    result = prime * result + ((valueSetName == null) ? 0 : valueSetName.hashCode());
+    result = prime * result + ((valueSetUrl == null) ? 0 : valueSetUrl.hashCode());
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    Mapping other = (Mapping) obj;
+    if (redcapFieldId == null) {
+      if (other.redcapFieldId != null)
+        return false;
+    } else if (!redcapFieldId.equals(other.redcapFieldId))
+      return false;
+    if (redcapFieldType == null) {
+      if (other.redcapFieldType != null)
+        return false;
+    } else if (!redcapFieldType.equals(other.redcapFieldType))
+      return false;
+    if (redcapLabel == null) {
+      if (other.redcapLabel != null)
+        return false;
+    } else if (!redcapLabel.equals(other.redcapLabel))
+      return false;
+    if (targetCode == null) {
+      if (other.targetCode != null)
+        return false;
+    } else if (!targetCode.equals(other.targetCode))
+      return false;
+    if (targetDisplay == null) {
+      if (other.targetDisplay != null)
+        return false;
+    } else if (!targetDisplay.equals(other.targetDisplay))
+      return false;
+    if (targetSystem == null) {
+      if (other.targetSystem != null)
+        return false;
+    } else if (!targetSystem.equals(other.targetSystem))
+      return false;
+    if (text == null) {
+      if (other.text != null)
+        return false;
+    } else if (!text.equals(other.text))
+      return false;
+    if (valueSetName == null) {
+      if (other.valueSetName != null)
+        return false;
+    } else if (!valueSetName.equals(other.valueSetName))
+      return false;
+    if (valueSetUrl == null) {
+      if (other.valueSetUrl != null)
+        return false;
+    } else if (!valueSetUrl.equals(other.valueSetUrl))
+      return false;
+    return true;
+  }
 
   @Override
   public String toString() {
@@ -167,6 +261,15 @@ public class Mapping {
         + ", redcapFieldType=" + redcapFieldType + ", text=" + text + ", targetSystem="
         + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay
         + ", valueSetUrl=" + valueSetUrl + ", valueSetName=" + valueSetName + "]";
+  }
+
+  @Override
+  public int compareTo(Mapping o) {
+    int res = redcapFieldId.compareTo(o.redcapFieldId);
+    if (res == 0 && text != null && o.text != null) {
+      return text.compareTo(o.text);
+    }
+    return res;
   }
 
 }
