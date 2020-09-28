@@ -7,7 +7,11 @@ package au.csiro.redmatch.api;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -16,6 +20,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -26,6 +33,7 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +70,9 @@ public class RedmatchApi {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchApi.class);
 
+  @Value("${redmatch.targetFolder}")
+  private String targetFolderName;
+  
   @Autowired
   private RedcapImporter redcapImporter;
 
@@ -345,8 +356,8 @@ public class RedmatchApi {
         Collectors.toList());
     
     log.info("Exporting data to FHIR.");
-    Map<String, String> map = fhirExporter.saveResourcesToFolder(metadata, rulesDocument, mappings, 
-        rows);
+    Map<String, String> map = fhirExporter.saveResourcesToFolder(projectId, metadata, rulesDocument,
+        mappings, rows);
     
     Parameters res = new Parameters();
     
@@ -361,6 +372,48 @@ public class RedmatchApi {
     }
     
     return res;
+  }
+  
+  /**
+   * Downloads the ND-JSON files in the target folder as a ZIP file.
+   * 
+   * @return The ND-JSON files as a ZIP file.
+   * @throws IOException 
+   */
+  public byte[] downloadExportedFiles(String projectId) throws IOException {
+    // Read ND-JSON files and save to ZIP file
+    File folder = new File(targetFolderName, projectId);
+    log.info("Downloading ND-JSON files from " + folder);
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+        try (Stream<Path> walk = Files.walk(folder.toPath())) {
+          walk.map(x -> x.toAbsolutePath())
+            .filter(f -> {
+              log.info("Processing file " + f);
+              return f.toString().endsWith(".ndjson");
+            })
+            .collect(Collectors.toList())
+            .forEach(x -> {
+              log.info("Adding file " + x + " to zip.");
+              try {
+                ZipEntry zipEntry = new ZipEntry(x.getFileName().toString());
+                zos.putNextEntry(zipEntry);
+                ByteArrayInputStream bais = new ByteArrayInputStream(Files.readAllBytes(x));
+  
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = bais.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+                zos.closeEntry();
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            });
+        }
+      }
+      return baos.toByteArray();
+    }
   }
   
   /**

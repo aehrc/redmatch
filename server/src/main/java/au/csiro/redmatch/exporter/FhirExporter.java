@@ -175,6 +175,7 @@ public class FhirExporter {
    * Saves all the generated FHIR resources in ND-JSON format in a folder. Each file the same
    * resource type. A map of resource types and filenames is returned.
    * 
+   * @param projectId The project id. Used to create a folder to export.
    * @param metadata The REDCap metadata.
    * @param rulesDocument The mapping rules.
    * @param mappings The mappings from REDCap fields to codes in a terminology.
@@ -183,8 +184,24 @@ public class FhirExporter {
    * @throws IOException 
    * @throws DataFormatException 
    */
-  public Map<String, String> saveResourcesToFolder(Metadata metadata, Document rulesDocument, 
-      List<Mapping> mappings, List<Row> rows) throws DataFormatException, IOException {
+  public Map<String, String> saveResourcesToFolder(String projectId, Metadata metadata, 
+      Document rulesDocument, List<Mapping> mappings, List<Row> rows) 
+          throws DataFormatException, IOException {
+    
+    // Create folder if it doesn't exist
+    Path tgtDir = Files.createDirectories(targetFolder.resolve(Path.of(projectId)));
+    
+    // Tries to delete any old files in there
+    for(File file: targetFolder.toFile().listFiles()) {
+      if (!file.isDirectory() && file.getAbsolutePath().endsWith(".ndjson")) {
+        if (file.delete()) {
+          log.debug("Deleted file " + file.getAbsolutePath());
+        } else {
+          log.debug("Unable to deleted file " + file.getAbsolutePath());
+        }
+      }
+    }
+    
     final Map<String, DomainResource> map = 
         createClinicalResourcesFromRules(metadata, rulesDocument, mappings, rows);
     
@@ -205,7 +222,7 @@ public class FhirExporter {
     final Map<String, String> res = new HashMap<>();
     IParser jsonParser = ctx.newJsonParser();
     for (String key : grouped.keySet()) {
-      File f = new File(targetFolder.toFile(), key + ".ndjson");
+      File f = new File(tgtDir.toFile(), key + ".ndjson");
       res.put(key, f.getAbsolutePath());
       try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
         for(DomainResource dr : grouped.get(key)) {

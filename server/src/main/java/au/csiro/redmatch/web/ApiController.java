@@ -415,6 +415,43 @@ public class ApiController {
     }
   }
   
+  @ApiOperation(value = "Export generated ND-JSON files as a ZIP file.")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "The operation completed successfully."),
+      @ApiResponse(code = 406, message = "The system does not support the requested content type."),
+      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "project/{projectId}/$export", 
+      method = RequestMethod.POST, produces = "application/zip" )
+  public ResponseEntity<?> exportProject(@RequestHeader(value = "Accept") String accept,
+      @PathVariable String projectId) {
+    
+    if (accept != null && !accept.isEmpty()) {
+      final Set<String> acceptHeaders = WebUtils.parseAcceptHeaders(accept);
+      if (!acceptHeaders.contains("application/zip") && !acceptHeaders.contains("*/*")) {
+        return getResponse(HttpStatus.NOT_ACCEPTABLE, 
+            "Can only handle application/zip and */*, but got " + accept + " (parsed: " 
+                + acceptHeaders + ")");
+      }
+    }
+    
+    final HttpHeaders headers = new HttpHeaders();
+    headers.add("Content-Disposition", "attachment; filename=\"study_" + projectId 
+        + "_export.zip\"");
+
+    byte[] res;
+    try {
+      res = api.downloadExportedFiles(projectId);
+    } catch (IOException e) {
+      // If there is an IO issue we still should send back a 500
+      throw new RuntimeException(e);
+    }
+    final ByteArrayResource resource = new ByteArrayResource(res);
+
+    return ResponseEntity.ok().headers(headers).contentLength(res.length)
+        .contentType(MediaType.parseMediaType("application/vnd.ms-excel")).body(resource);
+  }
+  
+  
   @ApiOperation(value = "Deletes a Redmatch project.")
   @ApiResponses(value = { @ApiResponse(code = 204, message = "The Redmatch project was deleted "
       + "successfully."),

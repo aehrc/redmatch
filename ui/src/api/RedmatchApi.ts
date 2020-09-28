@@ -54,6 +54,7 @@ export interface Mapping {
   targetDisplay: string;
   valueSetUrl: string;
   valueSetName: string;
+  active: boolean;
 }
 
 export interface RedmatchApi {

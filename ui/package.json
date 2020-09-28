@@ -4,7 +4,7 @@
   "description": "A user interface for Redmatch",
   "main": "index.js",
   "scripts": {
-    "start": "NODE_ENV=development webpack-dev-server --mode=development --watch --hot --port=3000",
+    "start": "NODE_ENV=development webpack-dev-server --mode=development --watch --hot --port=3002",
     "build": "webpack --mode=production",
     "antlr4ts": "antlr4ts -visitor src/grammar/au/csiro/redmatch/grammar/RedmatchLexer.g4 src/grammar/au/csiro/redmatch/grammar/RedmatchGrammar.g4"
   },

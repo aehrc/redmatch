@@ -1,9 +1,10 @@
 import { Box, Toolbar, IconButton, Typography, Button, CircularProgress, TextareaAutosize } from "@material-ui/core";
 import React, { useContext, useState, useEffect } from "react";
-import { IBundle } from "@ahryman40k/ts-fhir-types/lib/R4";
+import { IParameters, IOperationOutcome, OperationOutcome_IssueSeverityKind } from "@ahryman40k/ts-fhir-types/lib/R4";
 import { Config } from "./App";
 import TextField from '@material-ui/core/TextField';
 import http from "axios";
+import { ApiError } from "./ApiError";
 
 interface Props {
   projectId: string;
@@ -12,65 +13,72 @@ interface Props {
 export default function Export(props: Props) {
   const { projectId } = props;
   const { redmatchUrl } = useContext(Config);
+  const { pathlingUrl } = useContext(Config);
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() =>{
-
-  });
-
-  const download = () => {
-    if (value === '') {
-      return;
-    }
-
-    const element = document.createElement("a");
-    const file = new Blob([value], {type: 'application/json'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${projectId}.json`;
-    document.body.appendChild(element); // Required for this to work in FireFox
-    element.click();
-  };
+  //useEffect(() =>{
+  //
+  //});
 
   const onExport = (projectId: string) => {
-    console.log('Exporting project ' + projectId);
     fetchData(projectId)
-      .then((response: FetchDataResponse) => {
-        if (response.error) {
-          setValue(JSON.stringify(response.error, null, 2));
-        } else if(response.result) {
-          setValue(JSON.stringify(response.result, null, 2));
-        }
+      .then(() => {
+        setStatus('');
       });
   };
 
   interface FetchDataResponse {
-    result: IBundle,
-    error: any
+    result: IOperationOutcome,
+    error: IOperationOutcome
   }
 
   const fetchData = async (projectId: string) => {
-    let res : FetchDataResponse = { result: {resourceType: 'Bundle'}, error: null };
-    try {
-      setStatus('loading');
-      const { data } = await http.post<IBundle>(
-        `${redmatchUrl}/project/${projectId}/$transform`,
-        null,
-        {
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-          }
+    let res : FetchDataResponse = { 
+      result: { resourceType: 'OperationOutcome', issue: [{ severity: undefined, code: undefined }] }, 
+      error: { resourceType: 'OperationOutcome', issue: [{ severity: undefined, code: undefined }] }
+    };
+    setStatus('loading');
+    setValue('Transforming project in Redmatch');
+    const { data } = await http.post<IParameters>(
+      `${redmatchUrl}/project/${projectId}/$transform`,
+      null,
+      {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
         }
-      );
-      setStatus('');
-      res.result = data;
-      return res;
-    } catch (err) {
-      res.error = err;
-      return  res;
+      }
+    );
+    setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
+
+    // Download ZIP
+    try {
+      const { data: blobData } = await http({
+        method: 'post',
+        url: `${redmatchUrl}/project/${projectId}/$export`,
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([blobData]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${projectId}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    } catch (error) {
+      const e : Error = { 
+        name: 'Download error', 
+        message: 'There was a problem downloading the file: ' + error 
+      };
+      console.log(e);
+      setError(e);
     }
-  };
+  }
 
   return (
     <Box>
@@ -87,13 +95,6 @@ export default function Export(props: Props) {
         >
           Export
         </Button>
-        <Button
-          type="submit"
-          onClick={() => download()}
-          color="primary"
-        >
-          Download
-        </Button>
       </Toolbar>
       <TextField
         inputProps={{
@@ -108,6 +109,7 @@ export default function Export(props: Props) {
         aria-label="FHIR"
         value={value}
       />
+      <ApiError error={error} />
     </Box>
   );
 }

@@ -26,10 +26,8 @@ export default function Rules(props: Props) {
   const [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
 
   const onChangeRules = (value: string) => {
-    console.log("onChangeRules");
     request.rulesDocument = value;
     setRequest(request);
-    console.log("onChange");
   }
 
   /*

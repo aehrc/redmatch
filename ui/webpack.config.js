@@ -23,7 +23,7 @@ module.exports = (env, argv) => ({
     new CleanWebpackPlugin(),
     new HtmlWebpackPlugin({
       template: "./src/index.html",
-      base: argv.mode === "development" ? "http://localhost:3000/" : false
+      base: argv.mode === "development" ? "http://localhost:3002/" : false
     }),
     new MonacoEditorWebpackPlugin()
   ],

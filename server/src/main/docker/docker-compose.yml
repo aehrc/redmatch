@@ -1,0 +1,30 @@
+version: '3'
+volumes:
+  mongodb_data_container:
+    driver: local
+  shared:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/Users/met045/Downloads/redmatch_out'
+services:
+  mongo:
+    image: mongo:4.2.6-bionic
+    container_name: mongo
+    expose:
+      - "27017"
+    volumes:
+      - mongodb_data_container:/data/db
+  redmatch:
+    image: aehrc/redmatch:1.1.0-SNAPSHOT
+    container_name: redmatch
+    depends_on:
+      - mongo
+    environment:
+      - "SPRING_PROFILES_ACTIVE=prod"
+      - redmatch.targetFolder=/usr/share/redmatch
+    ports:
+      - 8080:8080
+    volumes:
+      - shared:/usr/share/redmatch

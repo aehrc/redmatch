@@ -27,7 +27,6 @@ export default function Mappings(props: Props) {
     let data : (IValueSet | null)[] = [];
     // Initialise selected value sets so autocompletes are controlled
     mappings.forEach((m) => {
-      console.log('Mapping: ' + JSON.stringify(m));
       if(m.valueSetUrl) {
         let v : IValueSet = {
           resourceType: 'ValueSet',
@@ -142,7 +141,7 @@ export default function Mappings(props: Props) {
   };
 
   function renderContent() {
-    if (!mappings || mappings.length < 1) {
+    if (!mappings || mappings.filter(x => x.active).length === 0) {
       return (
         <Typography variant="body1">No mappings are needed.</Typography>
       );
@@ -177,7 +176,7 @@ export default function Mappings(props: Props) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {mappings.map((mapping, i) => {                
+              {mappings.filter(x => x.active).map((mapping, i) => {                
                 return (
                   <TableRow key={i}>
                     <TableCell>{mapping.redcapFieldId}</TableCell>
