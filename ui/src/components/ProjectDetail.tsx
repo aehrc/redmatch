@@ -137,9 +137,6 @@ export default function ProjectDetail(props: Props) {
     useMutation<RedmatchProject,[string, Mapping[]]>(
       RedmatchApi(redmatchUrl).updateMappings, {
         onMutate: (params: any[]) => {
-
-          console.log(JSON.stringify(params));
-
           queryCache.cancelQueries('RedmatchProject');
           const previousProject = queryCache.getQueryData('RedmatchProject');
       
@@ -198,13 +195,13 @@ export default function ProjectDetail(props: Props) {
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <ProjectMetadata metadata={project.metadata} onUpdate={handleUpdate} updateStatus={updateStatusMetadata}/>
+          <ProjectMetadata metadata={project.metadata} onUpdate={handleUpdate} status={status} updateStatus={updateStatusMetadata}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={2} value={activeTab}>
-          <Rules project={project} onSave={handleOnSaveRules} updateStatus={updateStatusRules}/>
+          <Rules project={project} onSave={handleOnSaveRules} status={status} updateStatus={updateStatusRules}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={3} value={activeTab}>
-          <Mappings project={project} onSave={handleOnSaveMappings} updateStatus={updateStatusMappings}/>
+          <Mappings project={project} onSave={handleOnSaveMappings} status={status} updateStatus={updateStatusMappings}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={4} value={activeTab}>
           <Export projectId={project.id}/>

@@ -11,7 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -42,6 +41,7 @@ import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.exporter.ExcelExporter;
 import au.csiro.redmatch.exporter.FhirExporter;
+import au.csiro.redmatch.exporter.NoMappingFoundException;
 import au.csiro.redmatch.importer.CompilerException;
 import au.csiro.redmatch.importer.ExcelImporter;
 import au.csiro.redmatch.importer.RedcapImporter;
@@ -331,6 +331,11 @@ public class RedmatchApi {
     final RedmatchProject fcp = resolveRedmatchProject(projectId);
     if (fcp.hasErrors()) {
       throw new CompilerException(getRuleValidationErrorMessage(fcp.getIssues()));
+    }
+    
+    if (!fcp.isMappingsComplete()) {
+      throw new NoMappingFoundException("Project has missing mappings. Please make sure all "
+          + "mappings are complete before attempting to transform the project.");
     }
     
     log.info("Getting data from REDCap.");

@@ -11,13 +11,15 @@ import CodeSearch from "./CodeSearch";
 
 interface Props {
   project: RedmatchProject;
+  status: string;
   updateStatus: string;
   onSave: (newmappings: Mapping[]) => void;
 }
 
 export default function Mappings(props: Props) {
-  const { project, updateStatus, onSave } = props;
+  const { project, status, updateStatus, onSave } = props;
   const { terminologyUrl } = useContext(Config);
+  const [valueSetStatus, setValueSetStatus] = useState<string>('loading');
   // The mappings
   const [mappings, setMappings] = useState<Mapping[]>(project.mappings);
   // The options available in the value sets autocomplete for each mapping
@@ -37,12 +39,9 @@ export default function Mappings(props: Props) {
       } else {
         data.push(null);
       }
-      
     });
-    console.log(data);
     return data;
   });
-
   // The selected codings
   const [codings, setCodings] = useState<(ICoding | null)[]>(() : (ICoding | null)[] => {
     let data : (ICoding | null)[] = [];
@@ -124,24 +123,24 @@ export default function Mappings(props: Props) {
       }
 
       setOptions(o);
+      setValueSetStatus('loaded');
     }));
   }, []);
 
   const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
-    console.log('option: ' + JSON.stringify(option) + ', value: ' + JSON.stringify(value));
     if (option == null && value == null) {
       return true;
     } else if (option && value && option.url === value.url) {
-      console.log('Returning true');
       return true;
     } else {
-      console.log('Returning false');
       return false;
     }
   };
 
   function renderContent() {
-    if (!mappings || mappings.filter(x => x.active).length === 0) {
+    if (status === 'loading' || valueSetStatus == 'loading') {
+      return <Typography variant="body1">Loading mappings...</Typography>;
+    } else if (!mappings || mappings.filter(x => x.active).length === 0) {
       return (
         <Typography variant="body1">No mappings are needed.</Typography>
       );

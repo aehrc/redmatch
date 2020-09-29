@@ -2,7 +2,7 @@ import MonacoEditor, { MonacoEditorProps } from "react-monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 import { makeStyles } from "@material-ui/core/styles";
 import { RedmatchTokensProvider } from "../editor/RedmatchTokensProvider";
-import { Box, Toolbar, IconButton } from "@material-ui/core";
+import { Box, Toolbar, IconButton, Typography } from "@material-ui/core";
 import { Button, CircularProgress } from "@material-ui/core";
 import React, { useContext, useState } from "react";
 import { RedmatchProject } from "../api/RedmatchApi";
@@ -15,13 +15,14 @@ const useStyles = makeStyles({
 
 interface Props {
   project: RedmatchProject;
+  status: string;
   updateStatus: string;
   onSave: (newRules: string) => void;
 }
 
 export default function Rules(props: Props) {
   const classes = useStyles();
-  const { project, updateStatus, onSave } = props;
+  const { project, status, updateStatus, onSave } = props;
   const [request, setRequest] = useState<RedmatchProject>(project);
   const [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
 
@@ -113,31 +114,39 @@ export default function Rules(props: Props) {
     });
   }
 
-  return (
-    <Box>
-      <Toolbar>
-        <Button
-          type="submit"
-          onClick={() => onSave(request.rulesDocument)}
-          color="primary"
-          endIcon={
-            updateStatus === "loading" ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : null
-          }
-        >
-          Save
-        </Button>
-      </Toolbar>
-      <MonacoEditor
-        language="redmatch"
-        theme="redmatchTheme"
-        value={request.rulesDocument}
-        editorWillMount={editorWillMount}
-        editorDidMount={editorDidMount}
-        options={{ extraEditorClassName: classes.editor }}
-        onChange={onChangeRules}
-      />
-    </Box>
-  );
+  function renderContent() {
+    if (status === 'loading') {
+      return <Typography variant="body1">Loading metadata...</Typography>;
+    } else {
+      return (
+        <Box>
+          <Toolbar>
+            <Button
+              type="submit"
+              onClick={() => onSave(request.rulesDocument)}
+              color="primary"
+              endIcon={
+                updateStatus === "loading" ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : null
+              }
+            >
+              Save
+            </Button>
+          </Toolbar>
+          <MonacoEditor
+            language="redmatch"
+            theme="redmatchTheme"
+            value={request.rulesDocument}
+            editorWillMount={editorWillMount}
+            editorDidMount={editorDidMount}
+            options={{ extraEditorClassName: classes.editor }}
+            onChange={onChangeRules}
+          />
+        </Box>
+      );
+    }
+  }
+
+  return renderContent();
 }

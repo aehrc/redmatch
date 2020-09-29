@@ -181,6 +181,10 @@ public class Mapping implements Comparable<Mapping> {
   public void setActive(boolean active) {
     this.active = active;
   }
+  
+  public boolean isSet() {
+    return hasTargetSystem() && hasTargetCode();
+  }
 
   @Override
   public int hashCode() {

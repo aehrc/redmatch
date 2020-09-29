@@ -138,6 +138,12 @@ public class RedmatchProject {
   public boolean hasMappings() {
     return !mappings.isEmpty();
   }
+  
+  public boolean isMappingsComplete() {
+    return mappings.stream()
+      .map(x -> x.isSet())
+      .reduce(true, Boolean::logicalAnd);
+  }
 
   /**
    * @return the issues

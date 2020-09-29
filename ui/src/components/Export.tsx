@@ -40,18 +40,27 @@ export default function Export(props: Props) {
       error: { resourceType: 'OperationOutcome', issue: [{ severity: undefined, code: undefined }] }
     };
     setStatus('loading');
-    setValue('Transforming project in Redmatch');
-    const { data } = await http.post<IParameters>(
-      `${redmatchUrl}/project/${projectId}/$transform`,
-      null,
-      {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json"
+    setValue('Transforming project in Redmatch...');
+    try {
+      const { data } = await http.post<IParameters>(
+        `${redmatchUrl}/project/${projectId}/$transform`,
+        null,
+        {
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          }
         }
-      }
-    );
-    setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
+      );
+      setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
+    } catch (error) {
+      const e : Error = { 
+        name: 'Transformation error', 
+        message: 'There was a problem with the transformation. Please check all mappings have been completed.'
+      };
+      setError(e);
+      return;
+    }
 
     // Download ZIP
     try {
@@ -73,9 +82,8 @@ export default function Export(props: Props) {
     } catch (error) {
       const e : Error = { 
         name: 'Download error', 
-        message: 'There was a problem downloading the file: ' + error 
+        message: 'There was a problem downloading the file.'
       };
-      console.log(e);
       setError(e);
     }
   }
