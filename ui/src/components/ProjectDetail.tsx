@@ -4,7 +4,13 @@ import {
   AppBar,
   Box,
   Breadcrumbs,
+  Button,
   Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Link,
   Tab,
   Tabs,
@@ -71,10 +77,35 @@ export default function ProjectDetail(props: Props) {
     useQuery<RedmatchProject, [string, string]>(
       ["RedmatchProject", reportId], RedmatchApi(redmatchUrl).getProject
     );
+  // Used to warn the user if navigating away of tab with unsaved changes
+  const [unsavedMappings, setUnsavedMappings] = useState<boolean>(false);
+  const [unsavedRules, setUnsavedRules] = useState<boolean>(false);
+  // Used to store the tab number a user is trying to click on. Only used 
+  // when there is unsaved data and the user needs to be warned.
+  const [targetTab, setTargetTab] = useState<number>(0);
+  // Used to show and hide the dialog to warn users about unsaved data
+  const [open, setOpen] = React.useState(false);
+  
+  const handleCancel = () => {
+    setOpen(false);
+  };
+
+  const handleContinue = () => {
+    setOpen(false);
+    setActiveTab(targetTab);
+  };
 
   const handleOnSaveRules = (newRules: string) => {
     // Rules were updated so run mutation
     updateRules([reportId, newRules]);
+  }
+
+  const handleOnSaveNeededMappings = (saveNeeded: boolean) => {
+    setUnsavedMappings(saveNeeded);
+  }
+
+  const handleOnSaveNeededRules = (saveNeeded: boolean) => {
+    setUnsavedRules(saveNeeded);
   }
   
   const handleOnSaveMappings = (newMappings: Mapping[]) => {
@@ -171,6 +202,18 @@ export default function ProjectDetail(props: Props) {
       }
     );
 
+  function switchTab(tab: number) {
+    if (activeTab === 3 && unsavedMappings && tab !== 3) {
+      setTargetTab(tab);
+      setOpen(true);
+    } else if (activeTab === 2 && unsavedRules && tab !== 2) {
+      setTargetTab(tab);
+      setOpen(true);
+    } else {
+      setActiveTab(tab);
+    }
+  }
+
   function renderProjectDetail() {
     if (!project) {
       return (
@@ -183,11 +226,11 @@ export default function ProjectDetail(props: Props) {
       <Card className={classes.content}>
         <AppBar position="static" color="inherit">
           <Tabs value={activeTab}>
-            <Tab label="Info" onClick={() => setActiveTab(0)} />
-            <Tab label="Metadata" onClick={() => setActiveTab(1)} />
-            <Tab label="Rules" onClick={() => setActiveTab(2)} />
-            <Tab label="Mappings" onClick={() => setActiveTab(3)} />
-            <Tab label="Export" onClick={() => setActiveTab(4)} />
+            <Tab label="Info" onClick={() => switchTab(0)} />
+            <Tab label="Metadata" onClick={() => switchTab(1)} />
+            <Tab label="Rules" onClick={() => switchTab(2)} />
+            <Tab label="Mappings" onClick={() => switchTab(3)} />
+            <Tab label="Export" onClick={() => switchTab(4)} />
           </Tabs>
         </AppBar>
         <TabPanel className={classes.tabContent} index={0} value={activeTab}>
@@ -197,10 +240,10 @@ export default function ProjectDetail(props: Props) {
           <ProjectMetadata metadata={project.metadata} onUpdate={handleUpdate} status={status} updateStatus={updateStatusMetadata}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={2} value={activeTab}>
-          <Rules project={project} onSave={handleOnSaveRules} status={status} updateStatus={updateStatusRules}/>
+          <Rules project={project} onSave={handleOnSaveRules} onSaveNeeded={handleOnSaveNeededRules} status={status} updateStatus={updateStatusRules}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={3} value={activeTab}>
-          <Mappings project={project} onSave={handleOnSaveMappings} status={status} updateStatus={updateStatusMappings}/>
+          <Mappings project={project} onSave={handleOnSaveMappings} onSaveNeeded={handleOnSaveNeededMappings} status={status} updateStatus={updateStatusMappings}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={4} value={activeTab}>
           <Export projectId={project.id}/>
@@ -227,6 +270,26 @@ export default function ProjectDetail(props: Props) {
       ) : (
         renderProjectDetail()
       )}
+      <Dialog
+        open={open}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"You have unsaved data!"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Data will be lost if you navigate to another tab without saving.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancel} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleContinue} color="primary" autoFocus>
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
       <ApiError error={error} />
     </Box>
   );

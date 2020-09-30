@@ -16,6 +16,7 @@ interface Props {
   status: string;
   updateStatus: string;
   onSave: (newmappings: Mapping[]) => void;
+  onSaveNeeded: (saveNeeded: boolean) => void;
 }
 
 export const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
@@ -29,50 +30,23 @@ export const getOptionSelected = (option: IValueSet | null, value: IValueSet | n
 };
 
 export default function Mappings(props: Props) {
-  const { project, status, updateStatus, onSave } = props;
+  const { project, status, updateStatus, onSave, onSaveNeeded } = props;
   const { terminologyUrl } = useContext(Config);
   const [valueSetConfigOpen, setValueSetConfigOpen] = useState(false)
   const [valueSetStatus, setValueSetStatus] = useState<string>('loading');
+
   // The mappings
-  const [mappings, setMappings] = useState<Mapping[]>(project.mappings);
+  const [mappings, setMappings] = useState<Mapping[]>([]);
   // The options available in the value sets autocomplete for each mapping
   const [options, setOptions] = useState<IValueSet[]>([]);
   // The selected value sets for each mapping
-  const [valueSets, setValueSets] = useState<(IValueSet | null)[]>(() : (IValueSet | null)[] => {
-    let data : (IValueSet | null)[] = [];
-    // Initialise selected value sets so autocompletes are controlled
-    mappings.forEach((m) => {
-      if(m.valueSetUrl) {
-        let v : IValueSet = {
-          resourceType: 'ValueSet',
-          url: m.valueSetUrl,
-          name: m.valueSetName
-        };
-        data.push(v);
-      } else {
-        data.push(null);
-      }
-    });
-    return data;
-  });
+  const [valueSets, setValueSets] = useState<(IValueSet | null)[]>([]);
   // The selected codings
-  const [codings, setCodings] = useState<(ICoding | null)[]>(() : (ICoding | null)[] => {
-    let data : (ICoding | null)[] = [];
-    mappings.forEach((m) => {
-      if (m.targetCode) {
-        let c : ICoding = {
-          system: m.targetSystem,
-          code: m.targetCode,
-          display: m.targetDisplay
-        };
-        data.push(c);
-      } else {
-        data.push(null);
-      }
-    });
-    return data;
-  });
+  const [codings, setCodings] = useState<(ICoding | null)[]>([]);
+  // Used to determine if saving is required
+  const [saveNeeded, setSaveNeeded] = useState<boolean>(false);
 
+  // Loads the value set options
   useEffect(() => {
     const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem`);
     const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_elements=url,name`);
@@ -140,6 +114,54 @@ export default function Mappings(props: Props) {
     }));
   }, []);
 
+  // Loads the mappings
+  useEffect(() => {
+    // We need to merge any mappings that have been filled out with any changes in the backend
+    setMappings(prev => {
+      return project.mappings.map(mapping => {
+        // If an entry exists in the previous mappings then copy over
+        let index = prev.findIndex(i => i.redcapFieldId === mapping.redcapFieldId && i.text === mapping.text);
+        if (index !== -1) {
+          return prev[index];
+        }
+        return mapping;
+      });
+    });
+  }, [project]);
+
+  useEffect(() => {
+    let vss : (IValueSet | null)[] = [];
+    mappings.forEach((m) => {
+      if(m.valueSetUrl) {
+        let v : IValueSet = {
+          resourceType: 'ValueSet',
+          url: m.valueSetUrl,
+          name: m.valueSetName
+        };
+        vss.push(v);
+      } else {
+        vss.push(null);
+      }
+    });
+    setValueSets(vss);
+
+    let codings : (ICoding | null)[] = [];
+    mappings.forEach((m) => {
+      if (m.targetCode) {
+        let c : ICoding = {
+          system: m.targetSystem,
+          code: m.targetCode,
+          display: m.targetDisplay
+        };
+        codings.push(c);
+      } else {
+        codings.push(null);
+      }
+    });
+    setCodings(codings);
+    checkSavedRequired();
+  }, [mappings]);
+
   const handleValueSetConfigOpen = () => setValueSetConfigOpen(true);
 
   const handleValueSetConfigCancel = () => setValueSetConfigOpen(false);
@@ -173,6 +195,23 @@ export default function Mappings(props: Props) {
     }
   };
 
+  const checkSavedRequired = () => {
+    if (!mappings || mappings.length === 0) {
+      return;
+    }
+    let required = false;
+    project.mappings.forEach((mapping, i) => {
+      if (mapping.valueSetName !== mappings[i].valueSetName 
+        || mapping.valueSetUrl !== mappings[i].valueSetUrl
+        || mapping.targetSystem !== mappings[i].targetSystem
+        || mapping.targetCode !== mappings[i].targetCode) {
+          required = true;
+        }
+    });
+    setSaveNeeded(required);
+    onSaveNeeded(required);
+  }
+
   function renderContent() {
     if (status === 'loading' || valueSetStatus == 'loading') {
       return <Typography variant="body1">Loading mappings...</Typography>;
@@ -186,7 +225,12 @@ export default function Mappings(props: Props) {
           <Toolbar>
             <Button
               type="submit"
-              onClick={() => onSave(mappings)}
+              disabled={!saveNeeded}
+              onClick={() => {
+                setSaveNeeded(false);
+                onSaveNeeded(false);
+                onSave(mappings);
+              }}
               color="primary"
               endIcon={
                 updateStatus === "loading" ? (

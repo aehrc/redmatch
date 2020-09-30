@@ -18,17 +18,25 @@ interface Props {
   status: string;
   updateStatus: string;
   onSave: (newRules: string) => void;
+  onSaveNeeded: (saveNeeded: boolean) => void;
 }
 
 export default function Rules(props: Props) {
   const classes = useStyles();
-  const { project, status, updateStatus, onSave } = props;
-  const [request, setRequest] = useState<RedmatchProject>(project);
+  const { project, status, updateStatus, onSave, onSaveNeeded } = props;
+  const [rules, setRules] = useState<string>(project.rulesDocument);
   const [model, setModel] = useState<monacoEditor.editor.ITextModel | null>(null);
+  // Used to determine if saving is required
+  const [saveNeeded, setSaveNeeded] = useState<boolean>(false);
 
   const onChangeRules = (value: string) => {
-    request.rulesDocument = value;
-    setRequest(request);
+    setRules(value);
+    let required = false;
+    if (project.rulesDocument !== value) {
+      required = true;
+    }
+    setSaveNeeded(required);
+    onSaveNeeded(required);
   }
 
   /*
@@ -88,7 +96,7 @@ export default function Rules(props: Props) {
    * Creates the Monaco editor model.
    */
   function editorDidMount(editor: monacoEditor.editor.IStandaloneCodeEditor, _monaco: typeof monacoEditor) {
-    var model = monaco.editor.createModel(request.rulesDocument, "redmatch");
+    var model = monaco.editor.createModel(rules, "redmatch");
     editor.setModel(model);
     setModel(model);
     let markers = getMarkers(project);
@@ -96,7 +104,6 @@ export default function Rules(props: Props) {
   }
 
   /*
-   *
    * Transforms the errors in a Redmatch project into the format required by Monaco.
    *  
    * @param project 
@@ -123,7 +130,12 @@ export default function Rules(props: Props) {
           <Toolbar>
             <Button
               type="submit"
-              onClick={() => onSave(request.rulesDocument)}
+              disabled={!saveNeeded}
+              onClick={() => {
+                setSaveNeeded(false);
+                onSaveNeeded(false);
+                onSave(rules);
+              }}
               color="primary"
               endIcon={
                 updateStatus === "loading" ? (
@@ -137,7 +149,7 @@ export default function Rules(props: Props) {
           <MonacoEditor
             language="redmatch"
             theme="redmatchTheme"
-            value={request.rulesDocument}
+            value={rules}
             editorWillMount={editorWillMount}
             editorDidMount={editorDidMount}
             options={{ extraEditorClassName: classes.editor }}
