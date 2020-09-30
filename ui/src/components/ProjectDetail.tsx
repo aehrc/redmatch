@@ -127,7 +127,6 @@ export default function ProjectDetail(props: Props) {
         },
         onError: (_err: Error, rollback: any) => rollback(),
         onSettled: () => {
-          console.log('Settled');
           queryCache.invalidateQueries('RedmatchProject')
         }
       }

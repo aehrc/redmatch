@@ -1,4 +1,5 @@
 import { Box, Toolbar, IconButton, Typography, Button, CircularProgress } from "@material-ui/core";
+import DehazeIcon from '@material-ui/icons/Dehaze';
 import React, { useContext, useState, useEffect } from "react";
 import { RedmatchProject, Mapping } from "../api/RedmatchApi";
 import { Table, TableBody, TableCell, TableRow, TableHead } from "@material-ui/core";
@@ -8,6 +9,7 @@ import TextField from '@material-ui/core/TextField';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import http, { AxiosResponse } from "axios";
 import CodeSearch from "./CodeSearch";
+import ValueSetConfig from "./ValueSetConfig";
 
 interface Props {
   project: RedmatchProject;
@@ -16,9 +18,20 @@ interface Props {
   onSave: (newmappings: Mapping[]) => void;
 }
 
+export const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
+  if (option == null && value == null) {
+    return true;
+  } else if (option && value && option.url === value.url) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
 export default function Mappings(props: Props) {
   const { project, status, updateStatus, onSave } = props;
   const { terminologyUrl } = useContext(Config);
+  const [valueSetConfigOpen, setValueSetConfigOpen] = useState(false)
   const [valueSetStatus, setValueSetStatus] = useState<string>('loading');
   // The mappings
   const [mappings, setMappings] = useState<Mapping[]>(project.mappings);
@@ -127,13 +140,36 @@ export default function Mappings(props: Props) {
     }));
   }, []);
 
-  const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
-    if (option == null && value == null) {
-      return true;
-    } else if (option && value && option.url === value.url) {
-      return true;
-    } else {
-      return false;
+  const handleValueSetConfigOpen = () => setValueSetConfigOpen(true);
+
+  const handleValueSetConfigCancel = () => setValueSetConfigOpen(false);
+
+  const handleValueSetConfigSuccess = (valueSet : IValueSet) => {
+    setValueSetConfigOpen(false);
+    // Only run if the user selected a new default value set
+    if (valueSet.url) {
+      const newValueSets = valueSets.map((vs, i) => {
+        let vsUrl = mappings[i].valueSetUrl;
+        if(!vsUrl || vsUrl.length === 0) {
+          return valueSet;
+        } else {
+          return vs;
+        }
+      });
+      setValueSets(newValueSets);
+
+      const newMappings = mappings.map((mapping, i) => {
+        let vsUrl = mappings[i].valueSetUrl;
+        if(!vsUrl || vsUrl.length === 0) {
+          var clone = { ...mapping };
+          clone.valueSetUrl = valueSet.url ? valueSet.url : '';
+          clone.valueSetName = valueSet.name ? valueSet.name : '' ;
+          return clone;
+        } else {
+          return mapping;
+        }
+      });
+      setMappings(newMappings);
     }
   };
 
@@ -160,6 +196,11 @@ export default function Mappings(props: Props) {
             >
               Save
             </Button>
+            <IconButton 
+              aria-label="delete"
+              onClick={() => handleValueSetConfigOpen()}>
+              <DehazeIcon />
+            </IconButton>
           </Toolbar>
           <Table>
             <TableHead>
@@ -268,6 +309,12 @@ export default function Mappings(props: Props) {
               })}
             </TableBody>
           </Table>
+          <ValueSetConfig
+            open={valueSetConfigOpen}
+            options={options}
+            onSuccess={handleValueSetConfigSuccess}
+            onCancel={handleValueSetConfigCancel}
+          />
         </Box>
       );
     }
