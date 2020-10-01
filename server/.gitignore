@@ -1,3 +1,6 @@
+# Files specific to this project
+src/main/antlr4/au/csiro/redmatch/grammar/.antlr/*
+
 target/
 .checkstyle
 .project

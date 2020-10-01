@@ -1,0 +1,4 @@
+{
+  "redmatchUrl": "http://localhost:8080",
+  "terminologyUrl": "https://r4.ontoserver.csiro.au/fhir"
+}
