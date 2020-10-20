@@ -28,42 +28,9 @@
     </developer>
   </developers>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <modules>
 	<module>server</module>
     <module>ui</module>
   </modules>
-
-  <build>
-    <plugins>
-      <!-- Copies the Redmatch ANTLR grammar files to the UI module. -->
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <version>3.1.0</version>
-        <inherited>false</inherited>
-        <executions>
-          <execution>
-            <id>copy-resources</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>copy-resources</goal>
-            </goals>
-            <configuration>
-              <overwrite>true</overwrite>
-              <outputDirectory>${basedir}/ui/src/grammar</outputDirectory>
-              <resources>          
-                <resource>
-                  <directory>server/src/main/antlr4</directory>
-                </resource>
-              </resources>              
-            </configuration>            
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
 </project>

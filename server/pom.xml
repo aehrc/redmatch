@@ -29,24 +29,6 @@
     <start-class>au.csiro.redmatch.Application</start-class>
   </properties>
 
-  <profiles>
-    <profile>
-      <id>dev</id>
-      <properties>
-        <activatedProperties>dev</activatedProperties>
-      </properties>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-    </profile>
-    <profile>
-      <id>prod</id>
-      <properties>
-        <activatedProperties>prod</activatedProperties>
-      </properties>
-    </profile>
-  </profiles>
-
   <dependencies>
     <!-- Spring Boot web support. -->
     <dependency>
@@ -128,7 +110,38 @@
   </dependencies>
 
   <build>
+    <resources>
+	  <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>src/main/resources-filtered</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+    <!-- TODO: - copy filtered Docker Compose file to project root 
+               - test variables in UI work - needed for deployment in CSIRO server
+    -->
     <plugins>
+	  <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+         <version>3.0.0</version>
+         <executions>
+          <execution>
+            <phase>process-resources</phase>
+            <configuration>
+               <target>
+                 <copy file="${project.build.outputDirectory}/docker-compose.yml"
+                   toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
+              </target>
+            </configuration>
+            <goals>
+              <goal>run</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <!-- Used to add the source code files generated from the ANTLR grammar 
         to the project. -->
       <plugin>
