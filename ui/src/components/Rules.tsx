@@ -1,10 +1,10 @@
-import MonacoEditor, { MonacoEditorProps } from "react-monaco-editor";
+import MonacoEditor from "react-monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 import { makeStyles } from "@material-ui/core/styles";
 import { RedmatchTokensProvider } from "../editor/RedmatchTokensProvider";
-import { Box, Toolbar, IconButton, Typography } from "@material-ui/core";
+import { Box, Toolbar, Typography } from "@material-ui/core";
 import { Button, CircularProgress } from "@material-ui/core";
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
 import { RedmatchProject } from "../api/RedmatchApi";
 
 const useStyles = makeStyles({
@@ -47,14 +47,14 @@ export default function Rules(props: Props) {
       let markers = getMarkers(project);
       monaco.editor.setModelMarkers(model, "owner", markers);
     }
-  }, [project]);
+  }, [model, project]);
 
   /**
    * Sets ups syntax highlighting.
    * 
    * @param monaco The Monaco editor instance.
    */
-  function editorWillMount(monaco: typeof monacoEditor) {
+  function editorWillMount(monaco: any) {
     monaco.languages.register({ id: "redmatch" });
     monaco.languages.setTokensProvider("redmatch", new RedmatchTokensProvider());
     monaco.editor.defineTheme('redmatchTheme', {
@@ -95,7 +95,7 @@ export default function Rules(props: Props) {
   /*
    * Creates the Monaco editor model.
    */
-  function editorDidMount(editor: monacoEditor.editor.IStandaloneCodeEditor, _monaco: typeof monacoEditor) {
+  function editorDidMount(editor: any, _monaco: any) {
     var model = monaco.editor.createModel(rules, "redmatch");
     editor.setModel(model);
     setModel(model);
@@ -147,6 +147,7 @@ export default function Rules(props: Props) {
             </Button>
           </Toolbar>
           <MonacoEditor
+            height="800px"
             language="redmatch"
             theme="redmatchTheme"
             value={rules}

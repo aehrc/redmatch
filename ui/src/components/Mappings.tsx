@@ -1,15 +1,16 @@
 import { Box, Toolbar, IconButton, Typography, Button, CircularProgress } from "@material-ui/core";
 import DehazeIcon from '@material-ui/icons/Dehaze';
-import React, { useContext, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { RedmatchProject, Mapping } from "../api/RedmatchApi";
 import { Table, TableBody, TableCell, TableRow, TableHead } from "@material-ui/core";
 import { IBundle, ICodeSystem, ICoding, IValueSet } from "@ahryman40k/ts-fhir-types/lib/R4";
-import { Config } from "./App";
 import TextField from '@material-ui/core/TextField';
 import Autocomplete from '@material-ui/lab/Autocomplete';
-import http, { AxiosResponse } from "axios";
+import env from "@beam-australia/react-env";
+import http from "axios";
 import CodeSearch from "./CodeSearch";
 import ValueSetConfig from "./ValueSetConfig";
+import { ApiError } from "./ApiError";
 
 interface Props {
   project: RedmatchProject;
@@ -31,7 +32,7 @@ export const getOptionSelected = (option: IValueSet | null, value: IValueSet | n
 
 export default function Mappings(props: Props) {
   const { project, status, updateStatus, onSave, onSaveNeeded } = props;
-  const { terminologyUrl } = useContext(Config);
+  const terminologyUrl = env('TERMINOLOGY_URL');
   const [valueSetConfigOpen, setValueSetConfigOpen] = useState(false)
   const [valueSetStatus, setValueSetStatus] = useState<string>('loading');
 
@@ -45,6 +46,7 @@ export default function Mappings(props: Props) {
   const [codings, setCodings] = useState<(ICoding | null)[]>([]);
   // Used to determine if saving is required
   const [saveNeeded, setSaveNeeded] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null | undefined>(null);
 
   // Loads the value set options
   useEffect(() => {
@@ -112,7 +114,7 @@ export default function Mappings(props: Props) {
       setOptions(o);
       setValueSetStatus('loaded');
     }));
-  }, []);
+  }, [terminologyUrl]);
 
   // Loads the mappings
   useEffect(() => {
@@ -128,7 +130,8 @@ export default function Mappings(props: Props) {
       });
     });
   }, [project]);
-
+  
+  // Updates value sets and codings when the project mappings change
   useEffect(() => {
     let vss : (IValueSet | null)[] = [];
     mappings.forEach((m) => {
@@ -160,14 +163,20 @@ export default function Mappings(props: Props) {
     });
     setCodings(codings);
     checkSavedRequired();
+    // eslint-disable-next-line
   }, [mappings]);
 
   const handleValueSetConfigOpen = () => setValueSetConfigOpen(true);
 
   const handleValueSetConfigCancel = () => setValueSetConfigOpen(false);
 
-  const handleValueSetConfigSuccess = (valueSet : IValueSet) => {
+  const handleError = (error: Error | null | undefined) => setError(error);
+
+  const handleValueSetConfigSuccess = (valueSet : IValueSet | null) => {
     setValueSetConfigOpen(false);
+    if (!valueSet) {
+      return;
+    }
     // Only run if the user selected a new default value set
     if (valueSet.url) {
       const newValueSets = valueSets.map((vs, i) => {
@@ -213,7 +222,7 @@ export default function Mappings(props: Props) {
   }
 
   function renderContent() {
-    if (status === 'loading' || valueSetStatus == 'loading') {
+    if (status === 'loading' || valueSetStatus === 'loading') {
       return <Typography variant="body1">Loading mappings...</Typography>;
     } else if (!mappings || mappings.filter(x => x.active).length === 0) {
       return (
@@ -320,11 +329,11 @@ export default function Mappings(props: Props) {
                         url={terminologyUrl}
                         valueSetUrl={mapping.valueSetUrl}
                         coding={codings[i]}
-                        onChange={(newCoding: ICoding | null) => {
+                        onChange={(newCoding: string | ICoding | null) => {
                           setMappings(prevArray => {
                             const newArr: Mapping[] = prevArray.map((m, j) => {
                               if (i === j) {
-                                const cd = newCoding;
+                                const cd = newCoding as ICoding;
                                 if (cd !== null) {
                                   if (m.targetCode === cd.code) {
                                     return m;
@@ -344,6 +353,7 @@ export default function Mappings(props: Props) {
                             return newArr;
                           });
                         }}
+                        onError={handleError}
                       />
                     </TableCell>
                     <TableCell>{mapping.targetSystem}</TableCell>
@@ -359,6 +369,7 @@ export default function Mappings(props: Props) {
             onSuccess={handleValueSetConfigSuccess}
             onCancel={handleValueSetConfigCancel}
           />
+          <ApiError error={error} />
         </Box>
       );
     }

@@ -1,8 +1,6 @@
 /// <reference path="../../node_modules/monaco-editor/monaco.d.ts" />
 
 import { ANTLRInputStream, ANTLRErrorListener } from 'antlr4ts';
-import ILineTokens = monaco.languages.ILineTokens;
-import IToken = monaco.languages.IToken;
 import { RedmatchLexer } from "../grammar/au/csiro/redmatch/grammar/RedmatchLexer";
 import { Token } from 'monaco-editor';
 
@@ -25,7 +23,7 @@ export class RedmatchTokensProvider implements monaco.languages.TokensProvider {
     }
 }
 const EOF = -1;
-class RedmatchToken implements IToken {
+class RedmatchToken implements monaco.languages.IToken {
     scopes: string;
     startIndex: number;
     constructor(ruleName: string, startIndex: number) {
@@ -33,7 +31,7 @@ class RedmatchToken implements IToken {
         this.startIndex = startIndex;
     }
 }
-class RedmtachLineTokens implements ILineTokens {
+class RedmtachLineTokens implements monaco.languages.ILineTokens {
     endState: monaco.languages.IState;
     tokens: monaco.languages.IToken[];
     constructor(tokens: monaco.languages.IToken[]) {
@@ -61,7 +59,7 @@ export function tokensForLine(input: string): monaco.languages.ILineTokens {
             done = true
         } else {
             // We exclude EOF
-            if (token.type == EOF) {
+            if (token.type === EOF) {
                 done = true;
             } else {
                 const tokenTypeName = RedmatchLexer.VOCABULARY.getSymbolicName(token.type);

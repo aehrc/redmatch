@@ -3,14 +3,14 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import React, { createContext } from "react";
+import React from "react";
 import TitleBar from "./TitleBar";
 import { Box, createMuiTheme, ThemeProvider } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
-import config from "../../config/config.json";
 import Dashboard from "./Dashboard";
 import ProjectDetail from "./ProjectDetail";
+import { QueryCache, QueryClient, QueryClientProvider } from "react-query";
 
 const theme = createMuiTheme({
   palette: {
@@ -44,13 +44,14 @@ const useStyles = makeStyles({
   }
 });
 
-export const Config = createContext(config);
+const cache = new QueryCache();
+const client = new QueryClient({ cache });
 
 export default function App() {
   const classes = useStyles();
 
   return (
-    <Config.Provider value={config}>
+    <QueryClientProvider client={client}>
       <ThemeProvider theme={theme}>
         <TitleBar />
         <Box className={classes.main} component="main">
@@ -72,6 +73,6 @@ export default function App() {
           </Router>
         </Box>
       </ThemeProvider>
-    </Config.Provider>
+    </QueryClientProvider>
   );
 }

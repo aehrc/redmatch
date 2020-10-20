@@ -1,4 +1,4 @@
-import React, { ReactNode, useContext, useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { createStyles, makeStyles } from "@material-ui/core/styles";
 import {
   AppBar,
@@ -17,15 +17,15 @@ import {
   Typography
 } from "@material-ui/core";
 import { Link as RouterLink } from "react-router-dom";
-import { useQuery } from "react-query";
+import { useQuery, useQueryClient } from "react-query";
 import RedmatchApi, { RedmatchProject, Mapping } from "../api/RedmatchApi";
-import { Config } from "./App";
+import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 import ProjectInfo from "./ProjectInfo";
 import ProjectMetadata from "./ProjectMetadata";
 import Rules from "./Rules";
 import Mappings from "./Mappings";
-import { useMutation, queryCache } from "react-query";
+import { useMutation } from "react-query";
 import Export from "./Export";
 
 const useStyles = makeStyles(theme =>
@@ -70,12 +70,13 @@ interface TabPanelProps {
 
 export default function ProjectDetail(props: Props) {
   const classes = useStyles();
-  const { redmatchUrl, terminologyUrl } = useContext(Config);
+  const redmatchUrl = env('REDMATCH_URL');
   const { className, reportId } = props;
   const [activeTab, setActiveTab] = useState<number>(0);
-  const { status, data: project, error, refetch } = 
-    useQuery<RedmatchProject, [string, string]>(
-      ["RedmatchProject", reportId], RedmatchApi(redmatchUrl).getProject
+  const { status, data: project, error } = 
+    useQuery<RedmatchProject, Error>(
+      ["RedmatchProject", reportId], // the query key
+      RedmatchApi(redmatchUrl).getProject // the query function
     );
   // Used to warn the user if navigating away of tab with unsaved changes
   const [unsavedMappings, setUnsavedMappings] = useState<boolean>(false);
@@ -85,6 +86,8 @@ export default function ProjectDetail(props: Props) {
   const [targetTab, setTargetTab] = useState<number>(0);
   // Used to show and hide the dialog to warn users about unsaved data
   const [open, setOpen] = React.useState(false);
+  // Query client
+  const client = useQueryClient();
   
   const handleCancel = () => {
     setOpen(false);
@@ -116,21 +119,21 @@ export default function ProjectDetail(props: Props) {
     updateMetadata([reportId]);
   }
 
-  const [updateMetadata, { status: updateStatusMetadata, error: updateErrorMetadata }] = 
-    useMutation<RedmatchProject,[string]>(
+  const { mutateAsync: updateMetadata, status: updateStatusMetadata, error: updateErrorMetadata } = 
+    useMutation<RedmatchProject, Error, [string]>(
       RedmatchApi(redmatchUrl).updateMetadata, {
         onSettled: () => {
-          queryCache.invalidateQueries('RedmatchProject')
+          client.invalidateQueries('RedmatchProject');
         }
       }
     );
 
-  const [updateRules, { status: updateStatusRules, error: updateErrorRules }] = 
-    useMutation<RedmatchProject,[string, string]>(
+  const { mutateAsync: updateRules, status: updateStatusRules, error: updateErrorRules } = 
+    useMutation<RedmatchProject, Error, [string, string]>(
       RedmatchApi(redmatchUrl).updateRules, {
         onMutate: (params: string[]) => {
-          queryCache.cancelQueries('RedmatchProject');
-          const previousProject = queryCache.getQueryData('RedmatchProject');
+          client.cancelQueries('RedmatchProject');
+          const previousProject = client.getQueryData('RedmatchProject');
       
           // Optimistically update to the new value
           // Need to clone old project and set new rules
@@ -151,24 +154,24 @@ export default function ProjectDetail(props: Props) {
               }, 
               previousProject);
           newProject.rulesDocument = params[1];
-          queryCache.setQueryData('RedmatchProject', newProject);
+          client.setQueryData('RedmatchProject', newProject);
       
           // Return the snapshotted value
-          return () => queryCache.setQueryData('RedmatchProject', previousProject);
+          return () => client.setQueryData('RedmatchProject', previousProject);
         },
         onError: (_err: Error, rollback: any) => rollback(),
         onSettled: () => {
-          queryCache.invalidateQueries('RedmatchProject')
+          client.invalidateQueries('RedmatchProject')
         }
       }
     );
 
-  const [updateMappings, { status: updateStatusMappings, error: updateErrorMappings }] = 
-    useMutation<RedmatchProject,[string, Mapping[]]>(
+  const { mutateAsync: updateMappings, status: updateStatusMappings, error: updateErrorMappings } = 
+    useMutation<RedmatchProject, Error, [string, Mapping[]]>(
       RedmatchApi(redmatchUrl).updateMappings, {
         onMutate: (params: any[]) => {
-          queryCache.cancelQueries('RedmatchProject');
-          const previousProject = queryCache.getQueryData('RedmatchProject');
+          client.cancelQueries('RedmatchProject');
+          const previousProject = client.getQueryData('RedmatchProject');
       
           // Optimistically update to the new value
           // Need to clone old project and set new mappings
@@ -190,14 +193,14 @@ export default function ProjectDetail(props: Props) {
               previousProject);
           
           newProject.mappings = params[1];
-          queryCache.setQueryData('RedmatchProject', newProject);
+          client.setQueryData('RedmatchProject', newProject);
       
           // Return the snapshotted value
-          return () => queryCache.setQueryData('RedmatchProject', previousProject);
+          return () => client.setQueryData('RedmatchProject', previousProject);
         },
         onError: (_err: Error, rollback: any) => rollback(),
         onSettled: () => {
-          queryCache.invalidateQueries('RedmatchProject')
+          client.invalidateQueries('RedmatchProject')
         }
       }
     );
@@ -291,6 +294,9 @@ export default function ProjectDetail(props: Props) {
         </DialogActions>
       </Dialog>
       <ApiError error={error} />
+      <ApiError error={updateErrorRules} />
+      <ApiError error={updateErrorMetadata} />
+      <ApiError error={updateErrorMappings} />
     </Box>
   );
 }

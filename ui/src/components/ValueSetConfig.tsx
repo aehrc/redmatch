@@ -3,11 +3,9 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import React, { Fragment, useContext, useState } from "react";
-import { useMutation } from "react-query";
+import React, { Fragment, useState } from "react";
 import {
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,7 +13,6 @@ import {
   DialogTitle,
   TextField
 } from "@material-ui/core";
-import { Config } from "./App";
 import { Autocomplete } from "@material-ui/lab";
 import { IValueSet } from "@ahryman40k/ts-fhir-types/lib/R4";
 import { getOptionSelected } from "./Mappings";

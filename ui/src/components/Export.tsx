@@ -1,7 +1,7 @@
-import { Box, Toolbar, IconButton, Typography, Button, CircularProgress, TextareaAutosize } from "@material-ui/core";
-import React, { useContext, useState, useEffect } from "react";
-import { IParameters, IOperationOutcome, OperationOutcome_IssueSeverityKind } from "@ahryman40k/ts-fhir-types/lib/R4";
-import { Config } from "./App";
+import { Box, Toolbar, Button, CircularProgress } from "@material-ui/core";
+import React, { useState } from "react";
+import { IParameters, IOperationOutcome } from "@ahryman40k/ts-fhir-types/lib/R4";
+import env from "@beam-australia/react-env";
 import TextField from '@material-ui/core/TextField';
 import http from "axios";
 import { ApiError } from "./ApiError";
@@ -12,15 +12,10 @@ interface Props {
 
 export default function Export(props: Props) {
   const { projectId } = props;
-  const { redmatchUrl } = useContext(Config);
-  const { pathlingUrl } = useContext(Config);
+  const redmatchUrl = env("REDMATCH_URL");
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<Error | null>(null);
-
-  //useEffect(() =>{
-  //
-  //});
 
   const onExport = (projectId: string) => {
     fetchData(projectId)
@@ -35,14 +30,10 @@ export default function Export(props: Props) {
   }
 
   const fetchData = async (projectId: string) => {
-    let res : FetchDataResponse = { 
-      result: { resourceType: 'OperationOutcome', issue: [{ severity: undefined, code: undefined }] }, 
-      error: { resourceType: 'OperationOutcome', issue: [{ severity: undefined, code: undefined }] }
-    };
     setStatus('loading');
     setValue('Transforming project in Redmatch...');
     try {
-      const { data } = await http.post<IParameters>(
+      await http.post<IParameters>(
         `${redmatchUrl}/project/${projectId}/$transform`,
         null,
         {

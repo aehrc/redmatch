@@ -3,7 +3,7 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import React, { Fragment, useContext, useState } from "react";
+import React, { Fragment, useState } from "react";
 import {
   Box,
   Button,
@@ -26,7 +26,7 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import { useQuery } from "react-query";
 import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
-import { Config } from "./App";
+import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 import NewRedmatchProject from "./NewRedmatchProject";
 import { Link } from "react-router-dom";
@@ -41,10 +41,10 @@ const useStyles = makeStyles({
 });
 
 export default function RedmatchProjects() {
-  const { redmatchUrl } = useContext(Config),
-  classes = useStyles(),
-  [newProjectOpen, setNewProjectOpen] = useState(false),
-  { status, data, error, refetch } = useQuery<RedmatchProject[], string>(
+  const redmatchUrl = env('REDMATCH_URL');
+  const classes = useStyles();
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const { status, data, error, refetch } = useQuery<RedmatchProject[], Error>(
     "RedmatchProjects",
     RedmatchApi(redmatchUrl).getProjects
   );

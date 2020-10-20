@@ -1,33 +1,23 @@
 import axios from 'axios';
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import TextField from '@material-ui/core/TextField';
-import Autocomplete, { createFilterOptions } from '@material-ui/lab/Autocomplete';
-import CircularProgress from '@material-ui/core/CircularProgress';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 import { ICoding, IValueSet } from '@ahryman40k/ts-fhir-types/lib/R4';
-import http, { AxiosRequestConfig, Canceler, CancelTokenSource } from "axios";
+import http, { CancelTokenSource } from "axios";
 import * as _ from "lodash";
 
 interface Props {
   url: string;
   valueSetUrl: string;
   coding: ICoding | null;
-  onChange: (newCoding: ICoding | null) => void;
+  onChange: (newCoding: string| ICoding | null) => void;
+  onError: (error: Error | null | undefined) => void;
 }
 
 export default function CodeSearch(props: Props) {
-  const { url, valueSetUrl, coding, onChange } = props;
-  const [filter, setFilter] = useState('');
-  const [expansionQuery, setExpansionQuery] = useState(_.debounce(() => { return { cancel: () => {} }; }, 300));
+  const { url, valueSetUrl, coding, onChange, onError } = props;
+  const [, setExpansionQuery] = useState(_.debounce(() => { return { cancel: () => {} }; }, 300));
   const [options, setOptions] = useState<ICoding[]>([]);
-  const [errorMssg, setErrorMssg] = useState('');
-
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true; // note this flag denote mount status
-
-    return () => { isMounted = false }; // use effect cleanup to set flag false, if unmounted
-  });
 
   /*
    * Replace options every time the user changes the input string.
@@ -36,9 +26,7 @@ export default function CodeSearch(props: Props) {
     if (value === '' || (coding && value === coding.display)) {
       return;
     }
-    setFilter(value);
     const search = _.debounce(sendQuery, 300);
-
     setExpansionQuery(prevSearch => {
       if (prevSearch && prevSearch.cancel) {
         prevSearch.cancel();
@@ -70,10 +58,9 @@ export default function CodeSearch(props: Props) {
         });
         setOptions(codings);
       }
-      setErrorMssg('');
     } else {
       setOptions([]);
-      setErrorMssg(resp.error);
+      onError(resp.error);
     }
   };
 
@@ -149,14 +136,13 @@ export default function CodeSearch(props: Props) {
   return (
     <div style={{ width: 300 }}>
       <Autocomplete
-        //#region id="free-solo-demo"
         freeSolo
-        getOptionSelected={(option, value) => option.system == value.system && option.code === value.code}
+        getOptionSelected={(option, value) => option.system === value.system && option.code === value.code}
         getOptionLabel={(option) => option.display !== undefined ? option.display : 'NA'}
         options={options}
         filterOptions={filterOptions}
         onInputChange={onInputChange}
-        onChange={(_, value: ICoding | null) => {
+        onChange={(_e, value: string | ICoding | null) => {
           onChange(value);
         }} 
         renderInput={(params) => (

@@ -3,7 +3,8 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import { MutationFunction, QueryFunction } from "react-query";
+import { QueryFunction } from "react-query";
+import { MutationFunction } from "react-query/types/react/types";
 import { get, post } from "./Api";
 
 export interface UnsavedRedmatchProject {
@@ -58,8 +59,8 @@ export interface Mapping {
 }
 
 export interface RedmatchApi {
-  getProjects: QueryFunction<RedmatchProject[], [string]>;
-  getProject: QueryFunction<RedmatchProject, [string, string]>;
+  getProjects: QueryFunction<RedmatchProject[]>;
+  getProject: QueryFunction<RedmatchProject>;
   createProject: MutationFunction<RedmatchProject, UnsavedRedmatchProject>;
   updateRules: MutationFunction<RedmatchProject, [string, string]>;
   updateMappings: MutationFunction<RedmatchProject, [string, Mapping[]]>;
@@ -71,10 +72,11 @@ export default (redmatchUrl: string): RedmatchApi => {
     getProjects: async function() {
       return get<RedmatchProject[]>(`${redmatchUrl}/project`);
     },
+    // _ to ignore first query key parameter
     getProject: async function(_, id: string) {
       return get<RedmatchProject>(`${redmatchUrl}/project/${id}`);
     },
-    createProject: async function(unsavedRedmatchProject) {
+    createProject: async function(unsavedRedmatchProject: UnsavedRedmatchProject) {
       return post<RedmatchProject>(
         `${redmatchUrl}/project`,
         unsavedRedmatchProject

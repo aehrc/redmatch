@@ -24,10 +24,7 @@
             </goals>
             <phase>initialize</phase>
             <configuration>
-              <executable>npm</executable>
-              <arguments>
-                <argument>install</argument>
-              </arguments>
+              <executable>yarn</executable>
             </configuration>
           </execution>
           <execution>

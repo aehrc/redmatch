@@ -3,7 +3,7 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import React, { Fragment, useContext, useState } from "react";
+import React, { Fragment, useState } from "react";
 import { useMutation } from "react-query";
 import {
   Button,
@@ -19,7 +19,7 @@ import RedmatchApi, {
   RedmatchProject,
   UnsavedRedmatchProject
 } from "../api/RedmatchApi";
-import { Config } from "./App";
+import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 
 interface Props {
@@ -29,15 +29,15 @@ interface Props {
 }
 
 export default function NewRedmatchProject(props: Props) {
-  const { open, onSuccess, onCancel } = props,
-  { redmatchUrl } = useContext(Config),
-  initialRequest = {
+  const { open, onSuccess, onCancel } = props;
+  const redmatchUrl = env('REDMATCH_URL');
+  const initialRequest = {
     name: "",
     reportId: "",
     redcapUrl: "",
     token: ""
-  },
-  [request, setRequest] = useState<UnsavedRedmatchProject>(initialRequest);
+  };
+  const [request, setRequest] = useState<UnsavedRedmatchProject>(initialRequest);
 
   const handleSuccess = () => {
     setRequest(initialRequest);
@@ -49,13 +49,12 @@ export default function NewRedmatchProject(props: Props) {
     return onCancel();
   };
 
-  const [register, { status, error }] = useMutation<
-    RedmatchProject,
-    UnsavedRedmatchProject
-  >(RedmatchApi(redmatchUrl).createProject, {
-    onSuccess: handleSuccess,
-    onError: handleError
-  });
+  const {mutateAsync: register, status, error } = useMutation<RedmatchProject, Error, UnsavedRedmatchProject>(
+    RedmatchApi(redmatchUrl).createProject, {
+      onSuccess: handleSuccess,
+      onError: handleError
+    }
+  );
 
   function renderTextField(
     name: string,

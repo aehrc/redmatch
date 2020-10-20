@@ -17,12 +17,6 @@ data/
 # compiled output
 /target
 src/main/resources/static
-src/main/frontend/tmp
-src/main/frontend/out-tsc
-
-# dependencies
-src/main/frontend/node
-src/main/frontend/node_modules
 
 # IDEs and editors
 /.idea
@@ -32,13 +26,6 @@ src/main/frontend/node_modules
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 
 # misc
 /.sass-cache
