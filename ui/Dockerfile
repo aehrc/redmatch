@@ -7,9 +7,9 @@ COPY package.json /var/app
 
 COPY yarn.lock /var/app
 
-RUN yarn install
-
 ADD . .
+
+RUN yarn install
 
 RUN yarn build
 

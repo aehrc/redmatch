@@ -12,6 +12,7 @@
   
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <dockerfile-maven.version>1.4.13</dockerfile-maven.version>
   </properties>
 
   <build>
@@ -76,6 +77,7 @@
 			</configuration>
           </execution>
           <!-- Builds the React application. -->
+		  <!-- 
 		  <execution>
 		    <id>yarn build</id>
 		    <goals>
@@ -85,7 +87,28 @@
 			  <arguments>build</arguments>
 			</configuration>
           </execution>
+           -->
         </executions>
+      </plugin>
+      <!-- Used to create a Docker image. -->
+      <plugin>
+        <groupId>com.spotify</groupId>
+        <artifactId>dockerfile-maven-plugin</artifactId>
+        <version>${dockerfile-maven.version}</version>
+        <executions>
+          <execution>
+            <id>default</id>
+            <goals>
+              <goal>build</goal>
+              <goal>push</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <repository>aehrc/redmatch-ui</repository>
+          <tag>${project.version}</tag>
+          <skipDockerInfo>true</skipDockerInfo>
+        </configuration>
       </plugin>
     </plugins>
   </build>

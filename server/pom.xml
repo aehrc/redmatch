@@ -120,13 +120,10 @@
         <filtering>true</filtering>
       </resource>
     </resources>
-    <!-- TODO: - copy filtered Docker Compose file to project root 
-               - test variables in UI work - needed for deployment in CSIRO server
-    -->
+    <!-- Copies filtered Docker Compose file to project root. -->
     <plugins>
 	  <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
-         <version>3.0.0</version>
          <executions>
           <execution>
             <phase>process-resources</phase>
@@ -202,17 +199,6 @@
         <configuration>
           <sourceDirectory>${basedir}/src/main/antlr4</sourceDirectory>
           <libDirectory>${basedir}/src/main/antlr4/au/csiro/redmatch/grammar</libDirectory>
-        </configuration>
-      </plugin>
-      <!-- Used to implement the GitFlow pattern in this project. -->
-      <plugin>
-        <groupId>external.atlassian.jgitflow</groupId>
-        <artifactId>jgitflow-maven-plugin</artifactId>
-        <version>1.0-m5.1</version>
-        <configuration>
-          <autoVersionSubmodules>true</autoVersionSubmodules>
-          <useReleaseProfile>false</useReleaseProfile>
-          <noDeploy>true</noDeploy>
         </configuration>
       </plugin>
       <!-- Used to generate a summary of the licenses for all libraries used 
