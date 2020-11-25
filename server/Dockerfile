@@ -3,7 +3,14 @@ LABEL copyright="Copyright © 2018-2020, Commonwealth Scientific and Industrial 
   author="Alejandro Metke <Alejandro.Metke@csiro.au>"
 
 RUN apk add --no-cache ttf-dejavu
-RUN addgroup -S spring && adduser -S spring -G spring
+
+RUN addgroup -S spring && \
+    adduser -S spring -G spring && \
+    mkdir /usr/share/redmatch && \
+    chown spring /usr/share/redmatch
+
+VOLUME /usr/share/redmatch
+
 USER spring:spring
 ARG JAR_FILE=target/*.jar
 COPY ${JAR_FILE} app.jar
