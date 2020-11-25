@@ -309,20 +309,20 @@ public class ApiController {
   /**
    * Updates the project's mappings.
    * 
-   * @param file The Excel file with the mappings.
-   * @param projectId The project id.
+   * @param redmatchId The Redmatch project id.
+   * @param mappings mappings The mappings.
    * @return The response entity.
    * @throws IOException If an IO error happens.
    */
   @ApiOperation(value = "Imports mappings in Excel format.")
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
-      @ApiResponse(code = 406, message = "The uploaded file is empty."),
+      @ApiResponse(code = 400, message = "The mappings are empty."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{redmatchId}/$update-mappings", 
       method = RequestMethod.POST, produces = "application/json")
   @Transactional
-  public ResponseEntity<?> updateMappings(
+  public ResponseEntity<RedmatchProject> updateMappings(
       @PathVariable String redmatchId,
       @RequestBody List<Mapping> mappings,
       UriComponentsBuilder b) {
@@ -344,7 +344,7 @@ public class ApiController {
               "Unexpected status " + rr.getStatus() + ". This should never happen!");
       }
     } else {
-      return getResponse(HttpStatus.BAD_REQUEST, "The mappings are empty!");
+      throw new InvalidMappingsException("The mappings are empty!");
     }
   }
   

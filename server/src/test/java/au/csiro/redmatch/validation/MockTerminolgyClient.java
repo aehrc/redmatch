@@ -25,7 +25,7 @@ import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 
-import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.client.OntoserverClient;
 
 import org.hl7.fhir.r4.model.Type;
@@ -38,13 +38,13 @@ import ca.uhn.fhir.context.FhirContext;
  * @author Alejandro Metke
  *
  */
-public class MockTerminolgyServer implements ITerminologyServer {
+public class MockTerminolgyClient implements ITerminologyClient {
   
-  private static final Log log = LogFactory.getLog(MockTerminolgyServer.class);
+  private static final Log log = LogFactory.getLog(MockTerminolgyClient.class);
   
   private Map<String, Map<String, ConceptDefinitionComponent>> codeMap = new HashMap<>();
   
-  public MockTerminolgyServer() {
+  public MockTerminolgyClient() {
     log.info("Loading Redmatch grammar code system into memory");
     FhirContext ctx = FhirContext.forR4();
     try (InputStreamReader reader = new InputStreamReader(

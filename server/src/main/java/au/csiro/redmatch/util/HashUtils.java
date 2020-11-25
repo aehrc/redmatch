@@ -19,6 +19,9 @@ public class HashUtils {
    * @return The hash.
    */
   public static String shortHash(String s) {
+    if (s == null) {
+      return "0";
+    }
     return String.valueOf(Math.abs(s.hashCode() % 100000));
   }
 

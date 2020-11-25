@@ -5,10 +5,7 @@
 
 package au.csiro.redmatch;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.List;
-import java.util.Scanner;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -30,7 +27,7 @@ import au.csiro.redmatch.model.Row;
  */
 @ActiveProfiles("test")
 @Component
-public abstract class AbstractRedmatchTest {
+public abstract class AbstractRedmatchTest extends ResourceLoader {
   
   /** Logger. */
   private static final Log log = LogFactory.getLog(AbstractRedmatchTest.class);
@@ -42,25 +39,13 @@ public abstract class AbstractRedmatchTest {
   protected RedcapImporter redcapImporter;
   
   protected Metadata loadMetadata(String name) {
-    String json = loadTestFile("src/test/resources/metadata_" + name + ".json");
+    String json = loadMetadataString(name);
     return redcapImporter.parseMetadata(json);
   }
   
   protected List<Row> loadData(String name) {
-    String json = loadTestFile("src/test/resources/report_"+ name + ".json");
+    String json = loadReportString(name);
     return redcapImporter.parseData(json);
-  }
-  
-  protected String loadRules(String name) {
-    return loadTestFile("src/test/resources/rules_" + name + ".rdm");
-  }
-  
-  private String loadTestFile(String path) {
-    try (Scanner scanner = new Scanner(new File(path), "UTF-8")) {
-      return scanner.useDelimiter("\\A").next();
-    } catch (FileNotFoundException e) {
-      throw new RuntimeException(e);
-    }
   }
   
   protected CodeableConcept getCodeableConcept(String system, String code, String display) {

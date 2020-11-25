@@ -12,8 +12,8 @@ import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonProperty.Access;
 
 import au.csiro.redmatch.util.HashUtils;
 
@@ -45,7 +45,6 @@ public class RedmatchProject {
    * The token used to authenticate in the REDCap server. 
    * TODO: need to encrypt in database.
    */
-  @JsonProperty(access = Access.WRITE_ONLY)
   private String token;
 
   /**
@@ -73,11 +72,14 @@ public class RedmatchProject {
    * REDCap metadata changes and some fields referenced by the rules are removed.
    */
   private List<Annotation> issues = new ArrayList<>();
-
+  
   /**
    * Constructor.
    */
-  public RedmatchProject(String reportId, String redcapUrl) {
+  @JsonCreator
+  public RedmatchProject(
+      @JsonProperty("reportId") String reportId, 
+      @JsonProperty("redcapUrl") String redcapUrl) {
     this.reportId = reportId;
     this.redcapUrl = redcapUrl;
     this.id = HashUtils.shortHash(redcapUrl) + reportId;
@@ -108,7 +110,7 @@ public class RedmatchProject {
   }
   
   public boolean hasRulesDocument() {
-    return this.rulesDocument != null;
+    return this.rulesDocument != null && !this.rulesDocument.isBlank();
   }
   
   public List<Mapping> getMappings() {
@@ -207,6 +209,12 @@ public class RedmatchProject {
   
   public boolean hasToken() {
     return this.token != null;
+  }
+
+  @Override
+  public String toString() {
+    return "RedmatchProject [id=" + id + ", reportId=" + reportId + ", redcapUrl=" + redcapUrl
+        + ", token=" + token + ", name=" + name + "]";
   }
 
 }

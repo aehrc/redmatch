@@ -28,7 +28,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
-import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Metadata;
@@ -51,7 +51,7 @@ import au.csiro.redmatch.model.grammar.redmatch.Resource;
 import au.csiro.redmatch.model.grammar.redmatch.Rule;
 import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
-import au.csiro.redmatch.validation.MockTerminolgyServer;
+import au.csiro.redmatch.validation.MockTerminolgyClient;
 
 /**
  * Redmatch compiler unit tests.
@@ -70,7 +70,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Autowired
   private RedmatchCompiler compiler;
   
-  private ITerminologyServer mockTerminologyServer = new MockTerminolgyServer();
+  private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
   @Before
   public void hookMock() {

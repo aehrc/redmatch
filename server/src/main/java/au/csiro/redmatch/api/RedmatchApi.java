@@ -101,6 +101,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse createRedmatchProject(RedmatchProject fp) {
+    log.info("Creating Redmatch project");
     if (!fp.hasName()) {
       throw new InvalidProjectException("Attribute 'name' is required.");
     }
@@ -146,6 +147,7 @@ public class RedmatchApi {
    *     id does not exist.
    */
   public RedmatchProject resolveRedmatchProject(String id) {
+    log.info("Resolving Redmatch project " + id);
     final Optional<RedmatchProject> project = dao.getRedmatchProject(id);
     if (!project.isPresent()) {
       throw new ProjectNotFoundException("The Redmatch project " + id + " was not found");
@@ -169,6 +171,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse updateRedmatchProject(RedmatchProject newProject) {
+    log.info("Updating Redmatch project " + newProject.getId());
     // Try to resolve existing project
     final RedmatchProject existingProject = resolveRedmatchProject(newProject.getId());
     if (existingProject == null) {
@@ -185,14 +188,15 @@ public class RedmatchApi {
       
       if (newProject.hasRulesDocument()) {
         existingProject.setRulesDocument(newProject.getRulesDocument());
-        processRedmatchProject(existingProject);
       }
       
       if (newProject.hasMappings()) {
-        List<Mapping> mergedMappings = mergeMappings(existingProject.getMappings(), 
+        List<Mapping> combinedMappings = combineMappings(existingProject.getMappings(), 
             newProject.getMappings());
-        existingProject.replaceMappings(mergedMappings);
+        existingProject.replaceMappings(combinedMappings);
       }
+      
+      processRedmatchProject(existingProject);
       
       dao.saveRedmatchProject(existingProject);
       return new OperationResponse(existingProject.getId(), RegistrationStatus.UPDATED);
@@ -207,6 +211,7 @@ public class RedmatchApi {
    * @return All Redmatch projects in the system.
    */
   public List<RedmatchProject> getRedmatchProjects(List<String> elems) {
+    log.info("Looking for all Redmatch projects");
     final List<RedmatchProject> res = new ArrayList<>();
     for (RedmatchProject s : dao.findRedmatchProjects()) {
       res.add(ReflectionUtils.filterElems(s.getClass(), s, elems));
@@ -221,6 +226,7 @@ public class RedmatchApi {
    * @return The byte representation of the Excel spreadsheat.
    */
   public byte[] getMappingsExcel(String projectId) {
+    log.info("Retrieving mappings in Excel format for project " + projectId);
     final List<Mapping> mappings = getMappings(projectId);
 
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -242,6 +248,7 @@ public class RedmatchApi {
    * @return The current mappings.
    */
   public List<Mapping> getMappings(String projectId) {
+    log.info("Retrieving mappings for project " + projectId);
     return resolveRedmatchProject(projectId).getMappings().stream().filter(
         m -> m.isActive()).collect(Collectors.toList());
   }
@@ -254,18 +261,12 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse updateMappings(String projectId, List<Mapping> newMappings) {
-    log.info("Updating mappings.");
+    log.info("Updating mappings");
     final RedmatchProject project = resolveRedmatchProject(projectId);
-    log.info("Project " + projectId + " has " + project.getMappings().size() + " mappings.");
-    log.info("Received " + newMappings.size() + " new mappings.");
-    
-    final List<Mapping> oldMappings = project.getMappings();
-    final List<Mapping> mergedMappings = mergeMappings(oldMappings, newMappings);
-    
-    log.info("Replacing project mappings with " + mergedMappings.size() + " mappings");
-    project.replaceMappings(mergedMappings);
-    dao.saveRedmatchProject(project);
-    return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
+    final RedmatchProject newProject = new RedmatchProject(project.getReportId(), 
+        project.getRedcapUrl());
+    newProject.addMappings(newMappings);
+    return updateRedmatchProject(newProject);
   }
 
   /**
@@ -301,6 +302,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse updateRulesDocument(String projectId, String rulesDocument) {
+    log.info("Updating rules document");
     final RedmatchProject project = resolveRedmatchProject(projectId);
     final RedmatchProject newProject = new RedmatchProject(project.getReportId(), 
         project.getRedcapUrl());
@@ -315,6 +317,7 @@ public class RedmatchApi {
    * @return The rules document.
    */
   public String getRulesDocument(String projectId) {
+    log.info("Looking for rules document for project " + projectId);
     return resolveRedmatchProject(projectId).getRulesDocument();
   }
   
@@ -327,7 +330,7 @@ public class RedmatchApi {
    * @throws DataFormatException 
    */
   public Parameters transformProject(String projectId) throws DataFormatException, IOException {
-    log.info("Transforming Redmatch project " + projectId + ".");
+    log.info("Transforming Redmatch project " + projectId);
     final RedmatchProject fcp = resolveRedmatchProject(projectId);
     if (fcp.hasErrors()) {
       throw new CompilerException(getRuleValidationErrorMessage(fcp.getIssues()));
@@ -428,6 +431,7 @@ public class RedmatchApi {
    */
   @Transactional
   public void deleteRedmatchProject(String id) {
+    log.info("Deleting Redmatch project " + id);
     final Optional<RedmatchProject> project = dao.getRedmatchProject(id);
     if (project.isPresent()) {
       dao.deleteRedmatchProject(id);
@@ -595,6 +599,36 @@ public class RedmatchApi {
     log.info("There are " + newMappings.size() + " additional mappings that will be added.");
     
     // Copy over any new mappings
+    res.addAll(newMappings);
+    Collections.sort(res);
+    return res;
+  }
+  
+  /**
+   * Combines <i>newMappings</i> into <i>oldMappings</i>, giving priority to newMappings.
+   * 
+   * @param oldMappings The old mappings to combine.
+   * @param newMappings The new mappings to combine.
+   * @return Th ecomined mappings.
+   */
+  private List<Mapping> combineMappings(List<Mapping> oldMappings, List<Mapping> newMappings) {
+    final List<Mapping> res = new ArrayList<>();
+    for (Mapping oldMapping : res) {
+      boolean found = false;
+      for (Mapping newMapping : newMappings) {
+        if (newMapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
+            && newMapping.getText().equals(oldMapping.getText())) {
+          res.add(newMapping);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        res.add(oldMapping);
+      }
+    }
+    
+    newMappings.removeAll(oldMappings);
     res.addAll(newMappings);
     Collections.sort(res);
     return res;

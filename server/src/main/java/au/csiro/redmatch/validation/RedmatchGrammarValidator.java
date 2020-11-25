@@ -20,7 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.client.OntoserverClient;
 
 /**
@@ -36,12 +36,12 @@ public class RedmatchGrammarValidator {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchGrammarValidator.class);
   
-  private ITerminologyServer client;
+  private ITerminologyClient client;
   
   private Pattern bracketsPattern = Pattern.compile("\\[(\\d+)\\]");
   
   @Autowired
-  public RedmatchGrammarValidator(@Qualifier("ontoserver")ITerminologyServer client) {
+  public RedmatchGrammarValidator(@Qualifier("ontoserver") ITerminologyClient client) {
     this.client = client;
   }
   
@@ -50,7 +50,7 @@ public class RedmatchGrammarValidator {
    * 
    * @return
    */
-  public ITerminologyServer getClient() {
+  public ITerminologyClient getClient() {
     return client;
   }
   
@@ -59,7 +59,7 @@ public class RedmatchGrammarValidator {
    * 
    * @param client
    */
-  public void setClient(ITerminologyServer client) {
+  public void setClient(ITerminologyClient client) {
     this.client = client;
   }
 

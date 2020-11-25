@@ -38,7 +38,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
-import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.importer.RedcapImporter;
 import au.csiro.redmatch.model.Annotation;
@@ -46,7 +46,7 @@ import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
-import au.csiro.redmatch.validation.MockTerminolgyServer;
+import au.csiro.redmatch.validation.MockTerminolgyClient;
 
 /**
  * FHIR exporter unit tests.
@@ -71,7 +71,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   @Autowired
   private RedcapImporter redcapImporter;
   
-  private ITerminologyServer mockTerminologyServer = new MockTerminolgyServer();
+  private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
   @Before
   public void hookMock() {
@@ -83,7 +83,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   public void testCreateClinicalResourcesFromRulesDataMappings() {
     Metadata metadata = this.loadMetadata("data_mappings");
     List<Row> rows = this.loadData("data_mappings");
-    String rules = this.loadRules("data_mappings");
+    String rules = this.loadRulesString("data_mappings");
     
     Document rulesDocument = compiler.compile(rules, metadata);
     assertNotNull(rulesDocument);
@@ -179,7 +179,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   public void testCreateClinicalResourcesFromRules() {
     Metadata metadata = this.loadMetadata("tutorial");
     List<Row> rows = this.loadData("tutorial");
-    String rules = this.loadRules("tutorial");
+    String rules = this.loadRulesString("tutorial");
     Document rulesDocument = compiler.compile(rules, metadata);
     assertNotNull(rulesDocument);
     final List<Annotation> compilationErrors = compiler.getErrorMessages();

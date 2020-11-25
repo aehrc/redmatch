@@ -1,0 +1,237 @@
+/**
+ * Copyright CSIRO Australian e-Health Research Centre (http://aehrc.com). All rights reserved. Use 
+ * is subject to license terms and conditions.
+ */
+package au.csiro.redmatch.web;
+
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.ApplicationContext;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.TestContext;
+import org.springframework.test.context.TestExecutionListeners;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.support.AbstractTestExecutionListener;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
+import org.springframework.web.client.DefaultResponseErrorHandler;
+import org.springframework.web.client.RestTemplate;
+
+import au.csiro.redmatch.Application;
+import au.csiro.redmatch.ResourceLoader;
+import au.csiro.redmatch.importer.RedcapImporter;
+import au.csiro.redmatch.model.Mapping;
+import au.csiro.redmatch.model.RedmatchProject;
+import au.csiro.redmatch.validation.MockTerminolgyClient;
+import au.csiro.redmatch.validation.RedmatchGrammarValidator;
+
+/**
+ * Integration test for the REST controller.
+ * 
+ * @author Alejandro Metke
+ */
+@TestExecutionListeners({
+  DependencyInjectionTestExecutionListener.class,
+  ApiControllerIT.class
+})
+@RunWith(SpringJUnit4ClassRunner.class)
+@SpringBootTest(classes = Application.class, webEnvironment=WebEnvironment.RANDOM_PORT)
+public class ApiControllerIT extends AbstractTestExecutionListener {
+  
+  /** Logger */
+  private static final Log log = LogFactory.getLog(ApiControllerIT.class);
+  
+  /**
+   * The port where the embedded server will run on.
+   */
+  @Value("${local.server.port}")
+  public int port;
+  
+  /**
+   * A template used by the Spring framework to do REST calls.
+   */
+  private RestTemplate template = new RestTemplateBuilder()
+    .errorHandler(new DefaultResponseErrorHandler() {
+        @Override
+        protected boolean hasError(HttpStatus statusCode) {
+            if (!statusCode.is2xxSuccessful()) {
+                log.error("Request failed: (" + statusCode.value() + ") " 
+                    + statusCode.getReasonPhrase());
+            }
+            return false;
+        }
+    })
+    .build();
+
+  /**
+   * Instance-level method to set up everything needed for the integration tests. Runs only once 
+   * before any of the test methods.
+   *
+   * @param testContext
+   * @throws IOException
+   */
+  @Override
+  public void beforeTestClass(TestContext testContext) throws IOException {
+    // Get the Spring beans we need
+    final ApplicationContext appCtx = testContext.getApplicationContext();
+    // Set the mock terminology client
+    log.info("Setting terminology client to mock implementation.");
+    RedmatchGrammarValidator rgv = appCtx.getBean(RedmatchGrammarValidator.class);
+    rgv.setClient(new MockTerminolgyClient());
+    // Set the mock REDCap client
+    log.info("Setting REDCap client to mock implementation.");
+    RedcapImporter ri = appCtx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient());
+  }
+  
+  @Test
+  public void testUpdateMappings() throws URISyntaxException {
+    // Create project
+    log.info("Creating Redmatch project");
+    RedmatchProject body = new RedmatchProject("1", "http://dummyredcapurl.com/api");
+    body.setName("Tutorial IT");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project"))
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+    
+    // Update rules
+    log.info("Updating transformation rules");
+    RequestEntity<String> rulesRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+        .accept(MediaType.APPLICATION_JSON)
+        .body(new ResourceLoader().loadRulesString("tutorial"));
+    log.info("Sending request: " + rulesRequest);
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+    
+    resp = response.getBody();
+    assertEquals(18, resp.getMappings().size());
+    
+    // Populate mappings and update project
+    List<Mapping> mappings = resp.getMappings();
+    populateMappings(mappings);
+    RequestEntity<List<Mapping>> mappingsRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-mappings"))
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(mappings);
+    response = template.exchange(mappingsRequest, RedmatchProject.class);
+    resp = response.getBody();
+    assertEquals(18, resp.getMappings().size());
+    
+    // Replace rules with short version - extra mappings should be inactivated
+    rulesRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+        .accept(MediaType.APPLICATION_JSON)
+        .body(new ResourceLoader().loadRulesString("tutorial_short"));
+    log.info("Sending request: " + rulesRequest);
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+    resp = response.getBody();
+    assertEquals(18, resp.getMappings().size());
+    assertEquals(6, countActive(resp.getMappings()));
+  }
+  
+  private int countActive(List<Mapping> mappings) {
+    return mappings
+        .stream()
+        .filter(m -> m.isActive())
+        .collect(Collectors.toList())
+        .size();
+  }
+  private void populateMappings (List<Mapping> mappings) {
+    for (Mapping mapping : mappings) {
+      String fieldId = mapping.getRedcapFieldId();
+      if (fieldId.equals("pat_sex___1")) {
+        mapping.setTargetCode("male");
+      } else if (fieldId.equals("pat_sex___2")) {
+        mapping.setTargetCode("female");
+      } else if (fieldId.equals("phenotype___1")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001558");
+        mapping.setTargetDisplay("Decreased fetal movement");
+      } else if (fieldId.equals("phenotype___2")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001270");
+        mapping.setTargetDisplay("Motor delay");
+      } else if (fieldId.equals("phenotype___3")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0031910");
+        mapping.setTargetDisplay("Abnormal cranial nerve physiology");
+      } else if (fieldId.equals("phenotype___4")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0012587");
+        mapping.setTargetDisplay("Macroscopic hematuria");
+      } else if (fieldId.equals("m_weak")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001324");
+        mapping.setTargetDisplay("Muscle weakness");
+      } else if (fieldId.equals("facial")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0010628");
+        mapping.setTargetDisplay("Facial palsy");
+      } else if (fieldId.equals("ptosis")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0000508");
+        mapping.setTargetDisplay("Ptosis");
+      } else if (fieldId.equals("oph")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0000602");
+        mapping.setTargetDisplay("Ophthalmoplegia");
+      } else if (fieldId.equals("left_bicep___1")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001252");
+        mapping.setTargetDisplay("Muscular hypotonia");
+      } else if (fieldId.equals("left_bicep___3")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001276");
+        mapping.setTargetDisplay("Hypertonia");
+      } else if (fieldId.equals("right_bicep___1")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001252");
+        mapping.setTargetDisplay("Muscular hypotonia");
+      } else if (fieldId.equals("right_bicep___3")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001276");
+        mapping.setTargetDisplay("Hypertonia");
+      } else if (fieldId.equals("left_tricep___1")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001252");
+        mapping.setTargetDisplay("Muscular hypotonia");
+      } else if (fieldId.equals("left_tricep___3")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001276");
+        mapping.setTargetDisplay("Hypertonia");
+      } else if (fieldId.equals("right_tricep___1")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001252");
+        mapping.setTargetDisplay("Muscular hypotonia");
+      } else if (fieldId.equals("right_tricep___3")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0001276");
+        mapping.setTargetDisplay("Hypertonia");
+      }
+    }
+  }
+
+}

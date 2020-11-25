@@ -30,7 +30,7 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
  */
 @Component
 @Qualifier("ontoserver")
-public class OntoserverClient implements ITerminologyServer {
+public class OntoserverClient implements ITerminologyClient {
   
   /** Logger. */
   private static final Log log = LogFactory.getLog(OntoserverClient.class);
