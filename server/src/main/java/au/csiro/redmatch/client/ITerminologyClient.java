@@ -14,7 +14,7 @@ import org.hl7.fhir.r4.model.Parameters;
  * @author Alejandro Metke
  *
  */
-public interface ITerminologyServer {
+public interface ITerminologyClient {
   
   /**
    * Validates a code in a code system.
