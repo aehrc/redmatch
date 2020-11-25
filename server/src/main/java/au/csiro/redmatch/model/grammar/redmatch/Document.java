@@ -154,4 +154,13 @@ public class Document extends GrammarObject {
     return sb.toString();
   }
 
+  @Override
+  public boolean referencesData() {
+    boolean referencesData = false;
+    for (Rule r : rules) {
+      referencesData = referencesData || r.referencesData();
+    }
+    return referencesData;
+  }
+
 }

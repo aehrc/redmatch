@@ -128,4 +128,9 @@ public class RepeatsClause extends GrammarObject {
     return sb.toString();
   }
 
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
+
 }

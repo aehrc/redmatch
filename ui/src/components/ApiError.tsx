@@ -6,6 +6,10 @@ interface Props {
   error: Error | null | undefined;
 }
 
+export interface Error {
+  message: string
+}
+
 export function ApiError(props: Props) {
   const { error } = props;
 

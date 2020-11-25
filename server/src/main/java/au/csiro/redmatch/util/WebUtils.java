@@ -27,7 +27,7 @@ public class WebUtils {
     final String[] parts = acceptHeader.split("[,]");
     for (String part : parts) {
       final String[] subParts = part.split("[;]");
-      res.add(subParts[0]);
+      res.add(subParts[0].trim());
     }
     return res;
   }

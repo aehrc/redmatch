@@ -395,4 +395,12 @@ public class ConditionExpression extends Condition {
     }
   }
 
+  @Override
+  public boolean referencesData() {
+    if (conditionType.equals(ConditionType.TRUE) || conditionType.equals(ConditionType.FALSE)) {
+      return false;
+    }
+    return true;
+  }
+
 }

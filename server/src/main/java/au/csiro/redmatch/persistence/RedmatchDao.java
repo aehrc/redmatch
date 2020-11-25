@@ -32,6 +32,9 @@ public class RedmatchDao {
   private MongoOperations ops;
   
   public Optional<RedmatchProject> getRedmatchProject(String id) {
+    if (id == null) {
+      return Optional.empty();
+    }
     RedmatchProject res = ops.findById(id, RedmatchProject.class);
     return Optional.ofNullable(res);
   }

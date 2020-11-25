@@ -7,19 +7,32 @@ package au.csiro.redmatch.api;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
+import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +41,7 @@ import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.exporter.ExcelExporter;
 import au.csiro.redmatch.exporter.FhirExporter;
+import au.csiro.redmatch.exporter.NoMappingFoundException;
 import au.csiro.redmatch.importer.CompilerException;
 import au.csiro.redmatch.importer.ExcelImporter;
 import au.csiro.redmatch.importer.RedcapImporter;
@@ -42,6 +56,7 @@ import au.csiro.redmatch.model.OperationResponse.RegistrationStatus;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
 import au.csiro.redmatch.persistence.RedmatchDao;
 import au.csiro.redmatch.util.ReflectionUtils;
+import ca.uhn.fhir.parser.DataFormatException;
 
 /**
  * Main API for Redmatch.
@@ -55,6 +70,9 @@ public class RedmatchApi {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchApi.class);
 
+  @Value("${redmatch.targetFolder}")
+  private String targetFolderName;
+  
   @Autowired
   private RedcapImporter redcapImporter;
 
@@ -83,6 +101,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse createRedmatchProject(RedmatchProject fp) {
+    log.info("Creating Redmatch project");
     if (!fp.hasName()) {
       throw new InvalidProjectException("Attribute 'name' is required.");
     }
@@ -128,6 +147,7 @@ public class RedmatchApi {
    *     id does not exist.
    */
   public RedmatchProject resolveRedmatchProject(String id) {
+    log.info("Resolving Redmatch project " + id);
     final Optional<RedmatchProject> project = dao.getRedmatchProject(id);
     if (!project.isPresent()) {
       throw new ProjectNotFoundException("The Redmatch project " + id + " was not found");
@@ -151,6 +171,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse updateRedmatchProject(RedmatchProject newProject) {
+    log.info("Updating Redmatch project " + newProject.getId());
     // Try to resolve existing project
     final RedmatchProject existingProject = resolveRedmatchProject(newProject.getId());
     if (existingProject == null) {
@@ -167,12 +188,15 @@ public class RedmatchApi {
       
       if (newProject.hasRulesDocument()) {
         existingProject.setRulesDocument(newProject.getRulesDocument());
-        processRedmatchProject(existingProject);
       }
       
       if (newProject.hasMappings()) {
-        mergeMappings(newProject.getMappings(), existingProject.getMappings());
+        List<Mapping> combinedMappings = combineMappings(existingProject.getMappings(), 
+            newProject.getMappings());
+        existingProject.replaceMappings(combinedMappings);
       }
+      
+      processRedmatchProject(existingProject);
       
       dao.saveRedmatchProject(existingProject);
       return new OperationResponse(existingProject.getId(), RegistrationStatus.UPDATED);
@@ -187,6 +211,7 @@ public class RedmatchApi {
    * @return All Redmatch projects in the system.
    */
   public List<RedmatchProject> getRedmatchProjects(List<String> elems) {
+    log.info("Looking for all Redmatch projects");
     final List<RedmatchProject> res = new ArrayList<>();
     for (RedmatchProject s : dao.findRedmatchProjects()) {
       res.add(ReflectionUtils.filterElems(s.getClass(), s, elems));
@@ -201,6 +226,7 @@ public class RedmatchApi {
    * @return The byte representation of the Excel spreadsheat.
    */
   public byte[] getMappingsExcel(String projectId) {
+    log.info("Retrieving mappings in Excel format for project " + projectId);
     final List<Mapping> mappings = getMappings(projectId);
 
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -222,7 +248,25 @@ public class RedmatchApi {
    * @return The current mappings.
    */
   public List<Mapping> getMappings(String projectId) {
-    return resolveRedmatchProject(projectId).getMappings();
+    log.info("Retrieving mappings for project " + projectId);
+    return resolveRedmatchProject(projectId).getMappings().stream().filter(
+        m -> m.isActive()).collect(Collectors.toList());
+  }
+  
+  /**
+   * Updates a project's mappings.
+   * 
+   * @param mappings The new mappings.
+   * @return The result of the update.
+   */
+  @Transactional
+  public OperationResponse updateMappings(String projectId, List<Mapping> newMappings) {
+    log.info("Updating mappings");
+    final RedmatchProject project = resolveRedmatchProject(projectId);
+    final RedmatchProject newProject = new RedmatchProject(project.getReportId(), 
+        project.getRedcapUrl());
+    newProject.addMappings(newMappings);
+    return updateRedmatchProject(newProject);
   }
 
   /**
@@ -243,27 +287,7 @@ public class RedmatchApi {
       final List<Mapping> newMappings = excelImporter.importMappings(wb);
       log.info("Imported " + newMappings.size() + " from Excel.");
       
-      final List<Mapping> oldMappings = project.getMappings();
-      
-      if (newMappings.size() != oldMappings.size()) {
-        throw new InvalidMappingsException("Uploaded " + newMappings.size() 
-          + " mappings but expected " + oldMappings.size());
-      }
-      
-      for (int i = 0; i < oldMappings.size(); i++) {
-        final Mapping oldMapping = oldMappings.get(i);
-        final Mapping newMapping = newMappings.get(i);
-        
-        if (!oldMapping.getRedcapFieldId().equals(newMapping.getRedcapFieldId())) {
-          throw new InvalidMappingsException("There was a mismatched in the uploded mappings. "
-              + "Expected " + oldMapping.getRedcapFieldId() + " but got " 
-              + newMapping.getRedcapFieldId());
-        }
-      }
-      
-      project.replaceMappings(newMappings);
-      dao.saveRedmatchProject(project);
-      return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
+      return updateMappings(projectId, newMappings);
     } catch (IOException e) {
       throw new RedmatchException("There was an I/O problem importing the mappings from Excel.", e);
     }
@@ -278,6 +302,7 @@ public class RedmatchApi {
    */
   @Transactional
   public OperationResponse updateRulesDocument(String projectId, String rulesDocument) {
+    log.info("Updating rules document");
     final RedmatchProject project = resolveRedmatchProject(projectId);
     final RedmatchProject newProject = new RedmatchProject(project.getReportId(), 
         project.getRedcapUrl());
@@ -292,20 +317,28 @@ public class RedmatchApi {
    * @return The rules document.
    */
   public String getRulesDocument(String projectId) {
+    log.info("Looking for rules document for project " + projectId);
     return resolveRedmatchProject(projectId).getRulesDocument();
   }
   
   /**
-   * Transforms a Redmatch project using the current rules and mappings and returns a FHIR bundle
-   * with the generated resources.
+   * Transforms a Redmatch project using the current rules and mappings, stores the result in the
+   * target folder using ND-JSON and returns an operation outcome.
    * 
    * @param projectId The id of the Redmatch project to transform.
+   * @throws IOException 
+   * @throws DataFormatException 
    */
-  public Bundle transformProject(String projectId) {
-    log.info("Transforming Redmatch project " + projectId + ".");
+  public Parameters transformProject(String projectId) throws DataFormatException, IOException {
+    log.info("Transforming Redmatch project " + projectId);
     final RedmatchProject fcp = resolveRedmatchProject(projectId);
     if (fcp.hasErrors()) {
       throw new CompilerException(getRuleValidationErrorMessage(fcp.getIssues()));
+    }
+    
+    if (!fcp.isMappingsComplete()) {
+      throw new NoMappingFoundException("Project has missing mappings. Please make sure all "
+          + "mappings are complete before attempting to transform the project.");
     }
     
     log.info("Getting data from REDCap.");
@@ -327,16 +360,68 @@ public class RedmatchApi {
           + "issues. This should not happen!");
     }
     
-    final List<Mapping> mappings = fcp.getMappings();
+    final List<Mapping> mappings = fcp.getMappings().stream().filter(m -> m.isActive()).collect(
+        Collectors.toList());
     
     log.info("Exporting data to FHIR.");
-    final Bundle res = fhirExporter.createClinicalBundle(metadata, rulesDocument, mappings, rows);
-    if (res.hasEntry()) {
-      log.info("Generated bundle with " + res.getEntry().size() + " entries.");
-    } else {
-      log.info("Generated bundle is empty.");
+    Map<String, String> map = fhirExporter.saveResourcesToFolder(projectId, metadata, rulesDocument,
+        mappings, rows);
+    
+    Parameters res = new Parameters();
+    
+    for (String resourceType : map.keySet()) {
+      ParametersParameterComponent ppc = res.addParameter().setName("source");
+      ppc.addPart()
+        .setName("resourceType")
+        .setValue(new CodeType(resourceType));
+      ppc.addPart()
+        .setName("url")
+        .setValue(new UrlType("file://" + map.get(resourceType)));
     }
+    
     return res;
+  }
+  
+  /**
+   * Downloads the ND-JSON files in the target folder as a ZIP file.
+   * 
+   * @return The ND-JSON files as a ZIP file.
+   * @throws IOException 
+   */
+  public byte[] downloadExportedFiles(String projectId) throws IOException {
+    // Read ND-JSON files and save to ZIP file
+    File folder = new File(targetFolderName, projectId);
+    log.info("Downloading ND-JSON files from " + folder);
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+        try (Stream<Path> walk = Files.walk(folder.toPath())) {
+          walk.map(x -> x.toAbsolutePath())
+            .filter(f -> {
+              log.info("Processing file " + f);
+              return f.toString().endsWith(".ndjson");
+            })
+            .collect(Collectors.toList())
+            .forEach(x -> {
+              log.info("Adding file " + x + " to zip.");
+              try {
+                ZipEntry zipEntry = new ZipEntry(x.getFileName().toString());
+                zos.putNextEntry(zipEntry);
+                ByteArrayInputStream bais = new ByteArrayInputStream(Files.readAllBytes(x));
+  
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = bais.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+                zos.closeEntry();
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            });
+        }
+      }
+      return baos.toByteArray();
+    }
   }
   
   /**
@@ -346,6 +431,7 @@ public class RedmatchApi {
    */
   @Transactional
   public void deleteRedmatchProject(String id) {
+    log.info("Deleting Redmatch project " + id);
     final Optional<RedmatchProject> project = dao.getRedmatchProject(id);
     if (project.isPresent()) {
       dao.deleteRedmatchProject(id);
@@ -356,13 +442,15 @@ public class RedmatchApi {
   }
 
   /**
-   * Updated the REDCap data in a Redmatch project.
+   * Updates the REDCap metadata in a Redmatch project.
    * 
    * @param redmatchProjectId
    *          The id of the Redmatch project.
+   * @return The result of the update.
    */
   @Transactional
-  public void refreshRedcapMetadata(String redmatchProjectId) {
+  public OperationResponse refreshRedcapMetadata(String redmatchProjectId) {
+    log.info("Refreshing REDCap metadata for project " + redmatchProjectId);
     // We need to get the Redmatch project
     final Optional<RedmatchProject> fcp = dao.getRedmatchProject(redmatchProjectId);
     if (!fcp.isPresent()) {
@@ -370,9 +458,18 @@ public class RedmatchApi {
           + " was not found.");
     }
     
-    final RedmatchProject fp = fcp.get();
-    processRedmatchProject(fp);
-    dao.saveRedmatchProject(fp);
+    final RedmatchProject project = fcp.get();
+    
+    // Update metadata
+    log.info("Getting new metadata from REDCap");
+    project.setMetadata(getMetadataFromRedcap(project.getRedcapUrl(), project.getToken(), 
+        project.getReportId()));
+    
+    processRedmatchProject(project);
+    dao.saveRedmatchProject(project);
+    
+    log.info("Finished updating metadata");
+    return new OperationResponse(project.getId(), RegistrationStatus.UPDATED);
   }
   
   /**
@@ -438,53 +535,111 @@ public class RedmatchApi {
     }
     
     // Generate mappings from rules
-    final List<Mapping> tgtMappings = redcapImporter.generateMappings(
+    final List<Mapping> newMappings = redcapImporter.generateMappings(
         metadata, 
         doc.getReferencedFields(metadata), 
         redcapImporter.getReport(rmp.getRedcapUrl(), rmp.getToken(), rmp.getReportId())
     );
     
     // Merge mappings
-    final List<Mapping> srcMappings = rmp.getMappings();
-    mergeMappings(srcMappings, tgtMappings);
+    final List<Mapping> oldMappings = rmp.getMappings();
+    final List<Mapping> mergedMappings = mergeMappings(oldMappings, newMappings);
     
-    rmp.replaceMappings(tgtMappings);
+    rmp.replaceMappings(mergedMappings);
   }
   
   /**
-   * Merges the <i>srcMappings</i> collection into the <i>tgtMappings</i> collection. Assumes 
-   * <i>tgtMappings</i> are the valid ones, i.e., the ones that have been generated from the most 
-   * recent version of  a rules document and REDCap metadata. Any existing mapped values that are 
-   * not in <i>tgtMappings</i> are copied over. Existing mappings in <i>tgtMappings</i> are not 
-   * overwritten and any additional mappings in <i>srcMappings</i> that are not present in 
-   * <i>tgtMappings</i> are discarded. Modifications are made in place in <i>tgtMappings</i>.
+   * Merges <i>newMappings</i> into <i>oldMappings</i>. Does the following:
    * 
-   * @param srcMappings The mappings to merge.
-   * @param tgtMappings The target mappings where the source mappings are merged. These are 
-   * modified in place.
+   * <ol>
+   *   <li>Overwrite any values in <i>oldMappings</i> that are set in <i>newMappings</i>.</li>
+   *   <li>Inactivates any mappings in <i>oldMappings</i> that are not in <i>newMappings</i>.</li>
+   *   <li>Copy additional mappings in <i>newMappings</i> to <i>oldMappings</i>.</li>
+   * </ol>
+   * 
+   * @param oldMappings The old mappings.
+   * @param newMappings The new mappings.
+   * 
+   * 
+   * @return The merged list.
    */
-  private void mergeMappings(List<Mapping> srcMappings, List<Mapping> tgtMappings) {
-    // Optimisation
-    if (srcMappings.isEmpty()) {
-      return;
-    }
+  private List<Mapping> mergeMappings(List<Mapping> oldMappings, List<Mapping> newMappings) {
+    log.info("Merging " + newMappings.size() + " new mappings into " + oldMappings.size() + 
+        " old mappings");
+    // Copy old mappings into new array
+    final List<Mapping> res = new ArrayList<>(oldMappings);
     
-    for (Mapping mapping : tgtMappings) {
-      // Look for a match in the old mappings - a match is a mapping with the same fieldId and the
-      // same text
-      for (Mapping oldMapping : srcMappings) {
-        if (mapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
-            && ((mapping.getText() == null && oldMapping.getText() == null) 
-                || (mapping.getText() != null && mapping.getText().equals(oldMapping.getText())))) {
-          if (oldMapping.hasTargetSystem() && !mapping.hasTargetSystem()) {
-            // Copy targets over
-            mapping.setTargetSystem(oldMapping.getTargetSystem());
-            mapping.setTargetCode(oldMapping.getTargetCode());
-            mapping.setTargetDisplay(oldMapping.getTargetDisplay());
+    Set<Mapping> allFound = new HashSet<>();
+    for (Mapping oldMapping : res) {
+      // Look for matching mappings - a match is a mapping with the same fieldId and the same text
+      boolean found = false;
+      for (Mapping newMapping : newMappings) {
+        if (newMapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
+            && newMapping.getText().equals(oldMapping.getText())) {
+          found = true;
+          oldMapping.setActive(true);
+          allFound.add(newMapping);
+          if (isSet(newMapping)) {
+            oldMapping.setValueSetName(newMapping.getValueSetName());
+            oldMapping.setValueSetUrl(newMapping.getValueSetUrl());
+            oldMapping.setTargetSystem(newMapping.getTargetSystem());
+            oldMapping.setTargetCode(newMapping.getTargetCode());
+            oldMapping.setTargetDisplay(newMapping.getTargetDisplay());
           }
         }
       }
+      if (!found) {
+        // Inactivate
+        oldMapping.setActive(false);
+      }
     }
+    
+    newMappings.removeAll(allFound);
+    
+    log.info("There are " + newMappings.size() + " additional mappings that will be added.");
+    
+    // Copy over any new mappings
+    res.addAll(newMappings);
+    Collections.sort(res);
+    return res;
+  }
+  
+  /**
+   * Combines <i>newMappings</i> into <i>oldMappings</i>, giving priority to newMappings.
+   * 
+   * @param oldMappings The old mappings to combine.
+   * @param newMappings The new mappings to combine.
+   * @return Th ecomined mappings.
+   */
+  private List<Mapping> combineMappings(List<Mapping> oldMappings, List<Mapping> newMappings) {
+    final List<Mapping> res = new ArrayList<>();
+    for (Mapping oldMapping : res) {
+      boolean found = false;
+      for (Mapping newMapping : newMappings) {
+        if (newMapping.getRedcapFieldId().equals(oldMapping.getRedcapFieldId()) 
+            && newMapping.getText().equals(oldMapping.getText())) {
+          res.add(newMapping);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        res.add(oldMapping);
+      }
+    }
+    
+    newMappings.removeAll(oldMappings);
+    res.addAll(newMappings);
+    Collections.sort(res);
+    return res;
+  }
+  
+  private boolean isSet(Mapping m) {
+    if (m.hasValueSetUrl() || m.hasValueSetName() || m.hasTargetSystem() || m.hasTargetCode() 
+        || m.hasTargetDisplay()) {
+      return true;
+    }
+    return false;
   }
   
   /**

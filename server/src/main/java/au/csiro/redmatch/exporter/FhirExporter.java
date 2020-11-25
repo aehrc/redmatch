@@ -5,9 +5,16 @@
 
 package au.csiro.redmatch.exporter;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -18,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import javax.annotation.PostConstruct;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -48,6 +57,7 @@ import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.UrlType;
 import org.hl7.fhir.r4.model.UuidType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +83,10 @@ import au.csiro.redmatch.model.grammar.redmatch.Resource;
 import au.csiro.redmatch.model.grammar.redmatch.Rule;
 import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.util.FitbitUrlValidator;
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.api.annotation.Child;
+import ca.uhn.fhir.parser.DataFormatException;
+import ca.uhn.fhir.parser.IParser;
 
 /**
  * Used the transformation rules to transform REDCap data into FHIR resources.
@@ -96,10 +109,42 @@ public class FhirExporter {
 
   private final Pattern codePattern = Pattern.compile("[^\\s]+([\\s]?[^\\s]+)*");
 
+  @Value("${redmatch.targetFolder}")
+  private String targetFolderName;
+  
+  private Path targetFolder;
+  
   @Autowired
   private HapiReflectionHelper helper;
-
   
+  @Autowired
+  private FhirContext ctx;
+  
+  /**
+   * Checks that the target folder is configured properly.
+   */
+  @PostConstruct
+  public void init() {
+    boolean valid = true;
+    if (targetFolderName != null) {
+      log.info("Validating target folder " + targetFolderName);
+      Path path = Paths.get(targetFolderName);
+      try {
+        targetFolder = Files.createDirectories(path);
+      } catch (IOException e) {
+        log.fatal("Unable to create target folder", e);
+        valid = false;
+      }
+    } else {
+      log.fatal("Target folder is null.");
+      valid = false;
+    }
+    
+    if (!valid) {
+      throw new RuntimeException("Target folder is invalid. Please set property "
+          + "redmatch.targetFolder.");
+    }
+  }
 
   /**
    * Exports a bundle with all the clinical resources (i.e. all the non-terminology resources).
@@ -116,12 +161,75 @@ public class FhirExporter {
       List<Mapping> mappings, List<Row> rows) {
     final Bundle res = new Bundle();
     res.setType(BundleType.TRANSACTION);
-    final Map<String, DomainResource> m = createClinicalResourcesFromRules(metadata, rows, mappings,
-        rulesDocument);
+    final Map<String, DomainResource> m = createClinicalResourcesFromRules(metadata, rulesDocument, 
+        mappings, rows);
     for (String key : m.keySet()) {
       final DomainResource dr = m.get(key);
       res.addEntry().setResource(dr).setRequest(new BundleEntryRequestComponent()
           .setMethod(HTTPVerb.PUT).setUrl(dr.fhirType() + "/" + key));
+    }
+    return res;
+  }
+  
+  /**
+   * Saves all the generated FHIR resources in ND-JSON format in a folder. Each file the same
+   * resource type. A map of resource types and filenames is returned.
+   * 
+   * @param projectId The project id. Used to create a folder to export.
+   * @param metadata The REDCap metadata.
+   * @param rulesDocument The mapping rules.
+   * @param mappings The mappings from REDCap fields to codes in a terminology.
+   * @param rows The REDCap data. 
+   * @return A map of resource types and files where these resources were saved.
+   * @throws IOException 
+   * @throws DataFormatException 
+   */
+  public Map<String, String> saveResourcesToFolder(String projectId, Metadata metadata, 
+      Document rulesDocument, List<Mapping> mappings, List<Row> rows) 
+          throws DataFormatException, IOException {
+    
+    // Create folder if it doesn't exist
+    Path tgtDir = Files.createDirectories(targetFolder.resolve(Path.of(projectId)));
+    
+    // Tries to delete any old files in there
+    for(File file: targetFolder.toFile().listFiles()) {
+      if (!file.isDirectory() && file.getAbsolutePath().endsWith(".ndjson")) {
+        if (file.delete()) {
+          log.debug("Deleted file " + file.getAbsolutePath());
+        } else {
+          log.debug("Unable to deleted file " + file.getAbsolutePath());
+        }
+      }
+    }
+    
+    final Map<String, DomainResource> map = 
+        createClinicalResourcesFromRules(metadata, rulesDocument, mappings, rows);
+    
+    // Group resources by type
+    final Map<String, List<DomainResource>> grouped = new HashMap<>();
+    for (String key : map.keySet()) {
+      DomainResource dr = map.get(key);
+      String resourceType = dr.getResourceType().toString();
+      List<DomainResource> list = grouped.get(resourceType);
+      if (list == null) {
+        list = new ArrayList<>();
+        grouped.put(resourceType, list);
+      }
+      list.add(dr);
+    }
+    
+    // Save to folder in ND-JSON
+    final Map<String, String> res = new HashMap<>();
+    IParser jsonParser = ctx.newJsonParser();
+    for (String key : grouped.keySet()) {
+      File f = new File(tgtDir.toFile(), key + ".ndjson");
+      res.put(key, f.getAbsolutePath());
+      try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
+        for(DomainResource dr : grouped.get(key)) {
+          jsonParser.encodeResourceToWriter(dr, bw);
+          bw.newLine();
+        }
+      }
     }
     return res;
   }
@@ -131,19 +239,43 @@ public class FhirExporter {
    * indexed by resource id.
    * 
    * @param metadata The REDCap metadata.
-   * @param rows The REDCap data.
-   * @param mappings The mappings for the REDCap fields.
    * @param rulesDocument The mapping rules.
+   * @param mappings The mappings for the REDCap fields.
+   * @param rows The REDCap data.
    * 
    * @return The map of created resources, indexed by resource id.
    */
   @Transactional
   public Map<String, DomainResource> createClinicalResourcesFromRules(Metadata metadata, 
-      List<Row> rows, List<Mapping> mappings, Document rulesDocument) {
+      Document rulesDocument, List<Mapping> mappings, List<Row> rows) {
     final Map<String, DomainResource> res = new HashMap<>();
     final String uniqueField = metadata.getUniqueFieldId();
     
+    final Map<String, Set<String>> uniqueResources = new HashMap<>();
+    
     if (rulesDocument != null) {
+      // First iterate over the rules that don't depend on the data
+      for (Rule rule : rulesDocument.getRules()) {
+        if (!rule.referencesData()) {
+          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
+            Set<String> s = uniqueResources.get(r.getResourceType());
+            if (s == null) {
+              s = new HashSet<>();
+              uniqueResources.put(r.getResourceType(), s);
+            }
+            s.add(r.getResourceId());
+          }
+        }
+      }
+      
+      for (Rule rule : rulesDocument.getRules()) {
+        if (!rule.referencesData()) {
+          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
+            createResource(r, res, metadata, null, mappings, null, uniqueResources);
+          }
+        }
+      }
+      
       // Iterate over data and create resources
       for (Row row : rows) {
         final Map<String, String> data = row.getData();
@@ -154,8 +286,10 @@ public class FhirExporter {
         }
         
         for (Rule rule : rulesDocument.getRules()) {
-          for(Resource r : rule.getResourcesToCreate(metadata, data)) {
-            createResource(r, res, metadata, data, mappings, recordId);
+          if (rule.referencesData()) {
+            for(Resource r : rule.getResourcesToCreate(metadata, data)) {
+              createResource(r, res, metadata, data, mappings, recordId, uniqueResources);
+            }
           }
         }
       }
@@ -177,12 +311,14 @@ public class FhirExporter {
    * @param metadata The REDCap metadata.
    * @param data The row of REDCap data.
    * @param recordId The id of this record. Used to create the FHIR ids.
+   * @param uniqueResources Map of resources that have a single instance.
    */
   @Transactional
   private void createResource(Resource r, Map<String, DomainResource> res, Metadata metadata, 
-      Map<String, String> data, List<Mapping> mappings, String recordId) {
+      Map<String, String> data, List<Mapping> mappings, String recordId, 
+      Map<String, Set<String>> uniqueResources) {
     final String resourceId = r.getResourceId();
-    final String fhirId = resourceId + "-" + recordId;
+    final String fhirId = resourceId + (recordId != null ? ("-" + recordId) : "");
 
     DomainResource resource = res.get(fhirId);
     if (resource == null) {
@@ -201,8 +337,16 @@ public class FhirExporter {
     }
     for (AttributeValue attVal : r.getResourceAttributeValues()) {
       setValue(resource, attVal.getAttributes(), attVal.getValue(), metadata, data, mappings, 
-          recordId);
+          recordId, uniqueResources);
     }
+  }
+  
+  private boolean isValueX(Child hapiMetadata, Class<? extends Base> c) {
+    // Special case: extensions
+    if (c.getName().endsWith("Extension") && hapiMetadata.name().equals("value")) {
+      return true;
+    }
+    return hapiMetadata.type().length > 1;
   }
   
   /**
@@ -216,12 +360,14 @@ public class FhirExporter {
    * @param metadata The REDCap metadata.
    * @param row The row of data to be used to set this value.
    * @param mappings Mappings of REDCap codes to codes in a terminology.
-   * @param recordId
+   * @param recordId The id of this record. Used to create the FHIR ids.
+   * @param uniqueResources Map of resources that have a single instance.
    */
   @Transactional
   private void setValue(DomainResource resource, List<Attribute> attributes,
       au.csiro.redmatch.model.grammar.redmatch.Value value, Metadata metadata, 
-      Map<String, String> row, List<Mapping> mappings, String recordId) {
+      Map<String, String> row, List<Mapping> mappings, String recordId, 
+      Map<String, Set<String>> uniqueResources) {
 
     // Get chain of attribute names
     final List<Attribute> attributesCopy = new ArrayList<>();
@@ -240,7 +386,7 @@ public class FhirExporter {
     
       // We use the generated annotations in the FHIR model to get the type
       final Child hapiMetadata = f.getAnnotation(Child.class);
-      final boolean isValueX = hapiMetadata.type().length > 1;
+      final boolean isValueX = isValueX(hapiMetadata, theElement.getClass());
       final Class<?> fhirType = getTypeFromHapiAnnotations(hapiMetadata, f, leafAttributeName);
      // boolean isList = hapiMetadata.max() > 1;
       
@@ -258,7 +404,8 @@ public class FhirExporter {
         }
       }
       
-      theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory);
+      theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory, 
+          uniqueResources);
       if (theValue == null) {
         throw new RuleApplicationException("Unable to get value: " + value);
       }
@@ -268,8 +415,7 @@ public class FhirExporter {
     } catch (RuleApplicationException | NoMappingFoundException e) {
       throw e;
     } catch (Exception e) {
-      e.printStackTrace();
-      throw new RuleApplicationException("There was a problem using reflection.", e);
+      handleReflectionException(e);
     }
   }
   
@@ -302,12 +448,13 @@ public class FhirExporter {
    * @param mappings A list of mappings between REDCap values and codes in a terminology.
    * @param recordId The id of this record. Used to create the references to FHIR ids.
    * @param enumFactory If the type is an enumeration, this is the fatory to create an instance.
+   * @param uniqueResources Map of resources that have a single instance.
    * @return The value or null if the value cannot be determined. This can also be a list.
    */
   @Transactional
   private Base getValue(au.csiro.redmatch.model.grammar.redmatch.Value value, Class<?> fhirType,
       Metadata metadata, Map<String, String> row, List<Mapping> mappings, String recordId, 
-      Class<?> enumFactory) {
+      Class<?> enumFactory, Map<String, Set<String>> uniqueResources) {
     if(value instanceof BooleanValue) {
       return new BooleanType(((BooleanValue) value).getValue());
     } else if (value instanceof CodeLiteralValue) {
@@ -327,8 +474,18 @@ public class FhirExporter {
     } else if (value instanceof ReferenceValue) {
       ReferenceValue rv = (ReferenceValue) value;
       Reference ref = new Reference();
+      
+      String resourceType = rv.getResourceType();
       String resourceId = rv.getResourceId();
-      ref.setReference("/" + rv.getResourceType() + "/" + resourceId + "-" + recordId);
+      
+      Set<String> s = uniqueResources.get(resourceType);
+      if (s != null && s.contains(resourceId)) {
+        // This is a reference to a unique resource - no need to append row id
+        ref.setReference("/" + rv.getResourceType() + "/" + resourceId);
+      } else {
+        ref.setReference("/" + rv.getResourceType() + "/" + resourceId + "-" + recordId);
+      }
+      
       return ref;
     } else if (value instanceof StringValue) {
       if (fhirType.equals(StringType.class)) {
@@ -601,7 +758,8 @@ public class FhirExporter {
           Method fromCode = findMethodByName("fromType", enumFactory);
           return (Base) fromCode.invoke(factory, new StringType(code));
         } catch (Exception e) {
-          throw new RuleApplicationException ("There was a problem using reflection.", e);
+          handleReflectionException(e);
+          return null;
         }
       } else {
         throw new RuleApplicationException("Type is an enumeration but the enumeration factory "
@@ -688,6 +846,10 @@ public class FhirExporter {
   
   
   private String getValue(Map<String, String> row, String fieldId) {
+    if (row == null) {
+      throw new RuntimeException("Row was null when getting value for field " + fieldId + ". This "
+          + "should never happen!");
+    }
     String s = row.get(fieldId);
     if (s == null) {
       throw new RuleApplicationException("Coudln't find any value for field " + fieldId + " in row "
@@ -708,6 +870,10 @@ public class FhirExporter {
    */
   private Mapping getSelectedMapping(String fieldId, Map<String, String> row, Metadata metadata, 
       List<Mapping> mappings) {
+    if (row == null) {
+      throw new RuntimeException("Row was null when getting selected mapping for field " 
+          + fieldId + ". This should never happen!");
+    }
     au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
     FieldType ft = f.getFieldType();
     if (ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOWN)) {
@@ -765,6 +931,33 @@ public class FhirExporter {
       }
     }
     return null;
+  }
+  
+  private void handleReflectionException(Exception e) {
+    if (e instanceof NoSuchMethodException) {
+      throw new RuleApplicationException(
+          "A method could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof NoSuchFieldException) {
+      throw new RuleApplicationException(
+          "A field could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof ClassNotFoundException) {
+      throw new RuleApplicationException(
+          "A class could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof IllegalAccessException) {
+      throw new RuleApplicationException(
+          "There was a problem creating a field: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof IllegalArgumentException) {
+      throw new RuleApplicationException(
+          "An illegal argument was used: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof InvocationTargetException) {
+      InvocationTargetException ite = (InvocationTargetException) e;
+      Throwable cause = ite.getCause();
+      throw new RuleApplicationException(
+          "There was a problem invoking a method or constructor: " + 
+          cause != null ? cause.getLocalizedMessage() : e.getLocalizedMessage(), e);
+    } else {
+      throw new RuleApplicationException ("There was a problem using reflection.", e);
+    }
   }
 
 }

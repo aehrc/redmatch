@@ -1,9 +1,9 @@
-import { FhircapProject } from "../api/FhircapApi";
+import { RedmatchProject } from "../api/RedmatchApi";
 import { Table, TableBody, TableCell, TableRow } from "@material-ui/core";
 import React from "react";
 
 interface Props {
-  project: FhircapProject;
+  project: RedmatchProject;
 }
 
 export default function ProjectInfo(props: Props) {

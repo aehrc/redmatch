@@ -29,24 +29,6 @@
     <start-class>au.csiro.redmatch.Application</start-class>
   </properties>
 
-  <profiles>
-    <profile>
-      <id>dev</id>
-      <properties>
-        <activatedProperties>dev</activatedProperties>
-      </properties>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-    </profile>
-    <profile>
-      <id>prod</id>
-      <properties>
-        <activatedProperties>prod</activatedProperties>
-      </properties>
-    </profile>
-  </profiles>
-
   <dependencies>
     <!-- Spring Boot web support. -->
     <dependency>
@@ -128,7 +110,35 @@
   </dependencies>
 
   <build>
+    <resources>
+	  <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>src/main/resources-filtered</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+    <!-- Copies filtered Docker Compose file to project root. -->
     <plugins>
+	  <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+         <executions>
+          <execution>
+            <phase>process-resources</phase>
+            <configuration>
+               <target>
+                 <copy file="${project.build.outputDirectory}/docker-compose.yml"
+                   toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
+              </target>
+            </configuration>
+            <goals>
+              <goal>run</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <!-- Used to add the source code files generated from the ANTLR grammar 
         to the project. -->
       <plugin>
@@ -171,22 +181,6 @@
         <artifactId>antlr4-maven-plugin</artifactId>
         <version>${antlr.version}</version>
         <executions>
-          <!-- Used to create the Javascript files. -->
-          <execution>
-            <id>antlr-javascript</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>antlr4</goal>
-            </goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/generated-sources/antlr4/javascript</outputDirectory>
-              <arguments>
-                <argument>-Dlanguage=JavaScript</argument>
-                <argument>-no-listener</argument>
-                <argument>-no-visitor</argument>
-              </arguments>
-            </configuration>
-          </execution>
           <!-- Used to create the Java files. -->
           <execution>
             <id>antlr-java</id>
@@ -205,17 +199,6 @@
         <configuration>
           <sourceDirectory>${basedir}/src/main/antlr4</sourceDirectory>
           <libDirectory>${basedir}/src/main/antlr4/au/csiro/redmatch/grammar</libDirectory>
-        </configuration>
-      </plugin>
-      <!-- Used to implement the GitFlow pattern in this project. -->
-      <plugin>
-        <groupId>external.atlassian.jgitflow</groupId>
-        <artifactId>jgitflow-maven-plugin</artifactId>
-        <version>1.0-m5.1</version>
-        <configuration>
-          <autoVersionSubmodules>true</autoVersionSubmodules>
-          <useReleaseProfile>false</useReleaseProfile>
-          <noDeploy>true</noDeploy>
         </configuration>
       </plugin>
       <!-- Used to generate a summary of the licenses for all libraries used 

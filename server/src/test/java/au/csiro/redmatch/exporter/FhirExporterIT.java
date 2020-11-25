@@ -18,12 +18,16 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationStatus;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ResearchStudy;
 import org.hl7.fhir.r4.model.Type;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,16 +38,15 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
-import au.csiro.redmatch.client.ITerminologyServer;
+import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
-import au.csiro.redmatch.exporter.FhirExporter;
 import au.csiro.redmatch.importer.RedcapImporter;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
-import au.csiro.redmatch.validation.MockTerminolgyServer;
+import au.csiro.redmatch.validation.MockTerminolgyClient;
 
 /**
  * FHIR exporter unit tests.
@@ -68,7 +71,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   @Autowired
   private RedcapImporter redcapImporter;
   
-  private ITerminologyServer mockTerminologyServer = new MockTerminolgyServer();
+  private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
   @Before
   public void hookMock() {
@@ -80,7 +83,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   public void testCreateClinicalResourcesFromRulesDataMappings() {
     Metadata metadata = this.loadMetadata("data_mappings");
     List<Row> rows = this.loadData("data_mappings");
-    String rules = this.loadRules("data_mappings");
+    String rules = this.loadRulesString("data_mappings");
     
     Document rulesDocument = compiler.compile(rules, metadata);
     assertNotNull(rulesDocument);
@@ -95,12 +98,12 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     
     populateDataMappings(mappings);
     
-    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
-        mappings, rulesDocument);
+    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
+        rulesDocument, mappings, rows);
     
     System.out.println(res.keySet());
     
-    assertEquals(2, res.keySet().size());
+    assertEquals(4, res.keySet().size());
 
     assertTrue(res.containsKey("pat-gene-1"));
     DomainResource dr = res.get("pat-gene-1");
@@ -129,13 +132,54 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals("http://www.genenames.org/geneId", c.getSystem());
     assertEquals("HGNC:1101", c.getCode());
     assertEquals("BRCA2", c.getDisplay());
+    
+    assertTrue(res.containsKey("rstud"));
+    dr = res.get("rstud");
+    assertTrue(dr instanceof ResearchStudy);
+    ResearchStudy rs = (ResearchStudy) dr;
+    assertTrue(rs.hasIdentifier());
+    assertEquals(1, rs.getIdentifier().size());
+    Identifier id = rs.getIdentifierFirstRep();
+    assertTrue(id.hasType());
+    CodeableConcept idType = id.getType();
+    assertTrue(idType.hasCoding());
+    Coding cod = idType.getCodingFirstRep();
+    assertEquals("http://genomics.ontoserver.csiro.au/clipi/CodeSystem/IdentifierType", cod.getSystem());
+    assertEquals("RSI", cod.getCode());
+    assertEquals("Research study identifier", cod.getDisplay());
+    assertEquals("http://www.australiangenomics.org.au/id/research-study", id.getSystem());
+    assertEquals("mito", id.getValue());
+    
+    assertTrue(res.containsKey("enc"));
+    dr = res.get("enc");
+    assertTrue(dr instanceof Encounter);
+    Encounter enc = (Encounter) dr;
+    assertTrue(enc.hasClass_());
+    Coding cl = enc.getClass_();
+    assertTrue(cl.hasSystem());
+    assertTrue(cl.hasCode());
+    assertTrue(cl.hasDisplay());
+    assertEquals("http://genomics.ontoserver.csiro.au/clipi/ValueSet/EncounterClassValueSet", 
+        cl.getSystem());
+    assertEquals("RS", cl.getCode());
+    assertEquals("research study", cl.getDisplay());
+    assertTrue(enc.hasExtension());
+    assertEquals(1, enc.getExtension().size());
+    Extension ext = enc.getExtension().get(0);
+    assertTrue(ext.hasUrl());
+    assertEquals("http://myurl.com", ext.getUrl());
+    assertTrue(ext.hasValue());
+    Type t = ext.getValue();
+    assertTrue(t instanceof Reference);
+    Reference ref = (Reference) t;
+    System.out.println(ref.getReference());
   }
   
   @Test
   public void testCreateClinicalResourcesFromRules() {
     Metadata metadata = this.loadMetadata("tutorial");
     List<Row> rows = this.loadData("tutorial");
-    String rules = this.loadRules("tutorial");
+    String rules = this.loadRulesString("tutorial");
     Document rulesDocument = compiler.compile(rules, metadata);
     assertNotNull(rulesDocument);
     final List<Annotation> compilationErrors = compiler.getErrorMessages();
@@ -150,9 +194,8 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     populateMappings(mappings);
     
     try {
-      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, rows, 
-          mappings, rulesDocument);
-    
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
+          rulesDocument, mappings, rows);
     
       System.out.println(res.keySet());
       

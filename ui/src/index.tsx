@@ -1,10 +1,17 @@
-/*
- * Copyright © 2020, Commonwealth Scientific and Industrial Research
- * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
- */
+import React from 'react';
+import ReactDOM from 'react-dom';
+import './index.css';
+import App from './components/App';
+import * as serviceWorker from './serviceWorker';
 
-import ReactDOM from "react-dom";
-import React from "react";
-import App from "./components/App";
+ReactDOM.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+  document.getElementById('root')
+);
 
-ReactDOM.render(<App />, document.getElementById("app"));
+// If you want your app to work offline and load faster, you can change
+// unregister() to register() below. Note this comes with some pitfalls.
+// Learn more about service workers: https://bit.ly/CRA-PWA
+serviceWorker.unregister();

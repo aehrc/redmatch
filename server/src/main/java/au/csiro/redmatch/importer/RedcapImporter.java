@@ -17,12 +17,13 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import au.csiro.redmatch.client.RedcapClient;
+import au.csiro.redmatch.client.IRedcapClient;
 import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.Mapping;
@@ -56,8 +57,16 @@ public class RedcapImporter {
 
   private static final String FIELD_LABEL = "field_label";
   
+  private IRedcapClient redcapClient;
+  
   @Autowired
-  private RedcapClient redcapClient;
+  public RedcapImporter(@Qualifier("redcap") IRedcapClient redcapClient) {
+    this.redcapClient = redcapClient;
+  }
+  
+  public void setRedcapClient(IRedcapClient redcapClient) {
+    this.redcapClient = redcapClient;
+  }
 
   /**
    * Returns the project id of a REDCap project.
@@ -327,6 +336,7 @@ public class RedcapImporter {
       }
     }
     
+    Collections.sort(res);
     return res;
   }
   

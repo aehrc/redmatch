@@ -24,14 +24,15 @@ const standardPostConfig: AxiosRequestConfig = {
 };
 
 export function get<T>(url: string, params: any = {}): CancelablePromise<T> {
-  return cancelableFetch(source =>
-    http
+  return cancelableFetch(source => {
+    return http
       .get<T>(url, {
         ...standardGetConfig,
         params,
         cancelToken: source.token
       })
-      .then(response => response.data)
+      .then(response => response.data);
+    }
   );
 }
 
@@ -40,23 +41,25 @@ export function post<T>(
   body: any,
   config?: any
 ): CancelablePromise<T> {
-  return cancelableFetch(source => {
-    let resolvedConfig = {
-      ...standardPostConfig,
-      cancelToken: source.token
-    };
-    if (config) resolvedConfig = merge(resolvedConfig, config);
-    return http
-      .post<T>(url, body, resolvedConfig)
-      .then(response => response.data);
-  });
+  return cancelableFetch(
+    async source => {
+      let resolvedConfig = {
+        ...standardPostConfig,
+        cancelToken: source.token
+      };
+      if (config) resolvedConfig = merge(resolvedConfig, config);
+      const response = await http
+        .post<T>(url, body, resolvedConfig);
+      return response.data;
+    }
+  );
 }
 
 function cancelableFetch<T>(
   fetch: (source: CancelTokenSource) => Promise<T>
 ): CancelablePromise<T> {
   const source = http.CancelToken.source();
-  const promise = <CancelablePromise<T>>fetch(source);
+  const promise = fetch(source) as CancelablePromise<T>;
   promise.cancel = source.cancel;
   return promise;
 }

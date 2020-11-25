@@ -63,7 +63,7 @@ public class Id {
    * 
    * @param variable The name of the variable, e.g. x in clin_dx_${x}.
    * @param value The value of x based on the repeats clause.
-   * @return The name of the id, including the value of the variable, e.g., clin_dx_1, if x = 1.
+   * @return The name of the id, including the value of the variable, e.g., clin_dx_3, if x = 1.
    * 
    * @throws RuntimeException If an evaluation is attempted with the wrong variable.
    */

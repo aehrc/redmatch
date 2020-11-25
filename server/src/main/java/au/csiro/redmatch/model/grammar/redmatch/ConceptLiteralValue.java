@@ -4,6 +4,9 @@
  */
 package au.csiro.redmatch.model.grammar.redmatch;
 
+import java.net.URI;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A concept literal. This has the form system | code | display.
@@ -17,16 +20,30 @@ public class ConceptLiteralValue extends Value {
   private String code;
   private String display;
   
+  private final Pattern codePattern = Pattern.compile("[^\\s]+(\\s[^\\s]+)*");
+  
   public ConceptLiteralValue(String system, String code, String display) {
     super();
+    
+    try {
+      URI.create(system);
+    } catch (IllegalArgumentException e) {
+      throw new InvalidSyntaxException("System " + system + " is not a valid URI.");
+    }
+    
+    final Matcher matcher = codePattern.matcher(code);
+    if (!matcher.matches()) {
+      throw new InvalidSyntaxException("Code " + code + " is invalid. Codes should be strings which "
+          + "have at least one character and no leading or trailing whitespace, and where there is "
+          + "no whitespace other than single spaces in the contents.");
+    }
+    
     this.system = system;
     this.code = code;
     this.display = display;
   }
   public ConceptLiteralValue(String system, String code) {
-    super();
-    this.system = system;
-    this.code = code;
+    this(system, code, null);
   }
   public String getSystem() {
     return system;
@@ -49,6 +66,10 @@ public class ConceptLiteralValue extends Value {
   @Override
   public String toString() {
     return system + "|" + code + display != null ? ("|" + display) : "";
+  }
+  @Override
+  public boolean referencesData() {
+    return false;
   }
   
 }

@@ -35,5 +35,10 @@ public class IntegerValue extends Value {
   public String toString() {
     return value.toString();
   }
+
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

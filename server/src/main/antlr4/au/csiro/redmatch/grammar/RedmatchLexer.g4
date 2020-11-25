@@ -18,32 +18,36 @@ LT                : '<';
 GT                : '>';
 LTE               : '<='; 
 GTE               : '>=';
-THEN              : '->';
-COMMA             : ',';
-END               : ';';
-OPEN_SQ           : '[';
-CLOSE_SQ          : ']';
-DOT               : '.';
 CONCEPT           : 'CONCEPT';
 CONCEPT_SELECTED  : 'CONCEPT_SELECTED';
 CODE_SELECTED     : 'CODE_SELECTED';
 REF               : 'REF';
-OPEN_CURLY_DOLLAR : '${';
 CLOSE_CURLY       : '}';
 OPEN_CURLY        : '{';
+OPEN_CURLY_DOLLAR : '${';
 DOTDOT            : '..';
 COLON             : ':';
+ATTRIBUTE_START   : '*' -> pushMode(ATTRIBUTES) ;
 
-CONCEPT_LITERAL
-    : 'CONCEPT_LITERAL' -> pushMode(FHIR_CONCEPT)
-    ;
-    
-CODE_LITERAL
-    : 'CODE_LITERAL' -> pushMode(FHIR_CODE)
+fragment LOWERCASE  : [a-z] ;
+fragment UPPERCASE  : [A-Z] ;
+fragment DIGIT      : [0-9];
+
+// A FHIR resource identifier.
+RESOURCE
+    : UPPERCASE (LOWERCASE | UPPERCASE)*
     ;
 
-IDENTIFIER
-    : ([A-Za-z_-])([A-Za-z0-9_-])*
+// An identifier of a REDCap form, a FHIR resource created in the rules or a Redmatch variable. Can 
+// include a reference to a Redmatch variable anywhere, except on the first character and when a
+// Redmatch variable is being defined.
+ID
+    : LOWERCASE (REDMATCH_ID | LOWERCASE | UPPERCASE | DIGIT | '_'  | '-')*
+    ;
+
+// A reference to a Redmatch variable
+REDMATCH_ID
+    : OPEN_CURLY_DOLLAR (LOWERCASE | UPPERCASE | DIGIT | '_')+ CLOSE_CURLY
     ;
 
 STRING
@@ -51,17 +55,17 @@ STRING
     ;
 
 NUMBER
-    : [0-9]+('.' [0-9]+)?
+    : DIGIT+('.' DIGIT+)?
     ;
-        
+
 COMMENT
-    : '/*' .*? '*/' -> skip
+    : '/*' .*? '*/' -> channel(HIDDEN)
     ;
 
 LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
+    : '//' ~[\r\n]* -> channel(HIDDEN)
     ;
-        
+
 WS
     : [ \r\n\t]+ -> skip
     ;
@@ -102,17 +106,20 @@ fragment HEX
     : [0-9a-fA-F]
     ;
 
-mode FHIR_CONCEPT;
-
-// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*, and uri definition \S*
-CONCEPT_VALUE
-    : '(' ~[ \r\n\t]+ '|' (~[ \r\n\t]+) ([ \r\n\t] ~[ \r\n\t]+)* ('|' STRING)? ')' -> popMode
+CONCEPT_LITERAL
+    :  'CONCEPT_LITERAL' OPEN .*? '|' .*? ('|' STRING)? CLOSE
     ;
 
-mode FHIR_CODE;
-
-// Follows FHIR code definition, i.e. [^\s]+(\s[^\s]+)*
-CODE_VALUE
-    : '(' ~[ \r\n\t]+ ([ \r\n\t] ~[ \r\n\t]+)* ')' -> popMode
+CODE_LITERAL
+    :  'CODE_LITERAL' OPEN .*? CLOSE
     ;
+    
+mode ATTRIBUTES;
 
+OPEN_SQ           : '[';
+CLOSE_SQ          : ']';
+DOT               : '.';
+INDEX             : [0-9]+;
+PATH              : LOWERCASE (LOWERCASE | UPPERCASE)*;
+WHITE_SPACE       : [ \r\n\t]+ -> skip;
+ATTRIBUTE_END     : '=' -> popMode;

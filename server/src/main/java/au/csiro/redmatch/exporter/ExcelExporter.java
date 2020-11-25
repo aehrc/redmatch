@@ -90,6 +90,12 @@ public class ExcelExporter {
       Cell cell6 = row.createCell(6);
       cell6.setCellStyle(boldStyle);
       cell6.setCellValue("Display");
+      Cell cell7 = row.createCell(7);
+      cell7.setCellStyle(boldStyle);
+      cell7.setCellValue("Value Set URL");
+      Cell cell8 = row.createCell(8);
+      cell8.setCellStyle(boldStyle);
+      cell8.setCellValue("Value Set Name");
 
       for (int i = 0; i < mappings.size(); i++) {
         row = sheet.createRow(i + 1);
@@ -114,6 +120,12 @@ public class ExcelExporter {
         cell6 = row.createCell(6);
         cell6.setCellStyle(unlockedCellStyle);
         cell6.setCellValue(mapping.getTargetDisplay());
+        cell7 = row.createCell(7);
+        cell7.setCellStyle(unlockedCellStyle);
+        cell7.setCellValue(mapping.getValueSetUrl());
+        cell8 = row.createCell(8);
+        cell8.setCellStyle(unlockedCellStyle);
+        cell8.setCellValue(mapping.getValueSetName());
       }
 
       sheet.autoSizeColumn(0);
@@ -123,6 +135,8 @@ public class ExcelExporter {
       sheet.setColumnWidth(4, 20 * 256);
       sheet.setColumnWidth(5, 20 * 256);
       sheet.setColumnWidth(6, 40 * 256);
+      sheet.setColumnWidth(7, 40 * 256);
+      sheet.setColumnWidth(8, 40 * 256);
       wb.write(baos);
     }
   }

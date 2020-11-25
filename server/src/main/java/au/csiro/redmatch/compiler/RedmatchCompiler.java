@@ -11,16 +11,13 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.DefaultErrorStrategy;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.DiagnosticErrorListener;
-import org.antlr.v4.runtime.InputMismatchException;
 import org.antlr.v4.runtime.Lexer;
-import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
@@ -29,22 +26,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.BooleanType;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.DecimalType;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Enumeration;
-import org.hl7.fhir.r4.model.IdType;
-import org.hl7.fhir.r4.model.IntegerType;
-import org.hl7.fhir.r4.model.MarkdownType;
-import org.hl7.fhir.r4.model.OidType;
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.UriType;
-import org.hl7.fhir.r4.model.UrlType;
-import org.hl7.fhir.r4.model.UuidType;
 import org.ietf.jgss.GSSException;
 import org.ietf.jgss.Oid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +34,7 @@ import org.springframework.stereotype.Component;
 import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.grammar.RedmatchGrammar;
 import au.csiro.redmatch.grammar.RedmatchGrammar.AttributeContext;
+import au.csiro.redmatch.grammar.RedmatchGrammar.AttributePathContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ConditionContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.DocumentContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.FcBodyContext;
@@ -61,14 +43,14 @@ import au.csiro.redmatch.grammar.RedmatchGrammar.ReferenceContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.RepeatsClauseContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ResourceContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ValueContext;
-import au.csiro.redmatch.grammar.RedmatchGrammar.VariableIdentifierContext;
+import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
+import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.importer.CompilerException;
 import au.csiro.redmatch.model.Annotation;
 import au.csiro.redmatch.model.AnnotationType;
 import au.csiro.redmatch.model.Field;
-import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Field.FieldType;
-import au.csiro.redmatch.model.Field.TextValidationType;
+import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
@@ -81,28 +63,27 @@ import au.csiro.redmatch.model.grammar.redmatch.ConceptSelectedValue;
 import au.csiro.redmatch.model.grammar.redmatch.ConceptValue;
 import au.csiro.redmatch.model.grammar.redmatch.Condition;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
 import au.csiro.redmatch.model.grammar.redmatch.ConditionNode;
+import au.csiro.redmatch.model.grammar.redmatch.ConditionNode.ConditionNodeOperator;
 import au.csiro.redmatch.model.grammar.redmatch.Document;
 import au.csiro.redmatch.model.grammar.redmatch.DoubleValue;
 import au.csiro.redmatch.model.grammar.redmatch.FieldBasedValue;
 import au.csiro.redmatch.model.grammar.redmatch.FieldValue;
 import au.csiro.redmatch.model.grammar.redmatch.IntegerValue;
+import au.csiro.redmatch.model.grammar.redmatch.InvalidSyntaxException;
 import au.csiro.redmatch.model.grammar.redmatch.ReferenceValue;
 import au.csiro.redmatch.model.grammar.redmatch.RepeatsClause;
 import au.csiro.redmatch.model.grammar.redmatch.Resource;
 import au.csiro.redmatch.model.grammar.redmatch.Rule;
 import au.csiro.redmatch.model.grammar.redmatch.RuleList;
 import au.csiro.redmatch.model.grammar.redmatch.StringValue;
+import au.csiro.redmatch.model.grammar.redmatch.UnknownVariableException;
 import au.csiro.redmatch.model.grammar.redmatch.Value;
-import au.csiro.redmatch.model.grammar.redmatch.VariableIdentifier;
 import au.csiro.redmatch.model.grammar.redmatch.Variables;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionExpression.ConditionExpressionOperator;
-import au.csiro.redmatch.model.grammar.redmatch.ConditionNode.ConditionNodeOperator;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.PathInfo;
+import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.ValidationResult;
-import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
-import au.csiro.redmatch.grammar.RedmatchLexer;
 
 /**
  * The compiler for the Redmatch rules language.
@@ -141,7 +122,22 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   /**
    * Pattern to validate FHIR ids.
    */
-  private final Pattern idPattern = Pattern.compile("[A-Za-z0-9\\-\\.]{1,64}");
+  private final Pattern fhirIdPattern = Pattern.compile("[A-Za-z0-9\\-\\.]{1,64}");
+  
+  /**
+   * Pattern to validate REDCap form ids.
+   */
+  private final Pattern redcapIdPattern = Pattern.compile("[a-z][A-Za-z0-9_]*");
+  
+  /**
+   * Pattern to identify Redmatch variables.
+   */
+  private final Pattern redmatchVariablePattern = Pattern.compile("[$][{][a-zA-Z0-9_]+[}]");
+  
+  /**
+   * Stores the path information for the leaf node - used to validate each value assignment.
+   */
+  private PathInfo lastInfo = null;
   
   
   /**
@@ -159,24 +155,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     this.metadata = metadata;
     
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rulesDocument));
-    final RedmatchGrammar parser = new RedmatchGrammar(new BufferedTokenStream(lexer));
-    parser.setErrorHandler(new DefaultErrorStrategy() {
-      @Override
-      public void reportInputMismatch(Parser recognizer, InputMismatchException e)
-          throws RecognitionException {
-        final Token token = recognizer.getCurrentToken();
-        final int currentTokenType = token.getType();
-        final String msg = "Mismatched input " + getTokenErrorDisplay(e.getOffendingToken())
-          + " expecting " + e.getExpectedTokens().toString(recognizer.getVocabulary()) + " found "
-          + (currentTokenType >= 0 ? recognizer.getVocabulary().getDisplayName(currentTokenType)
-                : "end of input");
-        
-        
-        addError(errorMessages, token.getText(), token.getLine(), 
-            token.getCharPositionInLine(), msg);
-        //recognizer.notifyErrorListeners(e.getOffendingToken(), msg, e);
-      }
-    });
+    final RedmatchGrammar parser = new RedmatchGrammar(new CommonTokenStream(lexer));
 
     lexer.removeErrorListeners();
     lexer.addErrorListener(new DiagnosticErrorListener() {
@@ -189,16 +168,69 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     });
 
     parser.removeErrorListeners();
-    parser.addErrorListener(new BaseErrorListener() {
+    parser.addErrorListener(new DiagnosticErrorListener() {
       @Override
       public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line,
           int charPositionInLine, String msg, RecognitionException e) {
         addError(errorMessages, offendingSymbol != null ? offendingSymbol.toString() : "", 
             line, charPositionInLine, msg);
       }
+      
+      /*@Override
+      public void reportAmbiguity(Parser recognizer,
+                    DFA dfa,
+                    int startIndex,
+                    int stopIndex,
+                    boolean exact,
+                    BitSet ambigAlts,
+                    ATNConfigSet configs) {
+        String format = "reportAmbiguity d=%s: ambigAlts=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        BitSet conflictingAlts = getConflictingAlts(ambigAlts, configs);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, conflictingAlts, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
+      
+      @Override
+      public void reportAttemptingFullContext(Parser recognizer,
+                          DFA dfa,
+                          int startIndex,
+                          int stopIndex,
+                          BitSet conflictingAlts,
+                          ATNConfigSet configs) {
+        String format = "reportAttemptingFullContext d=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
+
+      @Override
+      public void reportContextSensitivity(Parser recognizer,
+                         DFA dfa,
+                         int startIndex,
+                         int stopIndex,
+                         int prediction,
+                         ATNConfigSet configs) {
+        String format = "reportContextSensitivity d=%s, input='%s'";
+        String decision = getDecisionDescription(recognizer, dfa);
+        String text = recognizer.getTokenStream().getText(Interval.of(startIndex, stopIndex));
+        String message = String.format(format, decision, text);
+        addError(errorMessages, "" , 0, 0, message);
+      }
+      */
     });
     
     final DocumentContext docCtx = parser.document();
+    
+    // We need to check if the EOF token was matched. If not, then there is a problem.
+    final Token finalToken = lexer.getToken();
+    if (finalToken.getType() != Token.EOF) {      
+      addError(errorMessages, finalToken.getText(), finalToken.getLine(), 
+          finalToken.getCharPositionInLine(), "Unexpected token '" + finalToken.getText() + "'.");
+    }
+    
     String tree = docCtx.toStringTree(parser);
     if (log.isDebugEnabled()) {
       printPrettyLispTree(tree);
@@ -216,6 +248,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /**
    * Entry point for visitor. This is the only method that should be called.
+   * 
+   * document
+   *   : fcRule*
+   * ;
    */
   @Override
   public GrammarObject visitDocument(DocumentContext ctx) {
@@ -269,368 +305,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    */
   public void setValidator(RedmatchGrammarValidator validator) {
     this.validator = validator;
-  }
-
-  /**
-   * This method validates a {@link Resource} doing the following:
-   * 
-   * <ol>
-   *   <li>Checks that the path is valid, e.g., Patient &lt;p&gt; ->identifier.type is valid 
-   *   because it is a valid path in the FHIR Patient resource.</li>
-   *   <li>Checks that the Redmtach expression is compatible with the REDCap field type, e.g., 
-   *   CONCEPT_SELECTED(phenotype___1) is valid because <i>phenotype___1</i> is a CHECKBOX_ENTRY 
-   *   type field in REDCap. </li>
-   *   <li>Checks that the type of the leaf attribute is compatible with the Redmatch expression
-   *   used (see table below), e.g., Observation&lt;obs&gt; -> status = CODE_LITERAL(..) is valid 
-   *   because <i>status</i> is of type <i>code</i>.</li>
-   *   <li>Validates string literals depending on the FHIR type, e.g., if the type if URI then it
-   *   valdiates the literal is a valid URI.</li>
-   *   <li>For references, checks that the type of resource referenced in the rules matches the
-   *   target profile, e.g., Condition<c> -> subject = REF(Patient<p>) is valid because the target
-   *   profiles for Condition.subject are Patient and Group.</li>
-   *   
-   * </ol>
-   * 
-   * <table border="1">
-   *    <tr>
-   *     <td>Redmatch Expression</td>
-   *     <td>Redmatch Expression Java Type</td>
-   *     <td>Compatible FHIR attribute types</td>
-   *   </tr>
-   *   <tr>
-   *     <td>TRUE, FALSE</td>
-   *     <td>{@link BooleanValue}</td>
-   *     <td>{@link BooleanType}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>CODE_LITERAL</td>
-   *     <td>{@link CodeLiteralValue}</td>
-   *     <td>{@link CodeType}, {@link Enumeration}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>CONCEPT_LITERAL</td>
-   *     <td>{@link ConceptLiteralValue}</td>
-   *     <td>{@link Coding}, {@link CodeableConcept}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>NUMBER</td>
-   *     <td>{@link DoubleValue}</td>
-   *     <td>{@link DecimalType}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>NUMBER</td>
-   *     <td>{@link IntegerValue}</td>
-   *     <td>{@link IntegerType}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>REF</td>
-   *     <td>{@link ReferenceValue}</td>
-   *     <td>Subclasses of {@link DomainResource}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>STRING</td>
-   *     <td>{@link StringValue}</td>
-   *     <td>{@link StringType}, {@link MarkdownType}, {@link IdType}, {@link UriType}, 
-   *     {@link OidType}, {@link UuidType}, {@link CanonicalType}, {@link UrlType}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>CODE_SELECTED</td>
-   *     <td>{@link CodeSelectedValue}</td>
-   *     <td>{@link CodeType}, {@link Enumeration}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>CONCEPT_SELECTED</td>
-   *     <td>{@link ConceptSelectedValue}</td>
-   *     <td>{@link Coding}, {@link CodeableConcept}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>CONCEPT</td>
-   *     <td>{@link ConceptValue}</td>
-   *     <td>{@link Coding}, {@link CodeableConcept}</td>
-   *   </tr>
-   *   <tr>
-   *     <td>VALUE</td>
-   *     <td>{@link FieldValue}</td>
-   *     <td>All FHIR primitive types. See <a 
-   *     href="https://www.hl7.org/fhir/datatypes.html#primitive">here</a>.</td>
-   *   </tr>
-   * </table>
-   * 
-   * @param ctx The resource context.
-   * @param r The resource.
-   * @param meta The REDCap metadata.
-   */
-  private void validateResource(ResourceContext ctx, Resource r, Metadata meta) {
-    String resourceType = r.getResourceType();
-    
-    // Iterate over all AttributeValues
-    for (AttributeValue av : r.getResourceAttributeValues()) {
-      
-      // 1. Build path and validate
-      PathInfo lastInfo = null; // Stores the path information for the leaf node
-      boolean valid = true; // Indicates if this path is valid
-      String path = resourceType;
-      for (Attribute att : av.getAttributes()) {
-        path = path + "." + att.getName();
-        
-        log.debug("Validating path " + path);
-        ValidationResult vr = validator.validateAttributePath(path);
-        if (!vr.getResult()) {
-          for (String msg : vr.getMessages()) {
-            errorMessages.add(getAnnotationFromContext(ctx, msg));
-          }
-          valid = false;
-          break;
-        } else {
-          PathInfo info = validator.getPathInfo(path);
-          lastInfo = info;
-          
-          String max = info.getMax();
-          if ("*".equals(max)) {
-            att.setList(true);
-          } else {
-            int maxInt = Integer.parseInt(max);
-            if (maxInt == 0) {
-              errorMessages.add(getAnnotationFromContext(ctx, "Unable to set attribute " 
-                  + path + " with max cardinality of 0."));
-              valid = false;
-              break;
-            } else if (att.hasAttributeIndex() && att.getAttributeIndex().intValue() >= maxInt) {
-              // e.g. myAttr[1] would be illegal if maxInt = 1
-              errorMessages.add(getAnnotationFromContext(ctx, "Attribute " 
-                  + att.toString() + " is setting an invalid index (max = " + maxInt + ")."));
-              valid = false;
-              break;
-            }
-          }
-        }
-      }
-      
-      // No point in checking the rest if the path is not valid
-      if (!valid) {
-        continue;
-      }
-      
-      // 2. Check the type of field is compatible with the expression used in the rule 
-      final Value val = av.getValue();
-      if (val instanceof FieldBasedValue) {
-        final String fieldId = ((FieldBasedValue) val).getFieldId();
-        
-        final Field f = metadata.getField(fieldId);
-        if (f == null) {
-          errorMessages.add(getAnnotationFromContext(ctx, "Field " + fieldId 
-              + " does not exist in REDCap."));
-          continue;
-        }
-        
-        final FieldType ft = f.getFieldType();
-        //final TextValidationType tvt = f.getTextValidationType();
-        
-        // CONCEPT can only apply to a field of type TEXT, YESNO, DROPDOWN, RADIO, CHECKBOX, 
-        // CHECKBOX_OPTION or TRUEFALSE.
-        if (val instanceof ConceptValue && !(ft.equals(FieldType.TEXT) 
-            || ft.equals(FieldType.YESNO) || ft.equals(FieldType.DROPDOWN) 
-            || ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOW_OR_RADIO_OPTION) 
-            || ft.equals(FieldType.CHECKBOX) || ft.equals(FieldType.CHECKBOX_OPTION) 
-            || ft.equals(FieldType.TRUEFALSE))) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              "The expression CONCEPT can only be used on fields of type TEXT, YESNO, DROPDOWN, "
-              + "RADIO, DROPDOW_OR_RADIO_OPTION, CHECKBOX, CHECKBOX_OPTION or TRUEFALSE but field " 
-              + fieldId + " is of type " + f.getFieldType()));
-        }
-        
-        // FHIR-35: we no longer need this check - CONCEPT can be used on plain text fields
-        // If used on a TEXT field, the field should be connected to a FHIR terminology server.
-        //if (val instanceof ConceptValue && ft.equals(FieldType.TEXT) 
-        //    && !TextValidationType.FHIR_TERMINOLOGY.equals(tvt)) {
-        //  errorMessages.add(getAnnotationFromContext(ctx, 
-        //      "The field " + fieldId + " is a text field but it is not validated using a FHIR "
-        //          + "terminology server. CONCEPT expressions used on fields of type TEXT require "
-        //          + "that the fields are validated using a FHIR terminology server."));
-        //}
-        
-        // CONCEPT_SELECTED can only apply to fields of type DROPDOW and RADIO
-        if (val instanceof ConceptSelectedValue && !(ft.equals(FieldType.DROPDOWN) 
-            || ft.equals(FieldType.RADIO))) {
-          errorMessages.add(getAnnotationFromContext(ctx, "The expression CONCEPT_SELECTED "
-              + "can only be used on fields of type DROPDOWN and RADIO but field " + fieldId 
-              + " is of type " + f.getFieldType()));
-        }
-        
-        // CODE_SELECTED can only apply to fields of type DROPDOWN and RADIO
-        if (val instanceof CodeSelectedValue && !(ft.equals(FieldType.DROPDOWN) 
-            || ft.equals(FieldType.RADIO))) {
-          errorMessages.add(getAnnotationFromContext(ctx, "The expression CODE_SELECTED can "
-              + "only be used on fields of type DROPDOWN and RADIO but field " + fieldId 
-              + " is of type " + f.getFieldType()));
-        }
-        
-        // VALUE can be used on any field
-      }
-      
-      // 3. Check Redmatch expression is compatible with REDCap field type
-      final String errorMsg = "%s cannot be assigned to attribute of type %s";
-      final String type = lastInfo.getType();
-      if (val instanceof BooleanValue) {
-        if (!type.equals("boolean")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Boolean value", type)));
-        }
-      } else if (val instanceof CodeLiteralValue) {
-        if (!type.equals("code")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Code literal", type)));
-        }
-      } else if (val instanceof ConceptLiteralValue) {
-        if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Concept literal", type)));
-        }
-      } else if (val instanceof DoubleValue) {
-        if (!type.equals("decimal")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Double literal", type)));
-        }
-      } else if (val instanceof IntegerValue) {
-        if (!type.equals("integer")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Integer literal", type)));
-        }
-      } else if (val instanceof ReferenceValue) {
-        // Subclasses of DomainResource
-        // TODO: this checks the type is not primitive but complex types can still slip through
-        if (!Character.isUpperCase(type.charAt(0))) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Reference", type)));
-        }
-      } else if (val instanceof StringValue) {
-        if (!(type.equals("string") || type.equals("markdown") || type.equals("id") 
-            || type.equals("uri") || type.equals("oid") || type.equals("uuid") 
-            || type.equals("canonical") || type.equals("url"))) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "String literal", type)));
-        }
-        
-        // 4. Validate string literals based on FHIR type
-        StringValue sv = (StringValue) val;
-        String s = removeEnds(sv.getStringValue());
-        
-        if (type.equals("id") && !idPattern.matcher(s).matches()) {
-          errorMessages.add(getAnnotationFromContext(ctx, "FHIR id " + s + " is invalid (it should "
-              + "match this regex: [A-Za-z0-9\\-\\.]{1,64})"));
-        } else if (type.equals("uri")) {
-          try {
-            URI.create(s);
-          } catch (IllegalArgumentException e) {
-            errorMessages.add(getAnnotationFromContext(ctx, "URI " + s + " is invalid: " 
-                + e.getLocalizedMessage()));
-          }
-        } else if (type.equals("oid")) {
-          try {
-            new Oid(s);
-          } catch (GSSException e) {
-            errorMessages.add(getAnnotationFromContext(ctx, "OID " + s + " is invalid: " 
-                + e.getLocalizedMessage()));
-          }
-        } else if (type.equals("uuid")) {
-          try {
-            UUID.fromString(s);
-          } catch (IllegalArgumentException e) {
-            errorMessages.add(getAnnotationFromContext(ctx, "UUID " + s + " is invalid: " 
-                + e.getLocalizedMessage()));
-          }
-        } else if (type.equals("canonical")) {
-          // Can have a version using |
-          String uri = null;
-          if (s.contains("|")) {
-            String[] parts = s.split("[|]");
-            if (parts.length != 2) {
-              errorMessages.add(getAnnotationFromContext(ctx, "Canonical " + s + " is invalid"));
-              uri = s; // to continue with validation
-            } else {
-              uri = parts[0];
-            }
-          }
-          
-          try {
-            URI.create(uri);
-          } catch (IllegalArgumentException e) {
-            errorMessages.add(getAnnotationFromContext(ctx, "Canonical " + s + " is invalid: " 
-                + e.getLocalizedMessage()));
-          }
-          
-        } else if (type.equals("url")) {
-          try {
-            new URL(s);
-          } catch (MalformedURLException e) {
-            errorMessages.add(getAnnotationFromContext(ctx, "URL " + s + " is invalid: " 
-                + e.getLocalizedMessage()));
-          }
-        }
-        
-      } else if (val instanceof CodeSelectedValue) {
-        if (!type.equals("code")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Mapped code", type)));
-        }
-      } else if (val instanceof ConceptSelectedValue) {
-        if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Mapped concept", type)));
-        }
-      } else if (val instanceof ConceptValue) {
-        // There are two cases here: mapping to fields or static field values, or mapping to free
-        // text. Mappings to free text are only compatible with CodeableConcepts.
-        final Field f = metadata.getField(((ConceptValue) val).getFieldId());
-        final FieldType ft = f.getFieldType();
-        final TextValidationType vt = f.getTextValidationType();
-        if (FieldType.TEXT.equals(ft) && !TextValidationType.FHIR_TERMINOLOGY.equals(vt)) {
-          if (!type.equals("CodeableConcept")) {
-            errorMessages.add(getAnnotationFromContext(ctx, 
-                String.format(errorMsg, "Concept mapped to free text", type)));
-          }
-        } else {
-          if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
-            errorMessages.add(getAnnotationFromContext(ctx, 
-                String.format(errorMsg, "Concept", type)));
-          }
-        }
-      }  else if (val instanceof FieldValue) {
-        if (Character.isUpperCase(type.charAt(0))) {
-          errorMessages.add(getAnnotationFromContext(ctx, 
-              String.format(errorMsg, "Value", type)));
-        }
-      }
-
-      // 4. For references, check that the type of resource referenced in the rules matches the
-      // target profile
-      if (lastInfo.getType().equals("Reference")) {
-        if (val instanceof ReferenceValue) {
-          ReferenceValue ref = (ReferenceValue) val;
-          String resType = ref.getResourceType();
-          
-          // Special cases: no target profiles or target profile is Resource
-          final List<String> tgtProfiles = lastInfo.getTargetProfiles();
-          if (!tgtProfiles.isEmpty() 
-              && !(tgtProfiles.size() == 1 && tgtProfiles.get(0).equals(RESOURCE_URL))) {
-            // Otherwise we need to make sure that at least one applies
-            boolean foundCompatible = false;
-            for (String targetProfile : lastInfo.getTargetProfiles()) {
-              if (targetProfile.endsWith(resType)) {
-                foundCompatible = true;
-                break;
-              }
-            }
-            
-            if (!foundCompatible) {
-              errorMessages.add(getAnnotationFromContext(ctx, "Attribute " + path + " is of "
-                  + "type reference but the resource type " + resType + " is incompatible. Valid "
-                  + "values are: " + String.join(",", lastInfo.getTargetProfiles())));
-            }
-          }
-        }
-      }
-    }
   }
   
   private boolean hasErrors() {
@@ -733,13 +407,13 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * repeatsClause
-   *     : 'REPEAT' '(' NUMBER '..' NUMBER ':' IDENTIFIER ')'
-   *     ;
+   *    : REPEAT OPEN NUMBER DOTDOT NUMBER COLON IDENTIFIER CLOSE
+   *    ;
    */
   private RepeatsClause visitRepeatsClauseInternal(RepeatsClauseContext ctx) {
     int start = Integer.parseInt(ctx.NUMBER(0).getText());
     int end = Integer.parseInt(ctx.NUMBER(1).getText());
-    final String varName = ctx.IDENTIFIER().getText();
+    final String varName = ctx.ID().getText();
     return new RepeatsClause(start, end, varName);
   }
 
@@ -750,17 +424,66 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return s.substring(1, s.length() - 1);
   }
   
+  private String processFhirOrRedcapId(ParserRuleContext ctx, Token t, Variables var) {
+    // Determine if the token has a Redmatch variable in it and if so replace it with its actual
+    // value - this will look like #cmdt_zyg1 or #cmdt_zyg${x} 
+    String s = t.getText();
+    final Matcher m = redmatchVariablePattern.matcher(s);
+    StringBuilder sb = new StringBuilder();
+    int start = 0;
+    while (m.find()) {
+      sb.append(s.substring(start, m.start()));
+      String g = m.group();
+      String v = g.substring(2, g.length() - 1);
+      int val = 0;
+      try {
+        val = var.getValue(v);
+      } catch (UnknownVariableException e) {
+        errorMessages.add(getAnnotationFromContext(ctx, e.getLocalizedMessage()));
+      }
+      sb.append(val);
+      start = m.end();
+    }
+    if (start < s.length()) {
+      sb.append(s.substring(start));
+    }
+    
+    return sb.toString();
+  }
+  
+  private String processRedcapId(ParserRuleContext ctx, Token t, Variables var) {
+    String text = processFhirOrRedcapId(ctx, t, var);
+    if (!redcapIdPattern.matcher(text).matches()) {
+      errorMessages.add(getAnnotationFromContext(ctx, "Invalid REDCap id '" + text + "': must match"
+          + " this regex: [a-z][A-Za-z0-9_]*"));
+    }
+    
+    if (!metadata.hasField(text)) {
+      errorMessages.add(getAnnotationFromContext(ctx, "Field " + text + " does not exist in "
+          + "REDCap report."));
+    }
+    return text;
+  }
+  
+  private String processFhirId(ParserRuleContext ctx, Token t, Variables var) {
+    String text = processFhirOrRedcapId(ctx, t, var);
+    if (!fhirIdPattern.matcher(text).matches()) {
+      errorMessages.add(getAnnotationFromContext(ctx, "Invalid FHIR id '" + text + "': must match"
+          + " this regex: [A-Za-z0-9\\-\\.]{1,64}"));
+    }
+    return text;
+  }
+  
   /*
    * condition
-   *     : '^' condition
-   *     | condition '&' condition
-   *     | condition '|' condition
-   *     | ('TRUE' | 'FALSE')
-   *     | ('NULL' | 'NOTNULL') '(' variableIdentifier ')'
-   *     | 'VALUE' '(' variableIdentifier ')'('=' | '!=' | '<' | '>' | '<=' | '>=') 
-   *          (STRING | NUMBER | 'CONCEPT' '(' CODE ')')
-   *     | '(' condition ')'
-   *     ;
+   *    : NOT condition
+   *    | condition AND condition
+   *    | condition OR condition
+   *    | (TRUE | FALSE)
+   *    | (NULL | NOTNULL) OPEN FHIR_OR_REDCAP_ID CLOSE
+   *    | VALUE OPEN FHIR_OR_REDCAP_ID CLOSE(EQ | NEQ | LT | GT | LTE | GTE) (STRING | NUMBER)
+   *    | OPEN condition CLOSE
+   *    ;
    *     
    *     Example:
    *     
@@ -780,23 +503,11 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else if ("FALSE".equals(text)) {
         return new ConditionExpression(false);
       } else if ("NULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
-        if (!metadata.hasField(vi.getFullId())) {
-          errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
-            + " does not exist in REDCap report."));
-        } else {
-          return new ConditionExpression(vi.getFullId(), true);
-        }
+        String id = processRedcapId(ctx, ctx.ID().getSymbol(), var);
+        return new ConditionExpression(id, true);
       } else if ("NOTNULL".equals(text)) {
-        VariableIdentifier vi = visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
-        if (!metadata.hasField(vi.getFullId())) {
-          errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
-            + " does not exist in REDCap report."));
-        } else {
-          return new ConditionExpression(vi.getFullId(), false);
-        }
+        String id = processRedcapId(ctx, ctx.ID().getSymbol(), var);
+        return new ConditionExpression(id, false);
       } else if ("VALUE".equals(text)) {
         if (ctx.getChildCount() < 6) {
           errorMessages.add(getAnnotationFromContext(ctx, 
@@ -804,28 +515,19 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           return null;
         }
         
-        VariableIdentifier vi = (VariableIdentifier) visitVariableIdentifierInternal(
-            ctx.variableIdentifier(), var, false);
-        
-        if (!metadata.hasField(vi.getFullId())) {
-          errorMessages.add(getAnnotationFromContext(ctx, "Field " + vi.getFullId() 
-            + " does not exist in REDCap report."));
-        } else {
-          String ops = ((TerminalNode) ctx.getChild(4)).getText();
-          ConditionExpressionOperator op = getOp(ops);
-          if (op == null) {
-            errorMessages.add(getAnnotationFromContext(ctx, "Unexpected operator " + ops));
-          } else if (ctx.STRING() != null) {
-            return new ConditionExpression(vi.getFullId(), op, removeEnds(ctx.STRING().getText()));
-          } else if (ctx.NUMBER() != null) {
-            String num = ctx.NUMBER().getText();
-            if (num.contains(".")) {
-              return new ConditionExpression(vi.getFullId(), op, 
-                  Double.parseDouble(ctx.NUMBER().getText()));
-            } else {
-              return new ConditionExpression(vi.getFullId(), op, 
-                  Integer.parseInt(ctx.NUMBER().getText()));
-            }
+        String id = processRedcapId(ctx, ctx.ID().getSymbol(), var);
+        String ops = ((TerminalNode) ctx.getChild(4)).getText();
+        ConditionExpressionOperator op = getOp(ops);
+        if (op == null) {
+          errorMessages.add(getAnnotationFromContext(ctx, "Unexpected operator " + ops));
+        } else if (ctx.STRING() != null) {
+          return new ConditionExpression(id, op, removeEnds(ctx.STRING().getText()));
+        } else if (ctx.NUMBER() != null) {
+          String num = ctx.NUMBER().getText();
+          if (num.contains(".")) {
+            return new ConditionExpression(id, op, Double.parseDouble(ctx.NUMBER().getText()));
+          } else {
+            return new ConditionExpression(id, op, Integer.parseInt(ctx.NUMBER().getText()));
           }
         }
       } else if ("(".equals(text)) {
@@ -863,23 +565,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return new ConditionExpression(false);
   }
   
-  private VariableIdentifier visitVariableIdentifierInternal(VariableIdentifierContext ctx, 
-      Variables var, boolean inResource) { 
-    String id = ctx.IDENTIFIER().get(0).getText();
-    
-    // Check if this is compliant 
-    if (inResource && !idPattern.matcher(id).matches()) {
-      errorMessages.add(getAnnotationFromContext(ctx, "FHIR id " + id + " is invalid (it should "
-          + "match this regex: [A-Za-z0-9\\-\\.]{1,64})"));
-    }
-    
-    if (ctx.IDENTIFIER().size() > 1) {
-      return new VariableIdentifier(id, var.getValue(ctx.IDENTIFIER().get(1).getText()));
-    } else {
-      return new VariableIdentifier(id);
-    }
-  }
-  
   private ConditionExpressionOperator getOp(String ops) {
     if ("=".equals(ops)) {
       return ConditionExpressionOperator.EQ;
@@ -900,8 +585,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   
   /*
    * resource
-   *   : IDENTIFIER '<' variableIdentifier '>' '->' attribute '=' 
-   *        value (',' attribute '=' value)* ';'
+   *     : RESOURCE LT FHIR_OR_REDCAP_ID GT THEN attribute EQ value (COMMA attribute EQ value)* END
+   *     ;
    *   
    *   Example: Encounter<final> -> status = "FINISHED";
    */
@@ -910,130 +595,365 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     if (ctx == null) {
       return res;
     }
-    res.setResourceType(ctx.IDENTIFIER().getText());
+    res.setResourceType(ctx.RESOURCE().getText());
     
-    VariableIdentifier vi = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, true);
-    res.setResourceId(vi.getFullId());
+    String resourceId = processFhirId(ctx, ctx.ID().getSymbol(), var);
+    res.setResourceId(resourceId);
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
       AttributeValue av = new AttributeValue();
-      av.setAttributes(visitAttributeInternal(ctx.attribute(i)));
+      av.setAttributes(visitAttributeInternal(res.getResourceType(), ctx.attribute(i)));
       av.setValue(visitValueInternal(ctx.value(i), var));
       res.getResourceAttributeValues().add(av);
     }
-    
-    validateResource(ctx, res, meta);
 
     return res;
   }
   
   /*
-   * attribute
-   *   : IDENTIFIER ('[' NUMBER ']')? ('.' attribute)?
+   * attributePath
+   *   : PATH (OPEN_SQ INDEX CLOSE_SQ)?
    *   ;
    */
-  private List<Attribute> visitAttributeInternal(AttributeContext ctx) {
-    final List<Attribute> res = new ArrayList<>();
-    while (ctx != null) {
-      Attribute att = new Attribute();
-      att.setName(ctx.IDENTIFIER().getText());
-      if (ctx.NUMBER() != null) {
-        att.setAttributeIndex(Integer.parseInt(ctx.NUMBER().getText()));
-      }
-      res.add(att);
-      ctx = ctx.attribute();
+  private Attribute visitAttributePathInternal(AttributePathContext ctx) {
+    Attribute att = new Attribute();
+    att.setName(ctx.PATH().getText());
+    if (ctx.INDEX() != null) {
+      att.setAttributeIndex(Integer.parseInt(ctx.INDEX().getText()));
     }
+    return att;
+  }
+  
+  /*
+   * attribute
+   *   : ATTRIBUTE_START attributePath (DOT attributePath)*
+   *   ;
+   */
+  private List<Attribute> visitAttributeInternal(String resourceType, AttributeContext ctx) {
+    final List<Attribute> res = new ArrayList<>();
+    String path = resourceType;
     
-    // TODO: add validation here, to be able to add errors messages in context
+    for (AttributePathContext apCtx : ctx.attributePath()) {
+      Attribute att = visitAttributePathInternal(apCtx);
+      res.add(att);
+      
+      // Validate attribute
+      path = path + "." + att.getName();
+      log.debug("Validating path " + path);
+      ValidationResult vr = validator.validateAttributePath(path);
+      if (!vr.getResult()) {
+        for (String msg : vr.getMessages()) {
+          errorMessages.add(getAnnotationFromContext(ctx, msg));
+        }
+        break;
+      } else {
+        // TODO: check what happens with extension[0].valueReference = REF(ResearchStudy<rstud>)
+        // Add test case for FHIR exporter with an extension
+        PathInfo info = validator.getPathInfo(path);
+        lastInfo = info;
+        
+        String max = info.getMax();
+        if ("*".equals(max)) {
+          att.setList(true);
+        } else {
+          int maxInt = Integer.parseInt(max);
+          if (maxInt == 0) {
+            errorMessages.add(getAnnotationFromContext(ctx, "Unable to set attribute " 
+                + path + " with max cardinality of 0."));
+            break;
+          } else if (att.hasAttributeIndex() && att.getAttributeIndex().intValue() >= maxInt) {
+            // e.g. myAttr[1] would be illegal if maxInt = 1
+            errorMessages.add(getAnnotationFromContext(ctx, "Attribute " 
+                + att.toString() + " is setting an invalid index (max = " + maxInt + ")."));
+            break;
+          }
+        }
+      }
+    }
     
     return res;
   }
   
   /*
    * value
-   *   : ('TRUE' | 'FALSE')
-   *   | STRING
-   *   | NUMBER
-   *   | reference
-   *   | 'CONCEPT_LITERAL' '(' CONCEPT ')'
-   *   | 'CODE_LITERAL' '(' CODE ')'
-   *   | ('CONCEPT' | 'CONCEPT_SELECTED' | 'CODE_SELECTED' | 'VALUE' | 'LABEL' | 'LABEL_SELECTED' )
-   *        '(' variableIdentifier ')'
-   *   ;
+   *     : (TRUE | FALSE)
+   *     | STRING
+   *     | NUMBER
+   *     | reference
+   *     | CONCEPT_LITERAL
+   *     | CODE_LITERAL
+   *     | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN FHIR_OR_REDCAP_ID CLOSE
+   *     ;
    */
   private Value visitValueInternal(ValueContext ctx, Variables var) {
-    if (ctx.STRING() != null) {
-      return new StringValue(removeEnds(ctx.STRING().getText()));
+    
+    // Check Redmatch expression is compatible with REDCap field type
+    final String errorMsg = "%s cannot be assigned to attribute of type %s";
+    final String type = lastInfo.getType();
+    
+    if (ctx.TRUE() != null) {
+      if (!type.equals("boolean")) {
+        errorMessages.add(getAnnotationFromContext(ctx, String.format(errorMsg, "Boolean value", 
+            type)));
+      }
+      return new BooleanValue(true);
+    } else if (ctx.FALSE() != null) {
+      return new BooleanValue(false);
+    } else if (ctx.STRING() != null) {
+      
+      if (!(type.equals("string") || type.equals("markdown") || type.equals("id") 
+          || type.equals("uri") || type.equals("oid") || type.equals("uuid") 
+          || type.equals("canonical") || type.equals("url"))) {
+        errorMessages.add(getAnnotationFromContext(ctx, String.format(errorMsg, "String literal", 
+            type)));
+      }
+      
+      String str = removeEnds(ctx.STRING().getText());
+      
+      if (type.equals("id") && !fhirIdPattern.matcher(str).matches()) {
+        errorMessages.add(getAnnotationFromContext(ctx, "FHIR id " + str + " is invalid (it should "
+            + "match this regex: [A-Za-z0-9\\-\\.]{1,64})"));
+      } else if (type.equals("uri")) {
+        try {
+          URI.create(str);
+        } catch (IllegalArgumentException e) {
+          errorMessages.add(getAnnotationFromContext(ctx, "URI " + str + " is invalid: " 
+              + e.getLocalizedMessage()));
+        }
+      } else if (type.equals("oid")) {
+        try {
+          new Oid(str);
+        } catch (GSSException e) {
+          errorMessages.add(getAnnotationFromContext(ctx, "OID " + str + " is invalid: " 
+              + e.getLocalizedMessage()));
+        }
+      } else if (type.equals("uuid")) {
+        try {
+          UUID.fromString(str);
+        } catch (IllegalArgumentException e) {
+          errorMessages.add(getAnnotationFromContext(ctx, "UUID " + str + " is invalid: " 
+              + e.getLocalizedMessage()));
+        }
+      } else if (type.equals("canonical")) {
+        // Can have a version using |
+        String uri = null;
+        if (str.contains("|")) {
+          String[] parts = str.split("[|]");
+          if (parts.length != 2) {
+            errorMessages.add(getAnnotationFromContext(ctx, "Canonical " + str + " is invalid"));
+            uri = str; // to continue with validation
+          } else {
+            uri = parts[0];
+          }
+        }
+        
+        try {
+          URI.create(uri);
+        } catch (IllegalArgumentException e) {
+          errorMessages.add(getAnnotationFromContext(ctx, "Canonical " + str + " is invalid: " 
+              + e.getLocalizedMessage()));
+        }
+        
+      } else if (type.equals("url")) {
+        try {
+          new URL(str);
+        } catch (MalformedURLException e) {
+          errorMessages.add(getAnnotationFromContext(ctx, "URL " + str + " is invalid: " 
+              + e.getLocalizedMessage()));
+        }
+      }
+      
+      return new StringValue(str);
     } else if (ctx.NUMBER() != null) {
       String num = ctx.NUMBER().getText();
       if (num.contains(".")) {
         return new DoubleValue(Double.parseDouble(num));
       } else {
+        if (!type.equals("integer")) {
+          errorMessages.add(getAnnotationFromContext(ctx, String.format(errorMsg, "Integer literal",
+              type)));
+        }
         return new IntegerValue(Integer.parseInt(num));
       }
     } else if (ctx.reference() != null) {
+      // Subclasses of DomainResource
+      // TODO: this checks the type is not primitive but complex types can still slip through
+      if (!type.isEmpty() && !Character.isUpperCase(type.charAt(0))) {
+        errorMessages.add(getAnnotationFromContext(ctx, 
+            String.format(errorMsg, "Reference", type)));
+      }
       return visitReferenceInternal(ctx.reference(), var);
-    } else if (ctx.CONCEPT_VALUE() != null) {
-      String literal = removeEnds(ctx.CONCEPT_VALUE().getText());
+    } else if (ctx.CONCEPT_LITERAL() != null) {
+      
+      if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
+        errorMessages.add(getAnnotationFromContext(ctx, String.format(errorMsg, "Concept literal", 
+            type)));
+      }
+    
+      String withoutKeyword = ctx.CONCEPT_LITERAL().getText().substring(15).trim();
+      String literal = removeEnds(withoutKeyword);
       String[] parts = literal.split("[|]");
       if (parts.length == 2) {
-        return new ConceptLiteralValue(parts[0], parts[1]);
+        try {
+          return new ConceptLiteralValue(parts[0], parts[1]);
+        } catch (InvalidSyntaxException e) {
+          Token t = ctx.CONCEPT_LITERAL().getSymbol();
+          addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+              e.getLocalizedMessage());
+          return null;
+        }
       } else if(parts.length == 3) {
-        return new ConceptLiteralValue(parts[0], parts[1], removeEnds(parts[2]));
+        try {
+          return new ConceptLiteralValue(parts[0], parts[1], removeEnds(parts[2]));
+        } catch (InvalidSyntaxException e) {
+          Token t = ctx.CONCEPT_LITERAL().getSymbol();
+          addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+              e.getLocalizedMessage());
+          return null;
+        }
       } else {
         throw new CompilerException("Invalid code literal: " + literal 
             + ". This should not happen!");
       }
-    } else if (ctx.CODE_VALUE() != null) {
-      String literal = removeEnds(ctx.CODE_VALUE().getText());
-      return new CodeLiteralValue(literal);
-    } else if (ctx.variableIdentifier() != null) {
-      String id = visitVariableIdentifierInternal(ctx.variableIdentifier(), var, false).getFullId();
+    } else if (ctx.CODE_LITERAL() != null) {
       
-      TerminalNode tn = (TerminalNode) ctx.getChild(0);
-      String enumConstant = tn.getText();
+      if (!type.equals("code")) {
+        errorMessages.add(getAnnotationFromContext(ctx, String.format(errorMsg, "Code literal", 
+            type)));
+      }
+      
+      String withoutKeyword = ctx.CODE_LITERAL().getText().substring(12).trim();
+      String literal = removeEnds(withoutKeyword);
+      try {
+        return new CodeLiteralValue(literal);
+      } catch (InvalidSyntaxException e) {
+        Token t = ctx.CODE_LITERAL().getSymbol();
+        addError(errorMessages, t.getText(), t.getLine(), t.getCharPositionInLine(), 
+            e.getLocalizedMessage());
+        return null;
+      }
+    } else if (ctx.ID() != null) {
+      String fieldId = processRedcapId(ctx, ctx.ID().getSymbol(), var);
+
+      // Validate REDCap field exists
+      final Field f = metadata.getField(fieldId);
+      if (f == null) {
+        errorMessages.add(getAnnotationFromContext(ctx, "Field " + fieldId 
+            + " does not exist in REDCap."));
+      }
+      
+      final TerminalNode tn = (TerminalNode) ctx.getChild(0);
+      final String enumConstant = tn.getText();
+      
+      FieldBasedValue val = null;
+      
       if ("CONCEPT".equals(enumConstant)) {
-        return new ConceptValue(id);
+        val = new ConceptValue(fieldId);
       } else if("CONCEPT_SELECTED".equals(enumConstant)) {
-        return new ConceptSelectedValue(id);
+        val = new ConceptSelectedValue(fieldId);
       } else if("CODE_SELECTED".equals(enumConstant)) {
-        return new CodeSelectedValue(id);
+        val = new CodeSelectedValue(fieldId);
       } else if("VALUE".equals(enumConstant)) {
-        return new FieldValue(id);
+        val = new FieldValue(fieldId);
       } else {
         throw new CompilerException("Unexpected value type " + enumConstant);
       }
-    } else {
-      String text = ((TerminalNode) ctx.getChild(0)).getText();
-      if ("TRUE".equals(text)) {
-        return new BooleanValue(true);
-      } else if ("FALSE".endsWith(text)){
-        return new BooleanValue(false);
-      } else {
-        errorMessages.add(getAnnotationFromContext(ctx, 
-            "Expected TRUE or FALSE but found " + text));
-        return null;
+      
+      // Additional validations depending on the type of value
+      
+      if (f != null) {
+        final FieldType ft = f.getFieldType();
+        
+        // CONCEPT can only apply to a field of type TEXT, YESNO, DROPDOWN, RADIO, CHECKBOX, 
+        // CHECKBOX_OPTION or TRUEFALSE.
+        if (val instanceof ConceptValue && !(ft.equals(FieldType.TEXT) 
+            || ft.equals(FieldType.YESNO) || ft.equals(FieldType.DROPDOWN) 
+            || ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOW_OR_RADIO_OPTION) 
+            || ft.equals(FieldType.CHECKBOX) || ft.equals(FieldType.CHECKBOX_OPTION) 
+            || ft.equals(FieldType.TRUEFALSE))) {
+          errorMessages.add(getAnnotationFromContext(ctx, 
+              "The expression CONCEPT can only be used on fields of type TEXT, YESNO, DROPDOWN, "
+              + "RADIO, DROPDOW_OR_RADIO_OPTION, CHECKBOX, CHECKBOX_OPTION or TRUEFALSE but field " 
+              + fieldId + " is of type " + f.getFieldType()));
+        }
+        
+        // FHIR-35: we no longer need this check - CONCEPT can be used on plain text fields
+        // If used on a TEXT field, the field should be connected to a FHIR terminology server.
+        //if (val instanceof ConceptValue && ft.equals(FieldType.TEXT) 
+        //    && !TextValidationType.FHIR_TERMINOLOGY.equals(tvt)) {
+        //  errorMessages.add(getAnnotationFromContext(ctx, 
+        //      "The field " + fieldId + " is a text field but it is not validated using a FHIR "
+        //          + "terminology server. CONCEPT expressions used on fields of type TEXT require "
+        //          + "that the fields are validated using a FHIR terminology server."));
+        //}
+        
+        // CONCEPT_SELECTED can only apply to fields of type DROPDOW and RADIO
+        if (val instanceof ConceptSelectedValue && !(ft.equals(FieldType.DROPDOWN) 
+            || ft.equals(FieldType.RADIO))) {
+          errorMessages.add(getAnnotationFromContext(ctx, "The expression CONCEPT_SELECTED "
+              + "can only be used on fields of type DROPDOWN and RADIO but field " + fieldId 
+              + " is of type " + f.getFieldType()));
+        }
+        
+        // CODE_SELECTED can only apply to fields of type DROPDOWN and RADIO
+        if (val instanceof CodeSelectedValue && !(ft.equals(FieldType.DROPDOWN) 
+            || ft.equals(FieldType.RADIO))) {
+          errorMessages.add(getAnnotationFromContext(ctx, "The expression CODE_SELECTED can "
+              + "only be used on fields of type DROPDOWN and RADIO but field " + fieldId 
+              + " is of type " + f.getFieldType()));
+        }
       }
+      
+      return val;
+    } else {
+      errorMessages.add(getAnnotationFromContext(ctx, "Unexpected value context: " 
+          + ctx.toString()));
+      return null;
     }
   }
   
   /*
    * reference
-   *   : 'REF' '(' IDENTIFIER '<' variableIdentifier '>' ')'
-   *   ;
+   *     : REF OPEN RESOURCE LT FHIR_OR_REDCAP_ID GT CLOSE
+   *     ;
    *   
    * Example: REF(Patient<p>)
    */
   private Value visitReferenceInternal(ReferenceContext ctx, Variables var) {
+    final String resType = ctx.RESOURCE().getText();
+    
+    // Validate reference based on target profiles
+    final List<String> tgtProfiles = lastInfo.getTargetProfiles();
+    
+    // Special cases: no target profiles or target profile is Resource
+    if (!tgtProfiles.isEmpty() 
+        && !(tgtProfiles.size() == 1 && tgtProfiles.get(0).equals(RESOURCE_URL))) {
+      // Otherwise we need to make sure that at least one applies
+      boolean foundCompatible = false;
+      for (String targetProfile : lastInfo.getTargetProfiles()) {
+        if (targetProfile.endsWith(resType)) {
+          foundCompatible = true;
+          break;
+        }
+      }
+      
+      if (!foundCompatible) {
+        errorMessages.add(getAnnotationFromContext(ctx, "Attribute " + lastInfo.getPath() 
+            + " is of type reference but the resource type " + resType + " is incompatible. Valid "
+            + "values are: " + String.join(",", lastInfo.getTargetProfiles())));
+      }
+    }
+    
     final ReferenceValue res = new ReferenceValue();
-    res.setResourceType(ctx.IDENTIFIER().getText());
-    res.setResourceId(visitVariableIdentifierInternal(
-        ctx.variableIdentifier(), var, true).getFullId());
+    res.setResourceType(resType);
+    String id = processFhirId(ctx, ctx.ID().getSymbol(), var);
+    res.setResourceId(id);
     
     return res;
   }
 
-  private void addError(List<Annotation> errors, String token, int line, int charPositionInLine, String msg) {
+  private void addError(List<Annotation> errors, String token, int line, int charPositionInLine, 
+      String msg) {
     errors.add(new Annotation(line, charPositionInLine, line, charPositionInLine + token.length(),
         msg, AnnotationType.ERROR));
   }
@@ -1054,7 +974,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     if (stop != null) {
       endRow = stop.getLine();
-      endCol = stop.getCharPositionInLine() + (stop.getText() != null ? stop.getText().length() : 1);
+      endCol = stop.getCharPositionInLine() + (stop.getText() != null ? 
+          stop.getText().length() : 1);
     } else {
       endRow = startRow;
       endCol = startCol + 1;

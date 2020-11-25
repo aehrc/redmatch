@@ -22,6 +22,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -34,30 +35,11 @@ import au.csiro.redmatch.exceptions.RedmatchException;
  *
  */
 @Component
-public class RedcapClient {
+@Qualifier("redcap")
+public class RedcapClient implements IRedcapClient {
 
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedcapClient.class);
-  
-  /**
-   * Returns the project information for a REDCap project in JSON format.
-   * 
-   * @param url The URL of the REDCap installation.
-   * @param token The API token.
-   * @return A response with a status and content.
-   */
-  public String getProjectInfo(String url, String token) {
-    ArrayList<NameValuePair> params = new ArrayList<>();
-    params.add(new BasicNameValuePair("token", token));
-    params.add(new BasicNameValuePair("content", "project"));
-    params.add(new BasicNameValuePair("format", "json"));
-
-    Response resp = doPost(url, params);
-    int status = resp.getStatus();
-    String projectInfo = resp.getContent();
-    handleRedcapStatus(status, projectInfo);
-    return projectInfo;
-  }
   
   /**
    * Returns the metadata for a REDCap project in JSON format.

@@ -12,7 +12,10 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
@@ -49,6 +52,7 @@ import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.OperationResponse;
 import au.csiro.redmatch.util.WebUtils;
+import ca.uhn.fhir.parser.DataFormatException;
 
 /**
  * The main controller.
@@ -289,7 +293,6 @@ public class ApiController {
           case UPDATED:
             return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
           case CREATED:
-            return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
           default:
             throw new RuntimeException(
                 "Unexpected status " + rr.getStatus() + ". This should never happen!");
@@ -300,6 +303,48 @@ public class ApiController {
       }
     } else {
       return getResponse(HttpStatus.BAD_REQUEST, "The mappings file is empty!");
+    }
+  }
+  
+  /**
+   * Updates the project's mappings.
+   * 
+   * @param redmatchId The Redmatch project id.
+   * @param mappings mappings The mappings.
+   * @return The response entity.
+   * @throws IOException If an IO error happens.
+   */
+  @ApiOperation(value = "Imports mappings in Excel format.")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "The operation completed successfully."),
+      @ApiResponse(code = 400, message = "The mappings are empty."),
+      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "project/{redmatchId}/$update-mappings", 
+      method = RequestMethod.POST, produces = "application/json")
+  @Transactional
+  public ResponseEntity<RedmatchProject> updateMappings(
+      @PathVariable String redmatchId,
+      @RequestBody List<Mapping> mappings,
+      UriComponentsBuilder b) {
+    if (mappings != null && !mappings.isEmpty()) {
+      OperationResponse rr = api.updateMappings(redmatchId, mappings);
+      final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+
+      final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+      final HttpHeaders headers = new HttpHeaders();
+      headers.setLocation(uriComponents.toUri());
+      headers.setContentType(MediaType.APPLICATION_JSON);
+
+      switch (rr.getStatus()) {
+        case UPDATED:
+          return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+        case CREATED:
+        default:
+          throw new RuntimeException(
+              "Unexpected status " + rr.getStatus() + ". This should never happen!");
+      }
+    } else {
+      throw new InvalidMappingsException("The mappings are empty!");
     }
   }
   
@@ -346,9 +391,13 @@ public class ApiController {
   /**
    * Transforms the REDCap data using the current rules and mappings and returns the generated
    * resources in a bundle.
+   * 
+   * TODO: decide how to deal with warnings.
    *  
    * @param projectId The id of the Redmatch project.
    * @return The response entity.
+   * @throws IOException 
+   * @throws DataFormatException 
    */
   @ApiOperation(value = "Transforms the REDCap data using the current rules and mappings and "
       + "returns the generated resources in a bundle.")
@@ -357,10 +406,51 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "/project/{projectId}/$transform", 
       method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<Bundle>  transformProject(@PathVariable String projectId) {
-    final Bundle res = api.transformProject(projectId);
-    return new ResponseEntity<Bundle>(res, HttpStatus.OK);
+  public ResponseEntity<Parameters> transformProject(@PathVariable String projectId) {
+    try {
+      Parameters res = api.transformProject(projectId);
+      return new ResponseEntity<Parameters>(res, HttpStatus.OK);
+    } catch (Exception e) {
+      throw new RuntimeException(e); 
+    }
   }
+  
+  @ApiOperation(value = "Export generated ND-JSON files as a ZIP file.")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "The operation completed successfully."),
+      @ApiResponse(code = 406, message = "The system does not support the requested content type."),
+      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "project/{projectId}/$export", 
+      method = RequestMethod.POST, produces = "application/zip" )
+  public ResponseEntity<?> exportProject(@RequestHeader(value = "Accept") String accept,
+      @PathVariable String projectId) {
+    
+    if (accept != null && !accept.isEmpty()) {
+      final Set<String> acceptHeaders = WebUtils.parseAcceptHeaders(accept);
+      if (!acceptHeaders.contains("application/zip") && !acceptHeaders.contains("*/*")) {
+        return getResponse(HttpStatus.NOT_ACCEPTABLE, 
+            "Can only handle application/zip and */*, but got " + accept + " (parsed: " 
+                + acceptHeaders + ")");
+      }
+    }
+    
+    final HttpHeaders headers = new HttpHeaders();
+    headers.add("Content-Disposition", "attachment; filename=\"study_" + projectId 
+        + "_export.zip\"");
+
+    byte[] res;
+    try {
+      res = api.downloadExportedFiles(projectId);
+    } catch (IOException e) {
+      // If there is an IO issue we still should send back a 500
+      throw new RuntimeException(e);
+    }
+    final ByteArrayResource resource = new ByteArrayResource(res);
+
+    return ResponseEntity.ok().headers(headers).contentLength(res.length)
+        .contentType(MediaType.parseMediaType("application/vnd.ms-excel")).body(resource);
+  }
+  
   
   @ApiOperation(value = "Deletes a Redmatch project.")
   @ApiResponses(value = { @ApiResponse(code = 204, message = "The Redmatch project was deleted "
@@ -387,9 +477,25 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{projectId}/$update", 
       method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<Void> refreshRedcapData(@PathVariable String projectId) {
-    api.refreshRedcapMetadata(projectId);
-    return new ResponseEntity<Void>(HttpStatus.OK);
+  public ResponseEntity<RedmatchProject> refreshRedcapMetadata(
+      @PathVariable String projectId,
+      UriComponentsBuilder b) {
+    OperationResponse rr = api.refreshRedcapMetadata(projectId);
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    
+    final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setLocation(uriComponents.toUri());
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    switch (rr.getStatus()) {
+      case UPDATED:
+        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+      case CREATED:
+      default:
+        throw new RuntimeException(
+            "Unexpected status " + rr.getStatus() + ". This should never happen!");
+    }
   }
   
   @RequestMapping(value = "/username", method = RequestMethod.GET)
@@ -399,60 +505,70 @@ public class ApiController {
   }
   
   @ExceptionHandler(HttpException.class)
-  private ResponseEntity<String> exceptionHandler(HttpException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(HttpException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(ex.getStatus(), ex.getMessage());
+    return getResponse(ex.getStatus(), "There was an HTTP error", ex);
   }
   
   @ExceptionHandler(CompilerException.class)
-  private ResponseEntity<String> exceptionHandler(CompilerException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(CompilerException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "There was an issue with the compiler.", ex);
   }
   
   @ExceptionHandler(InvalidMappingsException.class)
-  private ResponseEntity<String> exceptionHandler(InvalidMappingsException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(InvalidMappingsException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "There was an issue with the mappings.", ex);
   }
 
   @ExceptionHandler(ProjectNotFoundException.class)
-  private ResponseEntity<String> exceptionHandler(ProjectNotFoundException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(ProjectNotFoundException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    return getResponse(HttpStatus.NOT_FOUND, "The project was not found.", ex);
   }
 
   @ExceptionHandler(RuntimeException.class)
-  private ResponseEntity<String> exceptionHandler(RuntimeException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(RuntimeException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+    return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+        "There was an unexpected runtime exception.", ex);
   }
   
   @ExceptionHandler(ProjectAlreadyExistsException.class)
-  private ResponseEntity<String> exceptionHandler(ProjectAlreadyExistsException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(ProjectAlreadyExistsException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    return getResponse(HttpStatus.UNPROCESSABLE_ENTITY, "The project already exists.", ex);
   }
   
   @ExceptionHandler(InvalidProjectException.class)
-  private ResponseEntity<String> exceptionHandler(InvalidProjectException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(InvalidProjectException ex) {
     log.error(ex.getMessage(), ex);
-    return getResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    return getResponse(HttpStatus.BAD_REQUEST, "The project is invalid.", ex);
   }
   
   @ExceptionHandler(RuleApplicationException.class)
-  private ResponseEntity<String> exceptionHandler(RuleApplicationException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(RuleApplicationException ex) {
     log.error(ex.getMessage(), ex);
     return getResponse(HttpStatus.BAD_REQUEST, "The project could not be transformed to FHIR. "
-        + "Please check your transformation rules. Error message: " + ex.getLocalizedMessage());
+        + "Please check your transformation rules.", ex);
   }
   
   @ExceptionHandler(NoMappingFoundException.class)
-  private ResponseEntity<String> exceptionHandler(NoMappingFoundException ex) {
+  private ResponseEntity<OperationOutcome> exceptionHandler(NoMappingFoundException ex) {
     log.error(ex.getMessage(), ex);
     return getResponse(HttpStatus.BAD_REQUEST, "The project could not be transformed to FHIR "
-        + "because a mapping is missing. Please check your mappings. Error message: " 
-        + ex.getLocalizedMessage());
+        + "because a mapping is missing. Please check your mappings.", ex); 
+  }
+  
+  private ResponseEntity<OperationOutcome> getResponse(HttpStatus status, String msg, Exception e) {
+    OperationOutcome oo = new OperationOutcome();
+    oo
+      .addIssue()
+      .setSeverity(IssueSeverity.ERROR)
+      .setCode(IssueType.EXCEPTION)
+      .setDiagnostics(msg + " [" + e.getLocalizedMessage() + "]");
+    return new ResponseEntity<OperationOutcome>(oo, getHeaders(), status);
   }
 
   private ResponseEntity<String> getResponse(HttpStatus status, String message) {

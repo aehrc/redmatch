@@ -35,5 +35,10 @@ public class BooleanValue extends Value {
   public String toString() {
     return Boolean.toString(value).toUpperCase();
   }
+
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

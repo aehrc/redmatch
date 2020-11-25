@@ -34,5 +34,10 @@ public class DoubleValue extends Value {
   public String toString() {
     return value.toString(); // TODO: might need to format this
   }
+
+  @Override
+  public boolean referencesData() {
+    return false;
+  }
   
 }

@@ -42,7 +42,6 @@ import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import ca.uhn.fhir.context.FhirContext;
 
@@ -395,6 +394,18 @@ public class HapiReflectionHelperTest {
       assertTrue(b instanceof Patient);
       assertTrue(p.hasDeceased());
       assertFalse(p.getDeceasedBooleanType().booleanValue());
+      
+      // Extension
+      //extension[0].valueReference = REF(ResearchStudy<rstud>)
+      Patient p2 = new Patient();
+      Reference ref = new Reference(p2);
+      Extension e = new Extension();
+      b = helper.invokeSetter(p, "extension", e, true, 0, false);
+      helper.invokeSetter(e, "value", ref, false, null, true);
+      assertTrue(b instanceof Patient);
+      assertTrue(p.hasExtension());
+      assertTrue(p.getExtension().get(0).hasValue());
+      assertTrue(p.getExtension().get(0).getValue() instanceof Reference);
     } catch (Exception e) {
       e.printStackTrace();
       assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);

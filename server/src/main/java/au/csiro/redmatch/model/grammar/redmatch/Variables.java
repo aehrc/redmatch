@@ -64,7 +64,7 @@ public class Variables {
    */
   public int getValue(String variable) {
     if (!variableValueMap.containsKey(variable)) {
-      throw new UnknownVariableException("The variable " + variable + " was not found. Available "
+      throw new UnknownVariableException("The variable '" + variable + "' was not found. Available "
           + "variables are: " + variableValueMap.keySet() + ".");
     }
     

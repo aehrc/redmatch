@@ -5,6 +5,7 @@
 
 import React from "react";
 import { AppBar, Toolbar, Typography } from "@material-ui/core";
+import logo from './redmatch_logo.png';
 
 interface Props {
   className?: string;
@@ -16,8 +17,9 @@ export default function TitleBar(props: Props) {
   return (
     <AppBar className={className} position="static">
       <Toolbar>
-        <Typography variant="h6" component="h1">
-          FHIRCap
+        <img src={logo} alt="Logo" />
+        <Typography variant="h4" component="h1">
+          redmatch
         </Typography>
       </Toolbar>
     </AppBar>

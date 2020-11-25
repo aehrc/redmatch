@@ -15,7 +15,10 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.PostConstruct;
 
@@ -54,6 +57,14 @@ public class HapiReflectionHelper {
   private final List<String> fhirComplexTypes = new ArrayList<>();
 
   private final List<String> fhirBasicTypes = new ArrayList<>();
+  
+  private final Set<String> reservedWords = new HashSet<String>(Arrays.asList("abstract", "assert", 
+      "boolean", "break", "byte", "case", "catch", "char",  "class", "const", "continue", 
+      "default", "double",  "do", "else",  "enum", "extends", "false", "final", "finally", 
+      "float", "for", "goto", "if", "implements", "import",  "instanceof", "int", "interface", 
+      "long", "native",  "new", "null", "package", "private", "protected", "public", "return",  
+      "short", "static", "strictfp", "super", "switch",  "synchronized", "this", "throw", 
+      "throws", "transient", "true", "try", "var", "void", "volatile", "while"));
   
   @Autowired
   private FhirContext ctx;
@@ -376,6 +387,14 @@ public class HapiReflectionHelper {
     }
   }
   
+  private String handleAttributeName(String att) {
+    if (reservedWords.contains(att)) {
+      return att + "_";
+    } else {
+      return att;
+    }
+  }
+  
   /**
    * Looks for a {@link Field} in a FHIR class and its parents.
    * 
@@ -386,6 +405,10 @@ public class HapiReflectionHelper {
    * @throws NoSuchFieldException If the field cannot be found.
    */
   public Field getField(Class<? extends Base> c, String att) throws NoSuchFieldException {
+    
+    // Special case: attributes that are named using Java reserved words, e.g. Encounter.class
+    att = handleAttributeName(att);
+    
     Field f;
     try {
       f = getFieldRecursive(c, att);
@@ -543,6 +566,9 @@ public class HapiReflectionHelper {
     if (isValueX) {
       attributeName = this.removeValueX(attributeName);
     }
+    
+    attributeName = handleAttributeName(attributeName);
+    
     String methodName = "set" + attributeName 
         + (isPrimitive(valueClass) && !isValueX ? "element" : "");
 
@@ -636,7 +662,6 @@ public class HapiReflectionHelper {
       throw new IllegalArgumentException("Parameter 'prefix' should be 'get', 'has' or 'add' but "
           + "was '" + prefix + "'");
     }
-    
     
     // Need to get the method name - this depends on the attribute
     String methodName = prefix + attributeName;
