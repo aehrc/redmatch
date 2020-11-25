@@ -1,5 +1,5 @@
-# Files specific to this project
-/src/main/resources/redmatch-grammar-cs.json
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+/docker-compose.yml
 
 target/
 .checkstyle
@@ -10,19 +10,6 @@ target/
 .svn
 .springBeans
 bin/
-data/
-
-# See http://help.github.com/ignore-files/ for more about ignoring files.
-
-# compiled output
-/target
-src/main/resources/static
-src/main/frontend/tmp
-src/main/frontend/out-tsc
-
-# dependencies
-src/main/frontend/node
-src/main/frontend/node_modules
 
 # IDEs and editors
 /.idea
@@ -33,27 +20,12 @@ src/main/frontend/node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-testem.log
-/typings
-
 # e2e
 /e2e/*.js
 /e2e/*.map
 
 # System Files
+.prettierrc
 .DS_Store
 .DS_Store?
 ._*

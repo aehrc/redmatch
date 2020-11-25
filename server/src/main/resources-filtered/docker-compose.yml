@@ -1,0 +1,38 @@
+version: '3'
+volumes:
+  mongodb_data_container:
+    driver: local
+  shared:
+    driver: local
+services:
+  mongo:
+    image: mongo:4.2.6-bionic
+    container_name: mongo
+    expose:
+      - "27017"
+    volumes:
+      - mongodb_data_container:/data/db
+  redmatch:
+    image: aehrc/redmatch:@project.version@
+    container_name: redmatch
+    depends_on:
+      - mongo
+    environment:
+      - "SPRING_PROFILES_ACTIVE=prod"
+      - redmatch.targetFolder=/usr/share/redmatch
+    ports:
+      - 8080:8080
+    volumes:
+      - shared:/usr/share/redmatch
+  redmatch-ui:
+    image: aehrc/redmatch-ui:@project.version@
+    container_name: redmatch-ui
+    depends_on:
+      - redmatch
+    environment:
+      - REACT_APP_REDMATCH_URL=http://localhost:8080
+      - REACT_APP_TERMINOLOGY_URL=https://r4.ontoserver.csiro.au/fhir
+    ports:
+      - 8888:80
+    volumes:
+      - shared:/usr/share/redmatch
