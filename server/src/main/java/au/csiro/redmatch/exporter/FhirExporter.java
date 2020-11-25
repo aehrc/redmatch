@@ -415,8 +415,7 @@ public class FhirExporter {
     } catch (RuleApplicationException | NoMappingFoundException e) {
       throw e;
     } catch (Exception e) {
-      e.printStackTrace();
-      throw new RuleApplicationException("There was a problem using reflection.", e);
+      handleReflectionException(e);
     }
   }
   
@@ -759,7 +758,8 @@ public class FhirExporter {
           Method fromCode = findMethodByName("fromType", enumFactory);
           return (Base) fromCode.invoke(factory, new StringType(code));
         } catch (Exception e) {
-          throw new RuleApplicationException ("There was a problem using reflection.", e);
+          handleReflectionException(e);
+          return null;
         }
       } else {
         throw new RuleApplicationException("Type is an enumeration but the enumeration factory "
@@ -931,6 +931,33 @@ public class FhirExporter {
       }
     }
     return null;
+  }
+  
+  private void handleReflectionException(Exception e) {
+    if (e instanceof NoSuchMethodException) {
+      throw new RuleApplicationException(
+          "A method could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof NoSuchFieldException) {
+      throw new RuleApplicationException(
+          "A field could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof ClassNotFoundException) {
+      throw new RuleApplicationException(
+          "A class could not be found: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof IllegalAccessException) {
+      throw new RuleApplicationException(
+          "There was a problem creating a field: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof IllegalArgumentException) {
+      throw new RuleApplicationException(
+          "An illegal argument was used: " + e.getLocalizedMessage(), e);
+    } else if (e instanceof InvocationTargetException) {
+      InvocationTargetException ite = (InvocationTargetException) e;
+      Throwable cause = ite.getCause();
+      throw new RuleApplicationException(
+          "There was a problem invoking a method or constructor: " + 
+          cause != null ? cause.getLocalizedMessage() : e.getLocalizedMessage(), e);
+    } else {
+      throw new RuleApplicationException ("There was a problem using reflection.", e);
+    }
   }
 
 }
