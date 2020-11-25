@@ -129,8 +129,7 @@
             <phase>process-resources</phase>
             <configuration>
                <target>
-                 <copy file="${project.build.outputDirectory}/docker-compose.yml"
-                   toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
+                 <copy file="${project.build.outputDirectory}/docker-compose.yml" toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
               </target>
             </configuration>
             <goals>
