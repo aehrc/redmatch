@@ -21,7 +21,7 @@ interface Props {
 }
 
 export const getOptionSelected = (option: IValueSet | null, value: IValueSet | null) => {
-  if (option == null && value == null) {
+  if (!option && !value) {
     return true;
   } else if (option && value && option.url === value.url) {
     return true;
@@ -133,8 +133,10 @@ export default function Mappings(props: Props) {
   
   // Updates value sets and codings when the project mappings change
   useEffect(() => {
+    if (!mappings || mappings.length === 0) return;
+
     let vss : (IValueSet | null)[] = [];
-    mappings.forEach((m) => {
+    mappings.filter(x => x.active).forEach((m) => {
       if(m.valueSetUrl) {
         let v : IValueSet = {
           resourceType: 'ValueSet',
@@ -149,7 +151,7 @@ export default function Mappings(props: Props) {
     setValueSets(vss);
 
     let codings : (ICoding | null)[] = [];
-    mappings.forEach((m) => {
+    mappings.filter(x => x.active).forEach((m) => {
       if (m.targetCode) {
         let c : ICoding = {
           system: m.targetSystem,
@@ -162,6 +164,7 @@ export default function Mappings(props: Props) {
       }
     });
     setCodings(codings);
+
     checkSavedRequired();
     // eslint-disable-next-line
   }, [mappings]);
@@ -282,23 +285,11 @@ export default function Mappings(props: Props) {
                         options={options}
                         getOptionLabel={(option) => option ? (option.name ? option.name : '') : ''}
                         onChange={(_, value: IValueSet | null) => {
-                          setValueSets(prevArray => {
-                            // Create new array and copy - otherwise will not re-render
-                            const newArr = prevArray.map((vs, j) => {
-                              if (i === j) {
-                                return value;
-                              } else {
-                                return vs;
-                              }
-                            });
-                            return newArr;
-                          });
-
                           // We need to update the value set selection in the mapping
                           setMappings(prevArray => {
                             // Create new array and copy - otherwise will not re-render
                             const newArr = prevArray.map((m, j) => {
-                              if (i === j && value) {
+                              if (mapping.redcapFieldId === m.redcapFieldId && value) {
                                 if (m.valueSetUrl === value.url) {
                                   return m;
                                 } else {

@@ -159,7 +159,7 @@ export default function ProjectDetail(props: Props) {
           // Return the snapshotted value
           return () => client.setQueryData('RedmatchProject', previousProject);
         },
-        onError: (_err: Error, rollback: any) => rollback(),
+        onError: (_err: Error, oldParams: string[], rollback: any) => rollback(),
         onSettled: () => {
           client.invalidateQueries('RedmatchProject')
         }
