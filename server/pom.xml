@@ -255,6 +255,12 @@
           </execution>
         </executions>
       </plugin>
+      <!-- Used to implement the GitFlow pattern in this project. -->
+      <plugin>
+        <groupId>com.amashchenko.maven.plugin</groupId>
+        <artifactId>gitflow-maven-plugin</artifactId>
+        <version>1.15.0</version>
+      </plugin>
     </plugins>
   </build>
 </project>
