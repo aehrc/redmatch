@@ -16,10 +16,9 @@ import {
   Tabs,
   Typography
 } from "@material-ui/core";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useRouteMatch } from "react-router-dom";
 import { useQuery, useQueryClient } from "react-query";
 import RedmatchApi, { RedmatchProject, Mapping } from "../api/RedmatchApi";
-import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 import ProjectInfo from "./ProjectInfo";
 import ProjectMetadata from "./ProjectMetadata";
@@ -58,7 +57,6 @@ const useStyles = makeStyles(theme =>
 
 interface Props {
   className?: string;
-  reportId: string;
 }
 
 interface TabPanelProps {
@@ -70,13 +68,14 @@ interface TabPanelProps {
 
 export default function ProjectDetail(props: Props) {
   const classes = useStyles();
-  const redmatchUrl = env('REDMATCH_URL');
-  const { className, reportId } = props;
   const [activeTab, setActiveTab] = useState<number>(0);
+  const { className } = props;
+  const reportIdMatch : any = useRouteMatch("/project/:id");
+  const reportId = reportIdMatch.params.id;
   const { status, data: project, error } = 
     useQuery<RedmatchProject, Error>(
       ["RedmatchProject", reportId], // the query key
-      RedmatchApi(redmatchUrl).getProject // the query function
+      RedmatchApi().getProject // the query function
     );
   // Used to warn the user if navigating away of tab with unsaved changes
   const [unsavedMappings, setUnsavedMappings] = useState<boolean>(false);
@@ -88,6 +87,8 @@ export default function ProjectDetail(props: Props) {
   const [open, setOpen] = React.useState(false);
   // Query client
   const client = useQueryClient();
+
+  
   
   const handleCancel = () => {
     setOpen(false);
@@ -121,7 +122,7 @@ export default function ProjectDetail(props: Props) {
 
   const { mutateAsync: updateMetadata, status: updateStatusMetadata, error: updateErrorMetadata } = 
     useMutation<RedmatchProject, Error, [string]>(
-      RedmatchApi(redmatchUrl).updateMetadata, {
+      RedmatchApi().updateMetadata, {
         onSettled: () => {
           client.invalidateQueries('RedmatchProject');
         }
@@ -130,7 +131,7 @@ export default function ProjectDetail(props: Props) {
 
   const { mutateAsync: updateRules, status: updateStatusRules, error: updateErrorRules } = 
     useMutation<RedmatchProject, Error, [string, string]>(
-      RedmatchApi(redmatchUrl).updateRules, {
+      RedmatchApi().updateRules, {
         onMutate: (params: string[]) => {
           client.cancelQueries('RedmatchProject');
           const previousProject = client.getQueryData('RedmatchProject');
@@ -168,7 +169,7 @@ export default function ProjectDetail(props: Props) {
 
   const { mutateAsync: updateMappings, status: updateStatusMappings, error: updateErrorMappings } = 
     useMutation<RedmatchProject, Error, [string, Mapping[]]>(
-      RedmatchApi(redmatchUrl).updateMappings, {
+      RedmatchApi().updateMappings, {
         onMutate: (params: any[]) => {
           client.cancelQueries('RedmatchProject');
           const previousProject = client.getQueryData('RedmatchProject');

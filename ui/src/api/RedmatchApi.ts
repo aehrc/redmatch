@@ -3,8 +3,10 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
+import env from "@beam-australia/react-env";
 import { QueryFunction } from "react-query";
 import { MutationFunction } from "react-query/types/react/types";
+import { useAxios } from "../utils/hooks";
 import { get, post } from "./Api";
 
 export interface UnsavedRedmatchProject {
@@ -67,38 +69,47 @@ export interface RedmatchApi {
   updateMetadata: MutationFunction<RedmatchProject, [string]>;
 }
 
-export default (redmatchUrl: string): RedmatchApi => {
+export default (): RedmatchApi => {
+  const redmatchUrl = env('REDMATCH_URL');
+  const axiosInstance = useAxios(redmatchUrl);
   return {
     getProjects: async function() {
-      return get<RedmatchProject[]>(`${redmatchUrl}/project`);
+      return get<RedmatchProject[]>(axiosInstance, `/project`, null);
     },
     // _ to ignore first query key parameter
     getProject: async function(_, id: string) {
-      return get<RedmatchProject>(`${redmatchUrl}/project/${id}`);
+      return get<RedmatchProject>(axiosInstance, `/project/${id}`, null);
     },
     createProject: async function(unsavedRedmatchProject: UnsavedRedmatchProject) {
       return post<RedmatchProject>(
-        `${redmatchUrl}/project`,
-        unsavedRedmatchProject
+        axiosInstance,
+        `/project`,
+        unsavedRedmatchProject,  
+        null
       );
     },
     updateRules: async function(params: string[]) {
       return post<RedmatchProject>(
-        `${redmatchUrl}/project/${params[0]}/$update-rules`,
-        `${params[1]}`
+        axiosInstance,
+        `/project/${params[0]}/$update-rules`,
+        `${params[1]}`,  
+        null
       );
     },
     updateMappings: async function(params: any[]) {
       return post<RedmatchProject>(
-        `${redmatchUrl}/project/${params[0]}/$update-mappings`,
-        params[1]
+        axiosInstance,
+        `/project/${params[0]}/$update-mappings`,
+        params[1],
+        null
       );
     },
     updateMetadata: async function(params: any[]) {
       return post<RedmatchProject>(
-        `${redmatchUrl}/project/${params[0]}/$update`,
-        null
-      );
+        axiosInstance,
+        `/project/${params[0]}/$update`,
+        null,
+        null);
     }
   };
 };

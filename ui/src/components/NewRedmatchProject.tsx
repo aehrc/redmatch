@@ -19,7 +19,6 @@ import RedmatchApi, {
   RedmatchProject,
   UnsavedRedmatchProject
 } from "../api/RedmatchApi";
-import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 
 interface Props {
@@ -30,7 +29,6 @@ interface Props {
 
 export default function NewRedmatchProject(props: Props) {
   const { open, onSuccess, onCancel } = props;
-  const redmatchUrl = env('REDMATCH_URL');
   const initialRequest = {
     name: "",
     reportId: "",
@@ -50,7 +48,7 @@ export default function NewRedmatchProject(props: Props) {
   };
 
   const {mutateAsync: register, status, error } = useMutation<RedmatchProject, Error, UnsavedRedmatchProject>(
-    RedmatchApi(redmatchUrl).createProject, {
+    RedmatchApi().createProject, {
       onSuccess: handleSuccess,
       onError: handleError
     }
