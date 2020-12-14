@@ -112,7 +112,7 @@ public class ApiController {
       UriComponentsBuilder b) {
     
     final OperationResponse rr = api.createRedmatchProject(project);
-    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
 
     final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
     final HttpHeaders headers = new HttpHeaders();
@@ -156,7 +156,7 @@ public class ApiController {
           + project.getReportId() + ") does not match the one in the URL (" + redmatchId + ")");
     }
     final OperationResponse rr = api.updateRedmatchProject(project);
-    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
 
     final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
     final HttpHeaders headers = new HttpHeaders();
@@ -188,7 +188,7 @@ public class ApiController {
   @RequestMapping(value = "/project/{projectId}", method = RequestMethod.GET, 
   produces = "application/json")
   public ResponseEntity<RedmatchProject> getRedmatchProject(@PathVariable String projectId) {
-    final RedmatchProject p = api.resolveRedmatchProject(projectId);
+    final RedmatchProject p = api.resolveRedmatchProject(projectId, false);
     return new ResponseEntity<RedmatchProject>(p, HttpStatus.OK);
   }
 
@@ -282,9 +282,10 @@ public class ApiController {
     if (!file.isEmpty()) {
       try {
         OperationResponse rr = api.importMappingsExcel(projectId, file.getBytes());
-        final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+        final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
   
-        final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
+        final UriComponents uriComponents = 
+            b.path("/project/{id}").buildAndExpand(rr.getProjectId());
         final HttpHeaders headers = new HttpHeaders();
         headers.setLocation(uriComponents.toUri());
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -328,7 +329,7 @@ public class ApiController {
       UriComponentsBuilder b) {
     if (mappings != null && !mappings.isEmpty()) {
       OperationResponse rr = api.updateMappings(redmatchId, mappings);
-      final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+      final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
 
       final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
       final HttpHeaders headers = new HttpHeaders();
@@ -370,7 +371,7 @@ public class ApiController {
       UriComponentsBuilder b) {
     
     final OperationResponse rr = api.updateRulesDocument(projectId, rulesDocument);
-    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
 
     final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
     final HttpHeaders headers = new HttpHeaders();
@@ -481,7 +482,7 @@ public class ApiController {
       @PathVariable String projectId,
       UriComponentsBuilder b) {
     OperationResponse rr = api.refreshRedcapMetadata(projectId);
-    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId());
+    final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
     
     final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
     final HttpHeaders headers = new HttpHeaders();

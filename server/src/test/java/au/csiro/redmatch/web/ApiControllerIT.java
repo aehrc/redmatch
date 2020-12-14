@@ -5,6 +5,7 @@
 package au.csiro.redmatch.web;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +17,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
@@ -63,6 +65,9 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
   @Value("${local.server.port}")
   public int port;
   
+  @Autowired
+  ApplicationContext ctx;
+  
   /**
    * A template used by the Spring framework to do REST calls.
    */
@@ -94,14 +99,16 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     log.info("Setting terminology client to mock implementation.");
     RedmatchGrammarValidator rgv = appCtx.getBean(RedmatchGrammarValidator.class);
     rgv.setClient(new MockTerminolgyClient());
-    // Set the mock REDCap client
-    log.info("Setting REDCap client to mock implementation.");
-    RedcapImporter ri = appCtx.getBean(RedcapImporter.class);
-    ri.setRedcapClient(new MockRedcapClient());
+    
   }
   
   @Test
   public void testUpdateMappings() throws URISyntaxException {
+    // Set the mock REDCap client
+    log.info("Setting REDCap client to mock implementation.");
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("tutorial"));
+    
     // Create project
     log.info("Creating Redmatch project");
     RedmatchProject body = new RedmatchProject("1", "http://dummyredcapurl.com/api");
@@ -148,17 +155,134 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     log.info("Sending request: " + rulesRequest);
     response = template.exchange(rulesRequest, RedmatchProject.class);
     resp = response.getBody();
-    assertEquals(18, resp.getMappings().size());
-    assertEquals(6, countActive(resp.getMappings()));
+    assertEquals(6, resp.getMappings().size());
   }
   
-  private int countActive(List<Mapping> mappings) {
-    return mappings
-        .stream()
-        .filter(m -> m.isActive())
-        .collect(Collectors.toList())
-        .size();
+  @Test
+  public void testUpdateMappingsBug() throws URISyntaxException {
+    // Set the mock REDCap client
+    log.info("Setting REDCap client to mock implementation.");
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    log.info("Creating Redmatch project");
+    RedmatchProject body = new RedmatchProject("2", "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project"))
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+    
+    // Update rules
+    log.info("Updating transformation rules");
+    RequestEntity<String> rulesRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+        .accept(MediaType.APPLICATION_JSON)
+        .body(new ResourceLoader().loadRulesString("bug"));
+    log.info("Sending request: " + rulesRequest);
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+    
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+    
+    // Populate mappings and update project
+    List<Mapping> mappings = resp.getMappings();
+    populateMappingsBugFirstPass(mappings);
+    RequestEntity<List<Mapping>> mappingsRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-mappings"))
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(mappings);
+    response = template.exchange(mappingsRequest, RedmatchProject.class);
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+    
+    Mapping male = resp.getMappings().get(0);
+    Mapping female = resp.getMappings().get(1);
+    Mapping indeterminate = resp.getMappings().get(2);
+    Mapping ophthal = resp.getMappings().get(3);
+    
+    assertEquals("http://snomed.info/sct", male.getTargetSystem());
+    assertEquals("248153007", male.getTargetCode());
+    
+    assertEquals("http://snomed.info/sct", female.getTargetSystem());
+    assertEquals("248152002", female.getTargetCode());
+    
+    assertEquals("http://snomed.info/sct", indeterminate.getTargetSystem());
+    assertEquals("32570681000036100", indeterminate.getTargetCode());
+    
+    assertNull(ophthal.getTargetSystem());
+    assertNull(ophthal.getTargetCode());
+    
+    mappings = resp.getMappings();
+    populateMappingsBugSecondPass(mappings);
+    mappingsRequest = RequestEntity
+        .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-mappings"))
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(mappings);
+    response = template.exchange(mappingsRequest, RedmatchProject.class);
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+    
+    male = resp.getMappings().get(0);
+    female = resp.getMappings().get(1);
+    indeterminate = resp.getMappings().get(2);
+    ophthal = resp.getMappings().get(3);
+    
+    assertEquals("http://purl.obolibrary.org/obo/hp.owl", ophthal.getTargetSystem());
+    assertEquals("HP:0000602", ophthal.getTargetCode());
+    
+    assertEquals("http://snomed.info/sct", male.getTargetSystem());
+    assertEquals("248153007", male.getTargetCode());
+    
+    assertEquals("http://snomed.info/sct", female.getTargetSystem());
+    assertEquals("248152002", female.getTargetCode());
+    
+    assertEquals("http://snomed.info/sct", indeterminate.getTargetSystem());
+    assertEquals("32570681000036100", indeterminate.getTargetCode());
   }
+  
+  private void populateMappingsBugFirstPass(List<Mapping> mappings) {
+    for (Mapping mapping : mappings) {
+      String fieldId = mapping.getRedcapFieldId();
+      if (fieldId.equals("dem_sex___1")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("248153007");
+      } else if (fieldId.equals("dem_sex___2")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("248152002");
+      } else if (fieldId.equals("dem_sex___3")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("32570681000036100");
+      }
+    }
+  }
+  
+  private void populateMappingsBugSecondPass(List<Mapping> mappings) {
+    for (Mapping mapping : mappings) {
+      String fieldId = mapping.getRedcapFieldId();
+      if (fieldId.equals("dem_sex___1")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("248153007");
+      } else if (fieldId.equals("dem_sex___2")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("248152002");
+      } else if (fieldId.equals("dem_sex___3")) {
+        mapping.setTargetSystem("http://snomed.info/sct");
+        mapping.setTargetCode("32570681000036100");
+      } else if (fieldId.equals("mito_mw_ophthal")) {
+        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+        mapping.setTargetCode("HP:0000602");
+      }
+    }
+  }
+  
   private void populateMappings (List<Mapping> mappings) {
     for (Mapping mapping : mappings) {
       String fieldId = mapping.getRedcapFieldId();

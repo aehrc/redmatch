@@ -1,0 +1,26 @@
+[
+  {
+    "stud_num": "1",
+    "dem_dob": "2001-07-09",
+    "dem_sex": "2",
+    "mito_mw_ophthal": "1"
+  },
+  {
+    "stud_num": "2",
+    "dem_dob": "2009-01-12",
+    "dem_sex": "1",
+    "mito_mw_ophthal": "2"
+  },
+  {
+    "stud_num": "3",
+    "dem_dob": "1977-09-02",
+    "dem_sex": "1",
+    "mito_mw_ophthal": ""
+  },
+  {
+    "stud_num": "4",
+    "dem_dob": "1949-09-18",
+    "dem_sex": "2",
+    "mito_mw_ophthal": ""
+  }
+]
