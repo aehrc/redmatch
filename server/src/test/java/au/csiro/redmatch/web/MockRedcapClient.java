@@ -17,15 +17,21 @@ import au.csiro.redmatch.client.IRedcapClient;
  *
  */
 public class MockRedcapClient extends ResourceLoader implements IRedcapClient {
-
+  
+  private String file;
+  
+  public MockRedcapClient(String file) {
+    this.file = file;
+  }
+  
   @Override
   public String getMetadata(String url, String token, Set<String> fieldIds) throws HttpException {
-    return loadMetadataString("tutorial");
+    return loadMetadataString(file);
   }
 
   @Override
   public String getReport(String url, String token, String reportId) throws HttpException {
-    return loadReportString("tutorial");
+    return loadReportString(file);
   }
 
 }
