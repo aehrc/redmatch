@@ -18,7 +18,8 @@ const tokenLogger = (tokens: unknown) => {
 
 const init = {
   checkLoginIframe: false,
-  enableLogging: true
+  enableLogging: true,
+  onLoad: 'login-required'
 }
 
 ReactDOM.render(

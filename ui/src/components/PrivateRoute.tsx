@@ -11,9 +11,10 @@ const PrivateRoute : React.FunctionComponent<RouteProps> = props => {
       if(keycloak?.authenticated) {
         return <Route {... props} />;
       } else {
+        keycloak.login();
         return <Redirect
                to={{
-                 pathname: '/login',
+                 pathname: '/',
                  state: { from: props.location },
                }}
              />;

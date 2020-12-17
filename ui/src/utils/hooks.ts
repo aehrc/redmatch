@@ -19,10 +19,20 @@ export const useAxios = (baseURL: string) => {
       },
     });
 
+    axiosInstance.current.interceptors.response.use(
+      response => response,
+      error => {
+        console.log('error.response.status = ' + error.response.status);
+        if (error.response.status === 401) {
+          keycloak.login();
+        }
+        return error;
+      });
+
     return () => {
       axiosInstance.current = undefined;
     };
-  }, [baseURL, initialized, kcToken]);
+  }, [baseURL, initialized, kcToken, keycloak]);
 
   return axiosInstance;
 };

@@ -4,16 +4,16 @@
  */
 
 import React from "react";
-import { Box, createMuiTheme, ThemeProvider, AppBar, Link, Toolbar, Typography } from "@material-ui/core";
+import { Box, createMuiTheme, ThemeProvider, AppBar, Link, Toolbar, Typography, Button } from "@material-ui/core";
 import { useKeycloak } from '@react-keycloak/web'
-import { makeStyles } from "@material-ui/core/styles";
-import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import { makeStyles, Theme, withStyles } from "@material-ui/core/styles";
+import { BrowserRouter as Router, Switch } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import ProjectDetail from "./ProjectDetail";
 import { QueryCache, QueryClient, QueryClientProvider } from "react-query";
 import logo from './redmatch_logo.png';
-import LoginPage from "./Login";
 import PrivateRoute from "./PrivateRoute";
+import { grey } from "@material-ui/core/colors";
 
 const theme = createMuiTheme({
   palette: {
@@ -50,12 +50,22 @@ const useStyles = makeStyles({
   }
 });
 
+const ColorButton = withStyles((theme: Theme) => ({
+  root: {
+    color: theme.palette.getContrastText(grey[500]),
+    backgroundColor: grey[500],
+    '&:hover': {
+      backgroundColor: grey[700],
+    },
+  },
+}))(Button);
+
 const cache = new QueryCache();
 const client = new QueryClient({ cache });
 
 export default function App() {
   const classes = useStyles();
-  const { initialized } = useKeycloak();
+  const { initialized, keycloak } = useKeycloak();
 
   if (!initialized) {
     return <div>Loading...</div>
@@ -72,18 +82,22 @@ export default function App() {
             <Typography variant="h4" component="h1" className={classes.toolbar}>
               redmatch
             </Typography>
+            {!!keycloak?.authenticated && (
+              <ColorButton onClick={() => keycloak.logout()} color="primary">
+                Logout
+              </ColorButton>
+            )}
           </Toolbar>
         </AppBar>
         <Box className={classes.main} component="main">
           <Router>
             <Switch>
-              <Route path="/login" component={LoginPage} />
-              <Route path="/project/:id">
+              <PrivateRoute path="/project/:id">
                 <ProjectDetail className={classes.content} />
-              </Route>
-              <Route path="/home">
+              </PrivateRoute>
+              <PrivateRoute path="/">
                 <Dashboard className={classes.content} />
-              </Route>
+              </PrivateRoute>
             </Switch>
           </Router>
         </Box>
