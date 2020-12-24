@@ -26,7 +26,6 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import { useQuery } from "react-query";
 import RedmatchApi, { RedmatchProject } from "../api/RedmatchApi";
-import env from "@beam-australia/react-env";
 import { ApiError } from "./ApiError";
 import NewRedmatchProject from "./NewRedmatchProject";
 import { Link } from "react-router-dom";
@@ -41,12 +40,11 @@ const useStyles = makeStyles({
 });
 
 export default function RedmatchProjects() {
-  const redmatchUrl = env('REDMATCH_URL');
   const classes = useStyles();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const { status, data, error, refetch } = useQuery<RedmatchProject[], Error>(
     "RedmatchProjects",
-    RedmatchApi(redmatchUrl).getProjects
+    RedmatchApi().getProjects
   );
 
   function renderSecondaryText(redmatchProject: RedmatchProject) {

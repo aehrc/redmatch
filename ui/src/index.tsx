@@ -1,12 +1,37 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+
+import { ReactKeycloakProvider } from '@react-keycloak/web'
+
 import './index.css';
+import keycloak from './keycloak'
 import App from './components/App';
 import * as serviceWorker from './serviceWorker';
 
+const eventLogger = (event: unknown, error: unknown) => {
+  console.log('onKeycloakEvent', event, error)
+}
+
+const tokenLogger = (tokens: unknown) => {
+  console.log('onKeycloakTokens', tokens)
+}
+
+const init = {
+  checkLoginIframe: false,
+  enableLogging: true,
+  onLoad: 'login-required'
+}
+
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <ReactKeycloakProvider
+      authClient={keycloak}
+      onEvent={eventLogger}
+      onTokens={tokenLogger}
+      initOptions={init}
+    >
+      <App />
+    </ReactKeycloakProvider>
   </React.StrictMode>,
   document.getElementById('root')
 );
