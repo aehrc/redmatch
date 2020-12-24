@@ -1,4 +1,4 @@
-# Redmatch
+# Redmatch <img src="ui/src/components/redmatch_logo.png?raw=true">
 > Redmatch is a tool designed to transform REDCap forms into FHIR resources.
 
 ## Table of contents

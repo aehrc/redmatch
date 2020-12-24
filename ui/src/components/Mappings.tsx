@@ -50,7 +50,7 @@ export default function Mappings(props: Props) {
 
   // Loads the value set options
   useEffect(() => {
-    const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem`);
+    const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem?_count=10000`);
     const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_elements=url,name`);
 
     http.all([implicit, explicit]).then(http.spread(function (imp, exp) {
@@ -136,7 +136,7 @@ export default function Mappings(props: Props) {
     if (!mappings || mappings.length === 0) return;
 
     let vss : (IValueSet | null)[] = [];
-    mappings.filter(x => x.active).forEach((m) => {
+    mappings.filter(x => !x.inactive).forEach((m) => {
       if(m.valueSetUrl) {
         let v : IValueSet = {
           resourceType: 'ValueSet',
@@ -151,7 +151,7 @@ export default function Mappings(props: Props) {
     setValueSets(vss);
 
     let codings : (ICoding | null)[] = [];
-    mappings.filter(x => x.active).forEach((m) => {
+    mappings.filter(x => !x.inactive).forEach((m) => {
       if (m.targetCode) {
         let c : ICoding = {
           system: m.targetSystem,
@@ -227,7 +227,7 @@ export default function Mappings(props: Props) {
   function renderContent() {
     if (status === 'loading' || valueSetStatus === 'loading') {
       return <Typography variant="body1">Loading mappings...</Typography>;
-    } else if (!mappings || mappings.filter(x => x.active).length === 0) {
+    } else if (!mappings || mappings.filter(x => !x.inactive).length === 0) {
       return (
         <Typography variant="body1">No mappings are needed.</Typography>
       );
@@ -272,7 +272,7 @@ export default function Mappings(props: Props) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {mappings.filter(x => x.active).map((mapping, i) => {                
+              {mappings.filter(x => !x.inactive).map((mapping, i) => {                
                 return (
                   <TableRow key={i}>
                     <TableCell>{mapping.redcapFieldId}</TableCell>
