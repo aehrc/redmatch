@@ -58,13 +58,35 @@ Finally, Redmatch communicates with REDCap through its API and requires a token 
 
 ## Running Redmatch
 
-Redmatch is distributed as Docker images, one for the backend and one for the user interface. A Docker Compose file that is configured to run in your local machine is available in the project root. To run Redmatch locally, download the `docker-compose.yml` file from the repository and run
+To run Redmatch locally, the project has to be built first. Checkout the Redmatch source to you computer and then run the following:
+
+```
+% cd redmatch
+% mvn clean verify
+```
+
+Redmatch is distributed as Docker images, one for the backend and one for the frontend. A sample Docker Compose file is available in the project root.
+
+The following ports are used and should be available before running the Docker Compose file:
+- 8888, used by the Redmatch frontend
+- 8080, used by the Redmatch backend
+- 10001, used by Keycloak
+
+The sample Docker compose file creates four components: A Mongo DB instance (used by Redmatch), the Redmatch backend, the Redmatch frontend and a preconfigured Keycloak instance used to provide authentication and authorisation services. The following users are preconfigured in Keycloak:
+
+| User      | Password    | Type                                                                                    |
+| --------- | ----------  | -------------------------------------------------------------------------------------   |
+| admin     | secret      | Keycloak administrator. Log into the Keycloak admin console at http://localhost:10001.  |
+| redmatch  | redmatch    | Redmatch user. Log into Redmatch at http://localhost:8888.                              |
+
+
+To run Redmatch locally use the following command in the project root:
 
 ```
 % docker-compose up -d
 ```
 
-The Redmatch UI will be available in [http://localhost:8888](http://localhost:8888).
+WARNING: This sample configuration is meant to provide an easy way to run Redmatch locally but should not be used in a production environment. For available configuration options check out the [Redmatch configuration page](configuration.md).
 
 ## Creating a Redmatch project
 

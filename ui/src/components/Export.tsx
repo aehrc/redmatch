@@ -1,21 +1,24 @@
 import { Box, Toolbar, Button, CircularProgress } from "@material-ui/core";
 import React, { useState } from "react";
-import { IParameters, IOperationOutcome } from "@ahryman40k/ts-fhir-types/lib/R4";
+import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
 import env from "@beam-australia/react-env";
 import TextField from '@material-ui/core/TextField';
-import http from "axios";
 import { ApiError } from "./ApiError";
+import { useAxios } from "../utils/hooks";
 
 interface Props {
   projectId: string;
+  onExportStarted: () => void;
+  onExportFinished: () => void;
 }
 
 export default function Export(props: Props) {
-  const { projectId } = props;
+  const { projectId, onExportStarted, onExportFinished } = props;
   const redmatchUrl = env("REDMATCH_URL");
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<Error | null>(null);
+  const axiosInstance = useAxios(redmatchUrl);
 
   const onExport = (projectId: string) => {
     fetchData(projectId)
@@ -24,14 +27,17 @@ export default function Export(props: Props) {
       });
   };
 
-  interface FetchDataResponse {
-    result: IOperationOutcome,
-    error: IOperationOutcome
-  }
-
   const fetchData = async (projectId: string) => {
     setStatus('loading');
     setValue('Transforming project in Redmatch...');
+
+    let http = undefined;
+    if (axiosInstance.current) {
+      http = axiosInstance.current;
+    } else {
+      throw new Error('Undefined Axios current instance.');
+    }
+
     try {
       await http.post<IParameters>(
         `${redmatchUrl}/project/${projectId}/$transform`,
@@ -58,7 +64,10 @@ export default function Export(props: Props) {
       const { data: blobData } = await http({
         method: 'post',
         url: `${redmatchUrl}/project/${projectId}/$export`,
-        responseType: 'blob'
+        responseType: 'blob',
+        headers: {
+          "Accept": "application/zip"
+        }
       });
 
       const url = window.URL.createObjectURL(new Blob([blobData]));
@@ -76,6 +85,8 @@ export default function Export(props: Props) {
         message: 'There was a problem downloading the file.'
       };
       setError(e);
+    } finally {
+      onExportFinished();
     }
   }
 
@@ -84,7 +95,10 @@ export default function Export(props: Props) {
       <Toolbar>
         <Button
           type="submit"
-          onClick={() => onExport(projectId)}
+          onClick={() => {
+            onExportStarted();
+            onExport(projectId);
+          }}
           color="primary"
           endIcon={
             status === "loading" ? (
