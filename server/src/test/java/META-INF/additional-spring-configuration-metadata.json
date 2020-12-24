@@ -2,6 +2,16 @@
   {
     "name": "ontoserver.url",
     "type": "java.lang.String",
-    "description": "A description for 'ontoserver.url'"
+    "description": "The URL of the terminology server to use for validation."
+  },
+  {
+    "name": "redmatch.targetFolder",
+    "type": "java.lang.String",
+    "description": "The folder used to generate the FHIR output."
+  },
+  {
+    "name": "redmatch.security.enabled",
+    "type": "java.lang.String",
+    "description": "Boolean flag to indicate if security should be turned on or off for the application."
   }
 ]}

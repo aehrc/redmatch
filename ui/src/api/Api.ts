@@ -3,40 +3,39 @@
  * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
  */
 
-import http, { AxiosRequestConfig, Canceler, CancelTokenSource } from "axios";
+import http, { AxiosInstance, Canceler, CancelTokenSource } from "axios";
 import { merge } from "lodash";
+
 
 export interface CancelablePromise<T> extends Promise<T> {
   cancel: Canceler;
 }
 
-const standardGetConfig: AxiosRequestConfig = {
-  headers: {
-    Accept: "application/json"
-  }
-};
-
-const standardPostConfig: AxiosRequestConfig = {
-  headers: {
-    ...standardGetConfig.headers,
-    "Content-Type": "application/json"
-  }
-};
-
-export function get<T>(url: string, params: any = {}): CancelablePromise<T> {
+export function get<T>(
+  axiosInstance: React.MutableRefObject<AxiosInstance | undefined>, 
+  url: string, 
+  params: any = {}): CancelablePromise<T> {
   return cancelableFetch(source => {
-    return http
-      .get<T>(url, {
-        ...standardGetConfig,
-        params,
-        cancelToken: source.token
-      })
-      .then(response => response.data);
+    let resolvedConfig = {
+      cancelToken: source.token,
+      headers: {
+        Accept: "application/json"
+      },
+    };
+    resolvedConfig = merge(resolvedConfig, params);
+
+    if (axiosInstance.current) {
+      return axiosInstance.current
+        .get<T>(`${url}`, resolvedConfig)
+        .then(response => response.data);
+    } else {
+      throw new Error('Undefined Axios current instance.');
     }
-  );
+  });
 }
 
 export function post<T>(
+  axiosInstance: React.MutableRefObject<AxiosInstance | undefined>,
   url: string,
   body: any,
   config?: any
@@ -44,13 +43,19 @@ export function post<T>(
   return cancelableFetch(
     async source => {
       let resolvedConfig = {
-        ...standardPostConfig,
-        cancelToken: source.token
+        cancelToken: source.token,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
       };
       if (config) resolvedConfig = merge(resolvedConfig, config);
-      const response = await http
-        .post<T>(url, body, resolvedConfig);
-      return response.data;
+      if (axiosInstance.current) {
+        const response = await axiosInstance.current.post<T>(url, body, resolvedConfig);
+        return response.data;
+      } else {
+        throw new Error('Undefined Axios current instance.');
+      }
     }
   );
 }
