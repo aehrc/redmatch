@@ -84,23 +84,31 @@ export default function ProjectDetail(props: Props) {
   // when there is unsaved data and the user needs to be warned.
   const [targetTab, setTargetTab] = useState<number>(0);
   // Used to show and hide the dialog to warn users about unsaved data
-  const [open, setOpen] = React.useState(false);
+  const [openUnsaved, setOpenUnsaved] = React.useState(false);
+  // Used to show and hide the dialog to warn users about navigating away while processing
+  const [openProcessing, setOpenProcessing] = React.useState(false);
+  // Used to prevent the user from switching tabs during long-running operations
+  const [savingRules, setSavingRules] = useState<boolean>(false);
+  const [savingMappings, setSavingMappings] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
   // Query client
   const client = useQueryClient();
 
-  
-  
   const handleCancel = () => {
-    setOpen(false);
+    setOpenUnsaved(false);
+  };
+
+  const handleOk = () => {
+    setOpenProcessing(false);
   };
 
   const handleContinue = () => {
-    setOpen(false);
+    setOpenUnsaved(false);
     setActiveTab(targetTab);
   };
 
   const handleOnSaveRules = (newRules: string) => {
-    // Rules were updated so run mutation
+    setSavingRules(true);
     updateRules([reportId, newRules]);
   }
 
@@ -113,11 +121,20 @@ export default function ProjectDetail(props: Props) {
   }
   
   const handleOnSaveMappings = (newMappings: Mapping[]) => {
+    setSavingMappings(true);
     updateMappings([reportId, newMappings]);
   }
 
   const handleUpdate = () => {
     updateMetadata([reportId]);
+  }
+
+  const handleExportStarted = () => {
+    setExporting(true);
+  }
+
+  const handleExportFinished = () => {
+    setExporting(false);
   }
 
   const { mutateAsync: updateMetadata, status: updateStatusMetadata, error: updateErrorMetadata } = 
@@ -162,6 +179,7 @@ export default function ProjectDetail(props: Props) {
         },
         onError: (_err: Error, oldParams: string[], rollback: any) => rollback(),
         onSettled: () => {
+          setSavingRules(false);
           client.invalidateQueries('RedmatchProject')
         }
       }
@@ -201,18 +219,23 @@ export default function ProjectDetail(props: Props) {
         },
         onError: (_err: Error, rollback: any) => rollback(),
         onSettled: () => {
+          setSavingMappings(false);
           client.invalidateQueries('RedmatchProject')
         }
       }
     );
 
   function switchTab(tab: number) {
+    if (savingRules || savingMappings || exporting) {
+      setOpenProcessing(true);
+      return;
+    }
     if (activeTab === 3 && unsavedMappings && tab !== 3) {
       setTargetTab(tab);
-      setOpen(true);
+      setOpenUnsaved(true);
     } else if (activeTab === 2 && unsavedRules && tab !== 2) {
       setTargetTab(tab);
-      setOpen(true);
+      setOpenUnsaved(true);
     } else {
       setActiveTab(tab);
     }
@@ -250,7 +273,7 @@ export default function ProjectDetail(props: Props) {
           <Mappings project={project} onSave={handleOnSaveMappings} onSaveNeeded={handleOnSaveNeededMappings} status={status} updateStatus={updateStatusMappings}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={4} value={activeTab}>
-          <Export projectId={project.id}/>
+          <Export projectId={project.id} onExportStarted={handleExportStarted} onExportFinished={handleExportFinished}/>
         </TabPanel>
       </Card>
     );
@@ -275,7 +298,7 @@ export default function ProjectDetail(props: Props) {
         renderProjectDetail()
       )}
       <Dialog
-        open={open}
+        open={openUnsaved}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
@@ -291,6 +314,23 @@ export default function ProjectDetail(props: Props) {
           </Button>
           <Button onClick={handleContinue} color="primary" autoFocus>
             Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={openProcessing}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Warning"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Unable to navigate to other tabs while the current operation is in progress.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleOk} color="primary">
+            Ok
           </Button>
         </DialogActions>
       </Dialog>

@@ -14,8 +14,6 @@ export const useAxios = (baseURL: string) => {
       baseURL,
       headers: {
         Authorization: initialized ? `Bearer ${kcToken}` : undefined,
-        Accept: "application/json",
-        "Content-Type": "application/json",
       },
     });
 

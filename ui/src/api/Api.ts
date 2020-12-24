@@ -16,12 +16,17 @@ export function get<T>(
   url: string, 
   params: any = {}): CancelablePromise<T> {
   return cancelableFetch(source => {
+    let resolvedConfig = {
+      cancelToken: source.token,
+      headers: {
+        Accept: "application/json"
+      },
+    };
+    resolvedConfig = merge(resolvedConfig, params);
+
     if (axiosInstance.current) {
       return axiosInstance.current
-        .get<T>(`${url}`, {
-          params,
-          cancelToken: source.token
-        })
+        .get<T>(`${url}`, resolvedConfig)
         .then(response => response.data);
     } else {
       throw new Error('Undefined Axios current instance.');
@@ -38,7 +43,11 @@ export function post<T>(
   return cancelableFetch(
     async source => {
       let resolvedConfig = {
-        cancelToken: source.token
+        cancelToken: source.token,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
       };
       if (config) resolvedConfig = merge(resolvedConfig, config);
       if (axiosInstance.current) {
