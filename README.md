@@ -33,6 +33,9 @@ This tool is targeted at domain experts that know about FHIR but don't necessari
 
 Please check the [tutorial](docs/tutorial.md).
 
+**Redmatch is experimental software. Use it at your own risk!** Take a look at the
+full description of the current set of [known issues](https://github.com/aehrc/redmatch/issues).
+
 ## Features
 
 * Domain specific language to define transformations between REDCap and FHIR
