@@ -1,3 +1,8 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research
+ * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
+ * Software Licence Agreement.
+ */
 /// <reference path="../../node_modules/monaco-editor/monaco.d.ts" />
 
 import { ANTLRInputStream, ANTLRErrorListener } from 'antlr4ts';
