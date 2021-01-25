@@ -60,7 +60,7 @@ public class RedmatchProject {
   /**
    * Any mapping rules available to generate FHIR resources.
    */
-  private String rulesDocument = "";
+  private String rulesDocument;
   
   /**
    * Mappings from REDCap fields to standard terminologies.
@@ -110,7 +110,7 @@ public class RedmatchProject {
   }
   
   public boolean hasRulesDocument() {
-    return this.rulesDocument != null && !this.rulesDocument.isBlank();
+    return this.rulesDocument != null;
   }
   
   public List<Mapping> getMappings() {
