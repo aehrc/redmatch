@@ -58,50 +58,28 @@ export default function Mappings(props: Props) {
     const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem?_count=10000`);
     const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_elements=url,name`);
 
-    http.all([implicit, explicit]).then(http.spread(function (imp, exp) {
-      let o = [];
+    http.all([implicit, explicit]).then(
+      http.spread(function (imp, exp) {
+        let o = [];
 
-      // Process implicit value sets
-      if (imp.data && imp.data.entry) {
-        const cs : IValueSet[] = imp.data.entry
-        .filter((e: any) => {
-          if (e.resource) {
-            const ccs : ICodeSystem  = e.resource as ICodeSystem;
-            return ccs.valueSet !== 'http://csiro.au/redmatch-fhir?vs';
-          } else {
-            return false;
-          }
-        })
-        .map((e: any) => {
-          if (e.resource) {
-            const ccs : ICodeSystem  = e.resource as ICodeSystem;
-            const v: IValueSet = {
-              resourceType: 'ValueSet',
-              url: ccs.valueSet ? ccs.valueSet : '',
-              name: ccs.name ? ccs.name + ' Implicit Value Set' : ''
-            };
-            return v;
-          } else {
-            const v: IValueSet = {
-              resourceType: 'ValueSet',
-              url: '',
-              name: ''
-            };
-            return v;
-          };}); 
-        o.push(...cs);
-      }
-
-      // Process explicit value sets
-      if (exp.data && exp.data.entry) {
-        const cs : IValueSet[] = exp.data.entry
+        // Process implicit value sets
+        if (imp.data && imp.data.entry) {
+          const cs : IValueSet[] = imp.data.entry
+          .filter((e: any) => {
+            if (e.resource) {
+              const ccs : ICodeSystem  = e.resource as ICodeSystem;
+              return ccs.valueSet !== 'http://csiro.au/redmatch-fhir?vs';
+            } else {
+              return false;
+            }
+          })
           .map((e: any) => {
             if (e.resource) {
-              const ccs : IValueSet = e.resource as IValueSet;
+              const ccs : ICodeSystem  = e.resource as ICodeSystem;
               const v: IValueSet = {
                 resourceType: 'ValueSet',
-                url: ccs.url,
-                name: ccs.name
+                url: ccs.valueSet ? ccs.valueSet : '',
+                name: ccs.name ? ccs.name + ' Implicit Value Set' : ''
               };
               return v;
             } else {
@@ -111,14 +89,41 @@ export default function Mappings(props: Props) {
                 name: ''
               };
               return v;
-            };
-          }); 
-        o.push(...cs);
-      }
+            };}); 
+          o.push(...cs);
+        }
 
-      setOptions(o);
-      setValueSetStatus('loaded');
-    }));
+        // Process explicit value sets
+        if (exp.data && exp.data.entry) {
+          const cs : IValueSet[] = exp.data.entry
+            .map((e: any) => {
+              if (e.resource) {
+                const ccs : IValueSet = e.resource as IValueSet;
+                const v: IValueSet = {
+                  resourceType: 'ValueSet',
+                  url: ccs.url,
+                  name: ccs.name
+                };
+                return v;
+              } else {
+                const v: IValueSet = {
+                  resourceType: 'ValueSet',
+                  url: '',
+                  name: ''
+                };
+                return v;
+              };
+            }); 
+          o.push(...cs);
+        }
+
+        setOptions(o);
+        setValueSetStatus('loaded');
+      }
+    )).catch(error => {
+      console.log('There was a problem accessing the terminology server: ' + error + '. Please check your configuration and check the terminology server is working properly.');
+      setValueSetStatus('error');
+    });
   }, [terminologyUrl]);
 
   // Loads the mappings
@@ -232,6 +237,8 @@ export default function Mappings(props: Props) {
   function renderContent() {
     if (status === 'loading' || valueSetStatus === 'loading') {
       return <Typography variant="body1">Loading mappings...</Typography>;
+    } else if (status === 'error' || valueSetStatus === 'error') {
+      return <Typography variant="body1">There was an error loading the mappings.</Typography>;
     } else if (!mappings || mappings.filter(x => !x.inactive).length === 0) {
       return (
         <Typography variant="body1">No mappings are needed.</Typography>
