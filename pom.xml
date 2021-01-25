@@ -41,11 +41,6 @@
           <groupId>com.amashchenko.maven.plugin</groupId>
           <artifactId>gitflow-maven-plugin</artifactId>
           <version>1.15.0</version>
-          <configuration>
-            <gitFlowConfig>
-              <versionsForceUpdate>true</versionsForceUpdate>
-            </gitFlowConfig>
-        </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
