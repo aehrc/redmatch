@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>au.csiro.redmatch</groupId>
   <artifactId>server</artifactId>
-  <version>1.2.0-SNAPSHOT</version>
+  <version>1.2.1</version>
   <packaging>jar</packaging>
   
   <name>Redmatch Server</name>
@@ -147,8 +147,7 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Used to add the source code files generated from the ANTLR grammar 
-        to the project. -->
+      <!-- Used to add the source code files generated from the ANTLR grammar to the project. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -209,22 +208,22 @@
           <libDirectory>${basedir}/src/main/antlr4/au/csiro/redmatch/grammar</libDirectory>
         </configuration>
       </plugin>
-      <!-- Used to generate a summary of the licenses for all libraries used 
-        in this project. -->
+      <!-- Used to generate a summary of the licenses for all libraries in this project. Needs to run from the command line using mvn license:add-third-party. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
         <version>2.0.0</version>
         <executions>
           <execution>
-            <id>download-licenses</id>
+            <id>add-third-party</id>
             <goals>
-              <goal>download-licenses</goal>
+              <goal>add-third-party</goal>
             </goals>
           </execution>
         </executions>
         <configuration>
-          <errorRemedy>ignore</errorRemedy>
+	      <thirdPartyFilename>DISCLAIMER.txt</thirdPartyFilename>
+          <outputDirectory>${project.basedir}</outputDirectory>
         </configuration>
       </plugin>
       <!-- Used to create a Docker image. -->

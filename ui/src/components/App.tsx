@@ -1,8 +1,8 @@
 /*
- * Copyright © 2020, Commonwealth Scientific and Industrial Research
- * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research
+ * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
+ * Software Licence Agreement.
  */
-
 import React from "react";
 import { Box, createMuiTheme, ThemeProvider, AppBar, Link, Toolbar, Typography, Button } from "@material-ui/core";
 import { useKeycloak } from '@react-keycloak/web'
@@ -10,10 +10,11 @@ import { makeStyles, Theme, withStyles } from "@material-ui/core/styles";
 import { BrowserRouter as Router, Switch } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import ProjectDetail from "./ProjectDetail";
-import { QueryCache, QueryClient, QueryClientProvider } from "react-query";
+import { QueryClient, QueryClientProvider } from "react-query";
 import logo from './redmatch_logo.png';
 import PrivateRoute from "./PrivateRoute";
 import { grey } from "@material-ui/core/colors";
+import { ReactQueryDevtools } from 'react-query/devtools';
 
 const theme = createMuiTheme({
   palette: {
@@ -60,8 +61,7 @@ const ColorButton = withStyles((theme: Theme) => ({
   },
 }))(Button);
 
-const cache = new QueryCache();
-const client = new QueryClient({ cache });
+const client = new QueryClient();
 
 export default function App() {
   const classes = useStyles();
@@ -102,6 +102,7 @@ export default function App() {
           </Router>
         </Box>
       </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
