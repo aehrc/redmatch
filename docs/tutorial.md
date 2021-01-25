@@ -240,6 +240,8 @@ Save the rules, check that there are no compilation errors and then click on the
 
 ![REDCap tutorial mappings](img/redmatch_tutorial_mappings_complete.png?raw=true "REDCap tutorial mappings")
 
+Note that the Ontoserver instance that is configured by default is public so these value sets might not be available. If you are unable to find them, you can search for SNOMED CT and HPO implicit value sets. Alternatively, you can create your own value sets and map these elements to codes of your choice.
+
 ## Exporting to FHIR
 
 Once the transformation rules and mappings are complete, the transformation can be run to produce FHIR resources. Click on the _EXPORT_ tab and then click on the EXPORT button. This will generate a ZIP file with the resulting resources in [NDJSON](http://ndjson.org/) format. Each resource type is saved in a separate file. In this case, three files are generated: `Condition.ndjson`, `Observation.ndjson` and `Patient.ndjson`. This formats allows directly importing this data into the [Pathling FHIR Analytics Platform](https://pathling.csiro.au/docs/import.html).

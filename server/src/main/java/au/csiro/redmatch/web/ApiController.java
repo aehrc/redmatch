@@ -1,3 +1,8 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research
+ * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
+ * Software Licence Agreement.
+ */
 package au.csiro.redmatch.web;
 
 import io.swagger.annotations.ApiOperation;
@@ -367,8 +372,13 @@ public class ApiController {
   @Transactional
   public ResponseEntity<RedmatchProject> updateRulesDocument(
       @PathVariable String projectId, 
-      @RequestBody String rulesDocument,
+      @RequestBody (required = false) String rulesDocument,
       UriComponentsBuilder b) {
+    
+    // Handle case where rules document wants to be erased
+    if (rulesDocument == null) {
+      rulesDocument = "";
+    }
     
     final OperationResponse rr = api.updateRulesDocument(projectId, rulesDocument);
     final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);

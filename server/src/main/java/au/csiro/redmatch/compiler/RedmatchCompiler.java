@@ -1,8 +1,8 @@
-/**
- * Copyright CSIRO Australian e-Health Research Centre (http://aehrc.com). All rights reserved. Use
- * is subject to license terms and conditions.
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research
+ * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
+ * Software Licence Agreement.
  */
-
 package au.csiro.redmatch.compiler;
 
 import java.net.MalformedURLException;
@@ -149,6 +149,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * @return A Document object or null if there is an unrecoverable compilation problem.
    */
   public Document compile(String rulesDocument, Metadata metadata) {
+    if (rulesDocument == null) {
+      return new Document();
+    }
+    
     // Clear errors from previous compilations
     errorMessages.clear();
     

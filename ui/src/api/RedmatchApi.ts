@@ -1,11 +1,10 @@
 /*
- * Copyright © 2020, Commonwealth Scientific and Industrial Research
- * Organisation (CSIRO) ABN 41 687 119 230. All rights reserved.
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research
+ * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
+ * Software Licence Agreement.
  */
-
 import env from "@beam-australia/react-env";
-import { QueryFunction } from "react-query";
-import { MutationFunction } from "react-query/types/react/types";
+import { MutationFunction, QueryFunction, QueryFunctionContext } from "react-query";
 import { useAxios } from "../utils/hooks";
 import { get, post } from "./Api";
 
@@ -76,11 +75,10 @@ export default (): RedmatchApi => {
     getProjects: async function() {
       return get<RedmatchProject[]>(axiosInstance, `/project`, null);
     },
-    // _ to ignore first query key parameter
-    getProject: async function(_, id: string) {
-      return get<RedmatchProject>(axiosInstance, `/project/${id}`, null);
+    getProject: function(context: QueryFunctionContext<string>) {
+      return get<RedmatchProject>(axiosInstance, `/project/${context.queryKey[1]}`, null);
     },
-    createProject: async function(unsavedRedmatchProject: UnsavedRedmatchProject) {
+    createProject: function(unsavedRedmatchProject: UnsavedRedmatchProject) {
       return post<RedmatchProject>(
         axiosInstance,
         `/project`,
