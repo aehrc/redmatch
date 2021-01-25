@@ -29,6 +29,7 @@ interface Props {
 
 export default function NewRedmatchProject(props: Props) {
   const { open, onSuccess, onCancel } = props;
+
   const initialRequest = {
     name: "",
     reportId: "",
@@ -37,20 +38,16 @@ export default function NewRedmatchProject(props: Props) {
   };
   const [request, setRequest] = useState<UnsavedRedmatchProject>(initialRequest);
 
-  const handleSuccess = () => {
-    setRequest(initialRequest);
-    return onSuccess();
-  };
-
-  const handleError = () => {
-    setRequest(initialRequest);
-    return onCancel();
-  };
-
-  const {mutateAsync: register, status, error } = useMutation<RedmatchProject, Error, UnsavedRedmatchProject>(
+  const {mutate: register, status, error } = useMutation<RedmatchProject, Error, UnsavedRedmatchProject>(
     RedmatchApi().createProject, {
-      onSuccess: handleSuccess,
-      onError: handleError
+      onError: (error) => {
+        console.log('Unable to create new project: ' + error);
+      },
+      onSuccess: () => {
+        console.log('ERROR ' + error);
+        setRequest(initialRequest);
+        return onSuccess();
+      }
     }
   );
 

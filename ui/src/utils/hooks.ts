@@ -29,7 +29,7 @@ export const useAxios = (baseURL: string) => {
         if (error.response.status === 401) {
           keycloak.login();
         }
-        return error;
+        throw error;
       });
 
     return () => {

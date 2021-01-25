@@ -372,8 +372,13 @@ public class ApiController {
   @Transactional
   public ResponseEntity<RedmatchProject> updateRulesDocument(
       @PathVariable String projectId, 
-      @RequestBody String rulesDocument,
+      @RequestBody (required = false) String rulesDocument,
       UriComponentsBuilder b) {
+    
+    // Handle case where rules document wants to be erased
+    if (rulesDocument == null) {
+      rulesDocument = "";
+    }
     
     final OperationResponse rr = api.updateRulesDocument(projectId, rulesDocument);
     final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
