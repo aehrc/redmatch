@@ -5,6 +5,7 @@
  */
 package au.csiro.redmatch.validation;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.Collection;
@@ -47,9 +48,14 @@ public class MockTerminolgyClient implements ITerminologyClient {
   
   public MockTerminolgyClient() {
     log.info("Loading Redmatch grammar code system into memory");
+    
+    ClassLoader classLoader = getClass().getClassLoader();
+    File file = new File(classLoader.getResource("preload.json").getFile());
+    String absolutePath = file.getAbsolutePath();
+    log.debug("Loading grammar code system from " + absolutePath);
+    
     FhirContext ctx = FhirContext.forR4();
-    try (InputStreamReader reader = new InputStreamReader(
-        new FileInputStream("src/test/resources/preload.json"))) {
+    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(absolutePath))) {
       Bundle b = (Bundle) ctx.newJsonParser().parseResource(reader);
       for (BundleEntryComponent bec : b.getEntry()) {
         CodeSystem cs = (CodeSystem) bec.getResource();

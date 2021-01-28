@@ -1,15 +1,24 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>au.csiro.redmatch</groupId>
+
+	<parent>
+    <groupId>au.csiro.redmatch</groupId>
+    <artifactId>redmatch</artifactId>
+    <version>1.3.0-SNAPSHOT</version>
+  </parent>
+
 	<artifactId>ui</artifactId>
-	<version>1.3.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
+
 	<name>Redmatch UI</name>
+	<description>User interface for Redmatch, a tool designed to transform REDCap forms into FHIR resources.</description>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<dockerfile-maven.version>1.4.13</dockerfile-maven.version>
 	</properties>
+
 	<build>
 		<plugins>
 			<!-- Copies the grammar files from the server module. -->
@@ -97,18 +106,9 @@
 			<plugin>
 				<groupId>com.spotify</groupId>
 				<artifactId>dockerfile-maven-plugin</artifactId>
-				<version>${dockerfile-maven.version}</version>
-				<executions>
-					<execution>
-						<id>default</id>
-						<goals>
-							<goal>build</goal>
-						</goals>
-					</execution>
-				</executions>
 				<configuration>
 					<repository>aehrc/redmatch-ui</repository>
-					<tag>${project.version}</tag>
+					<useMavenSettingsForAuth>true</useMavenSettingsForAuth>
 					<skipDockerInfo>true</skipDockerInfo>
 				</configuration>
 			</plugin>

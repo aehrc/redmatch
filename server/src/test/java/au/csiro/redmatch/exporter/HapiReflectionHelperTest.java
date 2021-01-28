@@ -5,10 +5,10 @@
  */
 package au.csiro.redmatch.exporter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -40,8 +40,8 @@ import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeSystem.CodeSystemFilterComponent;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import ca.uhn.fhir.context.FhirContext;
@@ -57,7 +57,7 @@ public class HapiReflectionHelperTest {
   
   private static HapiReflectionHelper helper;
   
-  @BeforeClass
+  @BeforeAll
   public static void init() {
     helper = new HapiReflectionHelper();
     FhirContext ctx = FhirContext.forR4();
@@ -95,7 +95,7 @@ public class HapiReflectionHelperTest {
       assertEquals(HumanName.class, res);
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
   }
   
@@ -112,13 +112,13 @@ public class HapiReflectionHelperTest {
       assertEquals(UriType.class, helper.getDeclaredType(Patient.class, "implicitRules"));
     } catch (NoSuchFieldException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     // Nonexistent attribute
     try {
       assertEquals(UriType.class, helper.getDeclaredType(Patient.class, "xxx"));
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (NoSuchFieldException e) {
       assertTrue(true);
     }
@@ -147,14 +147,14 @@ public class HapiReflectionHelperTest {
       assertEquals(CodeType.class, types[0]);
     } catch (NoSuchFieldException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
 
     
     // Nonexistent attribute
     try {
       assertEquals(UriType.class, helper.getDeclaredType(Patient.class, "xxx"));
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (NoSuchFieldException e) {
       assertTrue(true);
     }
@@ -193,12 +193,12 @@ public class HapiReflectionHelperTest {
       
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.getGetMethod(Patient.class, "xxx");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -212,19 +212,19 @@ public class HapiReflectionHelperTest {
       
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.getAddMethod(Patient.class, "gender");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
     
     try {
       helper.getAddMethod(Patient.class, "xxx");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -240,12 +240,12 @@ public class HapiReflectionHelperTest {
       assertEquals("hasDeceasedBooleanType", m.getName());
     } catch (NoSuchMethodException | NoSuchFieldException | ClassNotFoundException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.getHasMethod(Patient.class, "xxx");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -265,19 +265,19 @@ public class HapiReflectionHelperTest {
       
     } catch (NoSuchMethodException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.getSetMethod(Patient.class, "photo", Quantity.class, true, false);
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (NoSuchMethodException e) {
       assertTrue(true);
     }
     
     try {
       helper.getSetMethod(Patient.class, "genderr", Enumeration.class, false, false);
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (NoSuchMethodException e) {
       assertTrue(true);
     }
@@ -296,7 +296,7 @@ public class HapiReflectionHelperTest {
       assertEquals(Money.class, type);
     } catch (ClassNotFoundException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
   }
   
@@ -310,12 +310,12 @@ public class HapiReflectionHelperTest {
       assertEquals("operator", f.getName());
     } catch (NoSuchFieldException e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.getField(Patient.class, "genderr");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (NoSuchFieldException e) {
       assertTrue(true);
     }
@@ -341,12 +341,12 @@ public class HapiReflectionHelperTest {
       assertTrue(b instanceof Reference);
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.invokeGetter(p, "xxx");
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -409,12 +409,12 @@ public class HapiReflectionHelperTest {
       assertTrue(p.getExtension().get(0).getValue() instanceof Reference);
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     try {
       helper.invokeSetter(p, "xxx", new StringType("xxx"), false, null, false);
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -423,7 +423,7 @@ public class HapiReflectionHelperTest {
       // [x] value with wrong type
       StringType deceased = new StringType("false");
       helper.invokeSetter(p, "deceased", deceased, false, null, true);
-      assertTrue("Expected exception but didn't get one.", false);
+      assertTrue(false, "Expected exception but didn't get one.");
     } catch (Exception e) {
       assertTrue(true);
     }
@@ -479,7 +479,7 @@ public class HapiReflectionHelperTest {
       assertFalse(helper.isAttributeSet(s2, "subject"));
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
   }
   
@@ -502,7 +502,7 @@ public class HapiReflectionHelperTest {
       assertTrue(o instanceof HumanName);
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     // Patient.contact.name - with index, empty list
@@ -529,7 +529,7 @@ public class HapiReflectionHelperTest {
       }
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
     
     // Patient.contact.name - with index, populated list
@@ -554,7 +554,7 @@ public class HapiReflectionHelperTest {
       assertEquals("Doe", p.getContact().get(1).getName().getFamily());
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue("Unexpected exception: " + e.getLocalizedMessage(), false);
+      assertTrue(false, "Unexpected exception: " + e.getLocalizedMessage());
     }
   }
 
