@@ -5,9 +5,9 @@
  */
 package au.csiro.redmatch.exporter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -29,13 +29,13 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResearchStudy;
 import org.hl7.fhir.r4.model.Type;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyClient;
@@ -54,7 +54,7 @@ import au.csiro.redmatch.validation.MockTerminolgyClient;
  * @author Alejandro Metke Jimenez
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @PropertySource("classpath:application.properties")
 @SpringBootTest
 public class FhirExporterIT extends AbstractRedmatchTest {
@@ -73,7 +73,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   
   private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
-  @Before
+  @BeforeEach
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);

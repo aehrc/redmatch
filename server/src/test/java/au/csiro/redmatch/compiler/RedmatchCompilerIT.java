@@ -5,11 +5,11 @@
  */
 package au.csiro.redmatch.compiler;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -19,13 +19,13 @@ import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyClient;
@@ -59,7 +59,7 @@ import au.csiro.redmatch.validation.MockTerminolgyClient;
  * @author Alejandro Metke Jimenez
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @PropertySource("classpath:application.properties")
 @SpringBootTest
 public class RedmatchCompilerIT extends AbstractRedmatchTest {
@@ -72,7 +72,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
-  @Before
+  @BeforeEach
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);

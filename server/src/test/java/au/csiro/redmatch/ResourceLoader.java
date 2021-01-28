@@ -9,6 +9,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 /**
  * Base class for classes that load resources.
  * 
@@ -16,9 +19,16 @@ import java.util.Scanner;
  *
  */
 public class ResourceLoader {
-
-  protected String loadTestFile(String path) {
-    try (Scanner scanner = new Scanner(new File(path), "UTF-8")) {
+  
+  private static final Log log = LogFactory.getLog(ResourceLoader.class);
+  
+  protected String loadTestFile(String name) {
+    ClassLoader classLoader = getClass().getClassLoader();
+    File file = new File(classLoader.getResource(name).getFile());
+    String absolutePath = file.getAbsolutePath();
+    log.debug("Loading test file from " + absolutePath);
+    
+    try (Scanner scanner = new Scanner(new File(absolutePath), "UTF-8")) {
       return scanner.useDelimiter("\\A").next();
     } catch (FileNotFoundException e) {
       throw new RuntimeException(e);
@@ -26,15 +36,15 @@ public class ResourceLoader {
   }
   
   public String loadRulesString(String name) {
-    return loadTestFile("src/test/resources/rules_" + name + ".rdm");
+    return loadTestFile("rules_" + name + ".rdm");
   }
   
   protected String loadMetadataString(String name) {
-    return loadTestFile("src/test/resources/metadata_" + name + ".json");
+    return loadTestFile("metadata_" + name + ".json");
   }
   
   protected String loadReportString(String name) {
-    return loadTestFile("src/test/resources/report_" + name + ".json");
+    return loadTestFile("report_" + name + ".json");
   }
 
 }
