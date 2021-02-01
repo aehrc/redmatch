@@ -18,7 +18,6 @@
     <java.version>11</java.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
-    <junit-platform.version>5.3.1</junit-platform.version>
     <hapi.version>4.2.0</hapi.version>
     <apache-httpclient.version>4.5.12</apache-httpclient.version>
     <apache-poi.version>4.1.2</apache-poi.version>
@@ -64,13 +63,11 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <version>${junit-platform.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
-      <version>${junit-platform.version}</version>
       <scope>test</scope>
     </dependency>
     <!-- Used to process REDCap JSON files. -->
