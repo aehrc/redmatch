@@ -55,8 +55,8 @@ export default function Mappings(props: Props) {
 
   // Loads the value set options
   useEffect(() => {
-    const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem?_count=10000`);
-    const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_elements=url,name`);
+    const implicit = http.get<IBundle>(`${terminologyUrl}/CodeSystem?_count=99999`);
+    const explicit = http.get<IBundle>(`${terminologyUrl}/ValueSet?_count=99999&_elements=url,name`);
 
     http.all([implicit, explicit]).then(
       http.spread(function (imp, exp) {
