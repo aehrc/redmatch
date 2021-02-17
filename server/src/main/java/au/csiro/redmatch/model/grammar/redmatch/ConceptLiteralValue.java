@@ -69,8 +69,8 @@ public class ConceptLiteralValue extends Value {
     return system + "|" + code + display != null ? ("|" + display) : "";
   }
   @Override
-  public boolean referencesData() {
-    return false;
+  public DataReference referencesData() {
+    return DataReference.NO;
   }
   
 }

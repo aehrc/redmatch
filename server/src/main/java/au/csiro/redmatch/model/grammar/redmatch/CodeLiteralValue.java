@@ -47,8 +47,8 @@ public class CodeLiteralValue extends Value {
   }
 
   @Override
-  public boolean referencesData() {
-    return false;
+  public DataReference referencesData() {
+    return DataReference.NO;
   }
 
 }

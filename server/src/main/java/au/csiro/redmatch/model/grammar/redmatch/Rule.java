@@ -186,9 +186,18 @@ public class Rule extends GrammarObject {
    * @return True if the rule references any form fields (including the condition), or false 
    * otherwise.
    */
-  public boolean referencesData() {
-    return condition.referencesData() || body.referencesData() 
-        || (elseBody != null ? elseBody.referencesData() : false);
+  public DataReference referencesData() {
+    if (condition.referencesData().equals(DataReference.YES) 
+        || body.referencesData().equals(DataReference.YES) 
+        || (elseBody != null ? elseBody.referencesData().equals(DataReference.YES) : false)) {
+      return DataReference.YES;
+    } else if (condition.referencesData().equals(DataReference.RESOURCE) 
+        || body.referencesData().equals(DataReference.RESOURCE) 
+        || (elseBody != null ? elseBody.referencesData().equals(DataReference.RESOURCE) : false)) {
+      return DataReference.RESOURCE;
+    } else {
+      return DataReference.NO;
+    }
   }
 
   private Collection<Resource> doGetResourcesToCreate(Metadata metadata, Map<String, String> data, 

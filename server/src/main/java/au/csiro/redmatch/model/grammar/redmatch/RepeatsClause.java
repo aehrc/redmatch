@@ -130,8 +130,8 @@ public class RepeatsClause extends GrammarObject {
   }
 
   @Override
-  public boolean referencesData() {
-    return false;
+  public DataReference referencesData() {
+    return DataReference.NO;
   }
 
 }
