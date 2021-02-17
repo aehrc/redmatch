@@ -80,11 +80,27 @@ public class Resource extends GrammarObject {
   }
 
   @Override
-  public boolean referencesData() {
-    boolean referencesData = false;
-    for (AttributeValue av : resourceAttributeValues) {
-      referencesData = referencesData || av.referencesData();
+  public DataReference referencesData() {
+    DataReference referencesData = DataReference.NO;
+    for(AttributeValue av : resourceAttributeValues) {
+      switch(av.referencesData()) {
+        case YES:
+          referencesData = DataReference.YES;
+          break;
+        case RESOURCE:
+          if (referencesData.equals(DataReference.NO)) {
+            referencesData = DataReference.RESOURCE;
+          }
+          break;
+        case NO:
+          // Do nothing
+          break;
+        
+        default:
+          throw new RuntimeException("Unexpected value " + referencesData);
+      }
     }
+    
     return referencesData;
   }
 

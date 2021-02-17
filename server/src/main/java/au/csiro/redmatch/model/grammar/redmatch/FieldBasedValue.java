@@ -33,7 +33,7 @@ public abstract class FieldBasedValue extends Value {
   }
   
   @Override
-  public boolean referencesData() {
-    return true;
+  public DataReference referencesData() {
+    return DataReference.YES;
   }
 }

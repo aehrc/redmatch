@@ -396,11 +396,11 @@ public class ConditionExpression extends Condition {
   }
 
   @Override
-  public boolean referencesData() {
+  public DataReference referencesData() {
     if (conditionType.equals(ConditionType.TRUE) || conditionType.equals(ConditionType.FALSE)) {
-      return false;
+      return DataReference.NO;
     }
-    return true;
+    return DataReference.YES;
   }
 
 }

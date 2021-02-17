@@ -56,6 +56,9 @@ import org.hl7.fhir.r4.model.TimeType;
 import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.UrlType;
 import org.hl7.fhir.r4.model.UuidType;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.SimpleGraph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -233,6 +236,15 @@ public class FhirExporter {
     }
     return res;
   }
+  
+  private ResourceNode getVertex(Graph<ResourceNode, DefaultEdge> g, ResourceNode rn) {
+    for (ResourceNode v : g.vertexSet()) {
+      if (v.equals(rn)) {
+        return rn;
+      }
+    }
+    return null;
+  }
 
   /**
    * Creates FHIR resources based on data from REDCap, mappings and a set of rules. Returns a map,
@@ -251,47 +263,53 @@ public class FhirExporter {
     final Map<String, DomainResource> res = new HashMap<>();
     final String uniqueField = metadata.getUniqueFieldId();
     
-    final Map<String, Set<String>> uniqueResources = new HashMap<>();
+    /*
+     * We need to decide if an instance of a resource is created for every patient (i.e., for every
+     * row in the data) or just once. This depends on the rules. If all the rules that refer to a
+     * resource (with a specific id) never reference any values in the form, then a single resource
+     * is created. If the rules have references to other resources then the decision depends on the
+     * other resources.
+     * 
+     * This means that we need to create a graph to:
+     *   - Check that there are no cycles and throw an error if one is detected
+     *   - Traverse the graph and look for all the nodes that are reference to check if all of them
+     *   are independent of the rows.
+     */
+    Graph<ResourceNode, DefaultEdge> g = new SimpleGraph<>(DefaultEdge.class);
+    
+    
     
     if (rulesDocument != null) {
-      // First iterate over the rules that don't depend on the data
       for (Rule rule : rulesDocument.getRules()) {
-        if (!rule.referencesData()) {
-          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
-            Set<String> s = uniqueResources.get(r.getResourceType());
-            if (s == null) {
-              s = new HashSet<>();
-              uniqueResources.put(r.getResourceType(), s);
-            }
-            s.add(r.getResourceId());
+        for (Resource r : rule.getResources()) {
+          ResourceNode rn = new ResourceNode(r);
+          if (g.containsVertex(rn)) {
+            rn = getVertex(g, rn);
+            // TODO: finish this!
           }
         }
       }
+
       
-      for (Rule rule : rulesDocument.getRules()) {
-        if (!rule.referencesData()) {
-          for(Resource r : rule.getResourcesToCreate(metadata, null)) {
-            createResource(r, res, metadata, null, mappings, null, uniqueResources);
-          }
-        }
+      
+    }
+    
+    
+    // Iterate over data and create resources
+    for (Row row : rows) {
+      final Map<String, String> data = row.getData();
+      String recordId = data.get(uniqueField);
+      if (recordId == null) {
+        throw new RuntimeException(
+            "Expected " + uniqueField + " but was null. This should not happen!");
       }
       
-      // Iterate over data and create resources
-      for (Row row : rows) {
-        final Map<String, String> data = row.getData();
-        String recordId = data.get(uniqueField);
-        if (recordId == null) {
-          throw new RuntimeException(
-              "Expected " + uniqueField + " but was null. This should not happen!");
-        }
-        
-        for (Rule rule : rulesDocument.getRules()) {
-          if (rule.referencesData()) {
-            for(Resource r : rule.getResourcesToCreate(metadata, data)) {
-              createResource(r, res, metadata, data, mappings, recordId, uniqueResources);
-            }
+      for (Rule rule : rulesDocument.getRules()) {
+        /*if (rule.referencesData()) {
+          for(Resource r : rule.getResourcesToCreate(metadata, data)) {
+            createResource(r, res, metadata, data, mappings, recordId, uniqueResources);
           }
-        }
+        }*/
       }
     }
 
@@ -404,8 +422,9 @@ public class FhirExporter {
         }
       }
       
+      // TODO: update last parameter
       theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory, 
-          uniqueResources);
+          null);
       if (theValue == null) {
         throw new RuleApplicationException("Unable to get value: " + value);
       }
@@ -454,7 +473,7 @@ public class FhirExporter {
   @Transactional
   private Base getValue(au.csiro.redmatch.model.grammar.redmatch.Value value, Class<?> fhirType,
       Metadata metadata, Map<String, String> row, List<Mapping> mappings, String recordId, 
-      Class<?> enumFactory, Map<String, Set<String>> uniqueResources) {
+      Class<?> enumFactory, Set<Resource> uniqueResources) {
     if(value instanceof BooleanValue) {
       return new BooleanType(((BooleanValue) value).getValue());
     } else if (value instanceof CodeLiteralValue) {
@@ -478,12 +497,19 @@ public class FhirExporter {
       String resourceType = rv.getResourceType();
       String resourceId = rv.getResourceId();
       
-      Set<String> s = uniqueResources.get(resourceType);
-      if (s != null && s.contains(resourceId)) {
+      boolean unique = false;
+      for (Resource res : uniqueResources) {
+        if (res.getResourceId().equals(resourceId) && res.getResourceType().equals(resourceType)) {
+          unique = true;
+          break;
+        }
+      }
+      
+      if (unique) {
         // This is a reference to a unique resource - no need to append row id
-        ref.setReference("/" + rv.getResourceType() + "/" + resourceId);
+        ref.setReference("/" + resourceType + "/" + resourceId);
       } else {
-        ref.setReference("/" + rv.getResourceType() + "/" + resourceId + "-" + recordId);
+        ref.setReference("/" + resourceType + "/" + resourceId + "-" + recordId);
       }
       
       return ref;
@@ -957,6 +983,53 @@ public class FhirExporter {
           cause != null ? cause.getLocalizedMessage() : e.getLocalizedMessage(), e);
     } else {
       throw new RuleApplicationException ("There was a problem using reflection.", e);
+    }
+  }
+  
+  class ResourceNode {
+    String type;
+    String id;
+    boolean referenceData;
+    
+    public ResourceNode(Resource r) {
+      this.type = r.getResourceType();
+      this.id = r.getResourceId();
+    }
+    
+    @Override
+    public int hashCode() {
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + getEnclosingInstance().hashCode();
+      result = prime * result + ((id == null) ? 0 : id.hashCode());
+      result = prime * result + ((type == null) ? 0 : type.hashCode());
+      return result;
+    }
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj)
+        return true;
+      if (obj == null)
+        return false;
+      if (getClass() != obj.getClass())
+        return false;
+      ResourceNode other = (ResourceNode) obj;
+      if (!getEnclosingInstance().equals(other.getEnclosingInstance()))
+        return false;
+      if (id == null) {
+        if (other.id != null)
+          return false;
+      } else if (!id.equals(other.id))
+        return false;
+      if (type == null) {
+        if (other.type != null)
+          return false;
+      } else if (!type.equals(other.type))
+        return false;
+      return true;
+    }
+    private FhirExporter getEnclosingInstance() {
+      return FhirExporter.this;
     }
   }
 

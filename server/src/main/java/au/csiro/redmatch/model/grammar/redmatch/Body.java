@@ -94,15 +94,45 @@ public class Body extends GrammarObject {
     return sb.toString();
   }
   
-  public boolean referencesData() {
-    boolean referencesData = false;
+  public DataReference referencesData() {
+    DataReference referencesData = DataReference.NO;
     
     for(Rule rule : rules) {
-      referencesData = referencesData || rule.referencesData();
+      switch(rule.referencesData()) {
+        case YES:
+          referencesData = DataReference.YES;
+          break;
+        case RESOURCE:
+          if (referencesData.equals(DataReference.NO)) {
+            referencesData = DataReference.RESOURCE;
+          }
+          break;
+        case NO:
+          // Do nothing
+          break;
+        
+        default:
+          throw new RuntimeException("Unexpected value " + referencesData);
+      }
     }
     
     for (Resource res : resources) {
-      referencesData = referencesData || res.referencesData();
+      switch(res.referencesData()) {
+        case YES:
+          referencesData = DataReference.YES;
+          break;
+        case RESOURCE:
+          if (referencesData.equals(DataReference.NO)) {
+            referencesData = DataReference.RESOURCE;
+          }
+          break;
+        case NO:
+          // Do nothing
+          break;
+        
+        default:
+          throw new RuntimeException("Unexpected value " + referencesData);
+      }
     }
     
     return referencesData;
