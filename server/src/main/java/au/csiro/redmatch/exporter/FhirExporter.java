@@ -244,10 +244,11 @@ public class FhirExporter {
    * @param rn The vertex.
    * @return The vertex in the graph.
    */
-  private ResourceNode getVertex(Graph<ResourceNode, DefaultEdge> g, ResourceNode rn) {
+  private ResourceNode getVertex(Graph<ResourceNode, DefaultEdge> g, 
+      String resourceType, String resourceId) {
     for (ResourceNode v : g.vertexSet()) {
-      if (v.equals(rn)) {
-        return rn;
+      if(v.type.equals(resourceType) && v.id.equals(resourceId)) {
+        return v;
       }
     }
     throw new RuntimeException("Resource node was null. This should never happen!");
@@ -284,12 +285,14 @@ public class FhirExporter {
      */
     final Graph<ResourceNode, DefaultEdge> g = new SimpleDirectedGraph<>(DefaultEdge.class);
     if (rulesDocument != null) {
+      
+      // First add all vertices
       for (Rule rule : rulesDocument.getRules()) {
         for (Resource r : rule.getResources()) {
           // Extract resource and create node
           ResourceNode rn = new ResourceNode(r);
           if (g.containsVertex(rn)) {
-            rn = getVertex(g, rn);
+            rn = getVertex(g, rn.type, rn.id);
           } else {
             g.addVertex(rn);
           }
@@ -307,14 +310,21 @@ public class FhirExporter {
               rn.referenceData = ndr;
             }
           }
-
+        }
+      }
+      
+      // Then add all edges
+      for (Rule rule : rulesDocument.getRules()) {
+        for (Resource r : rule.getResources()) {
+          ResourceNode rn = getVertex(g, r.getResourceType(), r.getResourceId());
           // Get references and create edges
           for (ReferenceValue rv : r.getReferences()) {
-            ResourceNode tn = new ResourceNode(rv.getResourceType(), rv.getResourceType());
+            ResourceNode tn = new ResourceNode(rv.getResourceType(), rv.getResourceId());
             if (g.containsVertex(tn)) {
-              tn = getVertex(g, tn);
+              tn = getVertex(g, tn.type, tn.id);
             } else {
-              g.addVertex(tn);
+              throw new RuntimeException("Vertex " + tn 
+                  + " is not in graph. This should never happen!");
             }
             g.addEdge(rn, tn);
           }
@@ -344,7 +354,11 @@ public class FhirExporter {
     Collections.reverse(sortedNodes);
 
     // Set definitive value of referenceData for vertices
-    for (ResourceNode rn : g.vertexSet()) {
+    for (ResourceNode rn : sortedNodes) {
+      if (rn.referenceData == null) {
+        throw new RuntimeException("Reference data in resource node " + rn + " is null.");
+      }
+      
       // If referenceData is REFERENCE then look for all references and update value
       if (rn.referenceData.equals(GrammarObject.DataReference.RESOURCE)) {
         int refCount = 0;
@@ -622,13 +636,13 @@ public class FhirExporter {
 
       if (unique) {
         // This is a reference to a unique resource - no need to append row id
-        if (fhirResourceMap.containsKey(resourceType + "/" + resourceId)) {
+        if (fhirResourceMap.containsKey(resourceId)) {
           ref.setReference("/" + resourceType + "/" + resourceId);
         } else {
           log.debug("Did not find resource " + resourceType + "/" + resourceId);
         }
       } else {
-        if (fhirResourceMap.containsKey(resourceType + "/" + resourceId + "-" + recordId)) {
+        if (fhirResourceMap.containsKey(resourceId + "-" + recordId)) {
           ref.setReference("/" + resourceType + "/" + resourceId + "-" + recordId);
         } else {
           log.debug("Did not find resource " + resourceType + "/" + resourceId + "-" + recordId);
