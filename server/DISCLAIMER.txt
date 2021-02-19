@@ -1,5 +1,5 @@
 
-Lists of 130 third-party dependencies.
+Lists of 132 third-party dependencies.
      (Apache Software License 2.0) HAPI FHIR - Core Library (ca.uhn.hapi.fhir:hapi-fhir-base:4.2.0 - http://jamesagnew.github.io/hapi-fhir/)
      (Apache Software License 2.0) HAPI FHIR - Client Framework (ca.uhn.hapi.fhir:hapi-fhir-client:4.2.0 - https://hapifhir.io/hapi-deployable-pom/hapi-fhir-client)
      (Apache Software License 2.0) HAPI FHIR Structures - FHIR R4 (ca.uhn.hapi.fhir:hapi-fhir-structures-r4:4.2.0 - https://hapifhir.io/hapi-deployable-pom/hapi-fhir-structures-r4)
@@ -73,6 +73,8 @@ Lists of 130 third-party dependencies.
      (BSD License 3) Hamcrest (org.hamcrest:hamcrest:2.2 - http://hamcrest.org/JavaHamcrest/)
      (Apache License 2.0) Hibernate Validator Engine (org.hibernate.validator:hibernate-validator:6.1.7.Final - http://hibernate.org/validator/hibernate-validator)
      (Apache License, version 2.0) JBoss Logging 3 (org.jboss.logging:jboss-logging:3.4.1.Final - http://www.jboss.org)
+     (Eclipse Public License (EPL) 2.0) (GNU Lesser General Public License Version 2.1, February 1999) JGraphT - Core (org.jgrapht:jgrapht-core:1.5.0 - http://www.jgrapht.org/jgrapht-core)
+     (Apache License, Version 2.0) JHeaps (org.jheaps:jheaps:0.13 - http://www.jheaps.org)
      (Eclipse Public License v2.0) JUnit Jupiter (Aggregator) (org.junit.jupiter:junit-jupiter:5.7.0 - https://junit.org/junit5/)
      (Eclipse Public License v2.0) JUnit Jupiter API (org.junit.jupiter:junit-jupiter-api:5.7.0 - https://junit.org/junit5/)
      (Eclipse Public License v2.0) JUnit Jupiter Engine (org.junit.jupiter:junit-jupiter-engine:5.7.0 - https://junit.org/junit5/)

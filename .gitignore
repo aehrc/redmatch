@@ -19,6 +19,7 @@ bin/
 *.launch
 .settings/
 *.sublime-workspace
+*.iml
 
 # e2e
 /e2e/*.js

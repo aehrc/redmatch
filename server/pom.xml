@@ -131,6 +131,12 @@
       <version>${springfox-swagger.version}</version>
       <scope>compile</scope>
     </dependency>
+    <!-- Used to do internal operations with graphs. -->
+    <dependency>
+      <groupId>org.jgrapht</groupId>
+      <artifactId>jgrapht-core</artifactId>
+      <version>1.5.0</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -272,7 +278,7 @@
           </argLine>
       </configuration>
       </plugin>
-      <!-- Used to configure intergration tests. -->
+      <!-- Used to configure integration tests. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
