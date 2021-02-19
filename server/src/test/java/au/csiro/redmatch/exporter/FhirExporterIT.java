@@ -306,7 +306,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
    * the patient.
    */
   @Test
-  public void testPatientReference() {
+  public void testIssue13() {
     Metadata metadata = this.loadMetadata("bug");
     List<Row> rows = this.loadData("bug");
     String rules = this.loadRulesString("bug_patient_reference");
@@ -325,7 +325,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     
       System.out.println(res.keySet());
       
-      assertEquals(8, res.size());
+      assertEquals(12, res.size());
       
     } catch (Exception e) {
       e.printStackTrace();

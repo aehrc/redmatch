@@ -61,6 +61,22 @@ public class Resource extends GrammarObject {
     this.resourceAttributeValues = resourceAttributeValues;
   }
 
+  /**
+   * Returns all the references defined in this resource object.
+   *
+   * @return A list of references to other FHIR resources.
+   */
+  public List<ReferenceValue> getReferences() {
+    final List<ReferenceValue> res = new ArrayList<>();
+    for (AttributeValue av : resourceAttributeValues) {
+      Value v = av.getValue();
+      if (v instanceof ReferenceValue) {
+        res.add((ReferenceValue) v);
+      }
+    }
+    return res;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
