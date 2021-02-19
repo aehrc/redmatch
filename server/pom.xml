@@ -257,6 +257,7 @@
         </configuration>
       </plugin>
       <!-- Used to create a Docker image. -->
+      <!--
       <plugin>
         <groupId>com.spotify</groupId>
         <artifactId>dockerfile-maven-plugin</artifactId>
@@ -266,6 +267,7 @@
           <skipDockerInfo>true</skipDockerInfo>
         </configuration>
       </plugin>
+      -->
       <!-- Used to configure unit tests. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -278,7 +280,7 @@
           </argLine>
       </configuration>
       </plugin>
-      <!-- Used to configure intergration tests. -->
+      <!-- Used to configure integration tests. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
