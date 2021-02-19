@@ -12,10 +12,17 @@ package au.csiro.redmatch.model.grammar;
  *
  */
 public abstract class GrammarObject {
+  
+  public enum DataReference {
+    YES,
+    NO,
+    RESOURCE
+  }
+  
   /**
    * Indicates if this condition references any fields in the REDCap form.
    * 
    * @return True if any fields are referenced or false otherwise.
    */
-  public abstract boolean referencesData();
+  public abstract DataReference referencesData();
 }

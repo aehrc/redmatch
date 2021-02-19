@@ -90,8 +90,16 @@ public class ConditionNode extends Condition {
   }
 
   @Override
-  public boolean referencesData() {
-    return leftCondition.referencesData() || rightCondition.referencesData();
+  public DataReference referencesData() {
+    if (leftCondition.referencesData().equals(DataReference.YES) 
+        || rightCondition.referencesData().equals(DataReference.YES)) {
+      return DataReference.YES;
+    } else if (leftCondition.referencesData().equals(DataReference.RESOURCE) 
+        || rightCondition.referencesData().equals(DataReference.RESOURCE)) {
+      return DataReference.RESOURCE;
+    } else {
+      return DataReference.NO;
+    }
   }
 
 }

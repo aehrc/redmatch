@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -294,6 +295,38 @@ public class FhirExporterIT extends AbstractRedmatchTest {
       
       testObservation(res, "left-bicep-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001276", 
           "Hypertonia", "POS", "699956003", "Biceps brachii muscle and/or tendon structure", true);
+    } catch (Exception e) {
+      e.printStackTrace();
+      assertTrue(false);
+    }
+  }
+  
+  /**
+   * Test case for issue where a single resource is created despite the rules having a reference to
+   * the patient.
+   */
+  @Test
+  public void testIssue13() {
+    Metadata metadata = this.loadMetadata("bug");
+    List<Row> rows = this.loadData("bug");
+    String rules = this.loadRulesString("bug_patient_reference");
+    
+    Document rulesDocument = compiler.compile(rules, metadata);
+    assertNotNull(rulesDocument);
+    final List<Annotation> compilationErrors = compiler.getErrorMessages();
+    for (Annotation ann : compilationErrors) {
+      System.out.println(ann);
+    }
+    assertTrue(compilationErrors.isEmpty());
+    
+    try {
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
+          rulesDocument, Collections.emptyList(), rows);
+    
+      System.out.println(res.keySet());
+      
+      assertEquals(12, res.size());
+      
     } catch (Exception e) {
       e.printStackTrace();
       assertTrue(false);
