@@ -12,6 +12,7 @@ import io.swagger.annotations.ApiResponses;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -28,7 +29,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,7 +57,6 @@ import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.OperationResponse;
 import au.csiro.redmatch.util.WebUtils;
-import ca.uhn.fhir.parser.DataFormatException;
 
 /**
  * The main controller.
@@ -94,13 +93,12 @@ public class ApiController {
       @RequestParam(value = "_elements", required = false) String elements) {
     final List<String> elems = parseElements(elements);
     final List<RedmatchProject> projects = api.getRedmatchProjects(elems);
-    return new ResponseEntity<List<RedmatchProject>>(projects, HttpStatus.OK);
+    return new ResponseEntity<>(projects, HttpStatus.OK);
   }
 
   /**
    * Registers a Redmatch project.
-   * 
-   * @param redcapId The REDCap project id.
+   *
    * @param project The Redmatch project to register.
    * @return The response entity.
    */
@@ -111,12 +109,12 @@ public class ApiController {
   })
   @RequestMapping(value = "/project", method = RequestMethod.POST, 
       consumes = "application/json", produces = "application/json")
-  @Transactional
   public ResponseEntity<RedmatchProject> createRedmatchProject(
       @RequestBody RedmatchProject project,
       UriComponentsBuilder b) {
     
-    final OperationResponse rr = api.createRedmatchProject(project);
+    final OperationResponse rr = api.createRedmatchProject(project.getName(), project.getReportId(),
+            project.getRedcapUrl(), project.getToken());
     final RedmatchProject res = api.resolveRedmatchProject(rr.getProjectId(), false);
 
     final UriComponents uriComponents = b.path("/project/{id}").buildAndExpand(rr.getProjectId());
@@ -124,13 +122,11 @@ public class ApiController {
     headers.setLocation(uriComponents.toUri());
     headers.setContentType(MediaType.APPLICATION_JSON);
 
-    switch (rr.getStatus()) {
-      case CREATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
-      default:
-        throw new RuntimeException(
-            "Unexpected status " + rr.getStatus() + ". This should never happen!");
+    if (rr.getStatus() == OperationResponse.RegistrationStatus.CREATED) {
+      return new ResponseEntity<>(res, headers, HttpStatus.CREATED);
     }
+    throw new RuntimeException(
+            "Unexpected status " + rr.getStatus() + ". This should never happen!");
   }
 
   /**
@@ -151,7 +147,6 @@ public class ApiController {
   })
   @RequestMapping(value = "/project/{redmatchId}", method = RequestMethod.PUT, 
       consumes = "application/json", produces = "application/json")
-  @Transactional
   public ResponseEntity<RedmatchProject> updateRedmatchProject(
       @PathVariable String redmatchId,
       @RequestBody RedmatchProject project,
@@ -170,9 +165,9 @@ public class ApiController {
 
     switch (rr.getStatus()) {
       case UPDATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+        return new ResponseEntity<>(res, headers, HttpStatus.OK);
       case CREATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
+        return new ResponseEntity<>(res, headers, HttpStatus.CREATED);
       default:
         throw new RuntimeException(
             "Unexpected status " + rr.getStatus() + ". This should never happen!");
@@ -194,7 +189,7 @@ public class ApiController {
   produces = "application/json")
   public ResponseEntity<RedmatchProject> getRedmatchProject(@PathVariable String projectId) {
     final RedmatchProject p = api.resolveRedmatchProject(projectId, false);
-    return new ResponseEntity<RedmatchProject>(p, HttpStatus.OK);
+    return new ResponseEntity<>(p, HttpStatus.OK);
   }
 
   /**
@@ -210,7 +205,7 @@ public class ApiController {
   @RequestMapping(value = "/project/{projectId}/rules", 
       method = RequestMethod.GET, produces = "text/plain")
   public ResponseEntity<String> exportMappingRules(@PathVariable String projectId) {
-    return new ResponseEntity<String>(api.getRulesDocument(projectId), HttpStatus.OK);
+    return new ResponseEntity<>(api.getRulesDocument(projectId), HttpStatus.OK);
   }
 
   /**
@@ -248,8 +243,8 @@ public class ApiController {
           "Can only handle application/json, application/vnd.ms-excel " + "and */*, but got "
               + accept);
     } else if (format == 1) {
-      return new ResponseEntity<List<Mapping>>(api.getMappings(projectId), HttpStatus.OK);
-    } else if (format == 2) {
+      return new ResponseEntity<>(api.getMappings(projectId), HttpStatus.OK);
+    } else {
       final HttpHeaders headers = new HttpHeaders();
       headers.add("Content-Disposition", "attachment; filename=\"study_" + projectId + ".xls\"");
 
@@ -258,9 +253,6 @@ public class ApiController {
 
       return ResponseEntity.ok().headers(headers).contentLength(res.length)
           .contentType(MediaType.parseMediaType("application/vnd.ms-excel")).body(resource);
-    } else {
-      throw new RuntimeException(
-          "Unexpected format value " + format + ". This should never happen.");
     }
   }
 
@@ -270,7 +262,6 @@ public class ApiController {
    * @param file The Excel file with the mappings.
    * @param projectId The project id.
    * @return The response entity.
-   * @throws IOException If an IO error happens.
    */
   @ApiOperation(value = "Imports mappings in Excel format.")
   @ApiResponses(value = {
@@ -279,7 +270,6 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{projectId}/$import-mappings", 
       method = RequestMethod.POST, produces = "application/json")
-  @Transactional
   public ResponseEntity<?> importMappings(
       @RequestParam("file") MultipartFile file,
       @PathVariable String projectId,
@@ -297,7 +287,7 @@ public class ApiController {
   
         switch (rr.getStatus()) {
           case UPDATED:
-            return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+            return new ResponseEntity<>(res, headers, HttpStatus.OK);
           case CREATED:
           default:
             throw new RuntimeException(
@@ -318,7 +308,6 @@ public class ApiController {
    * @param redmatchId The Redmatch project id.
    * @param mappings mappings The mappings.
    * @return The response entity.
-   * @throws IOException If an IO error happens.
    */
   @ApiOperation(value = "Imports mappings in Excel format.")
   @ApiResponses(value = {
@@ -327,7 +316,6 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{redmatchId}/$update-mappings", 
       method = RequestMethod.POST, produces = "application/json")
-  @Transactional
   public ResponseEntity<RedmatchProject> updateMappings(
       @PathVariable String redmatchId,
       @RequestBody List<Mapping> mappings,
@@ -343,7 +331,7 @@ public class ApiController {
 
       switch (rr.getStatus()) {
         case UPDATED:
-          return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+          return new ResponseEntity<>(res, headers, HttpStatus.OK);
         case CREATED:
         default:
           throw new RuntimeException(
@@ -361,7 +349,6 @@ public class ApiController {
    * @param rulesDocument The transformation rules document.
    * @param projectId The project id.
    * @return The response entity.
-   * @throws IOException If an IO error happens.
    */
   @ApiOperation(value = "Updates the transformation rules document.")
   @ApiResponses(value = {
@@ -369,7 +356,6 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "project/{projectId}/$update-rules", 
       method = RequestMethod.POST, produces = "application/json")
-  @Transactional
   public ResponseEntity<RedmatchProject> updateRulesDocument(
       @PathVariable String projectId, 
       @RequestBody (required = false) String rulesDocument,
@@ -390,9 +376,9 @@ public class ApiController {
 
     switch (rr.getStatus()) {
       case UPDATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+        return new ResponseEntity<>(res, headers, HttpStatus.OK);
       case CREATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.CREATED);
+        return new ResponseEntity<>(res, headers, HttpStatus.CREATED);
       default:
         throw new RuntimeException(
             "Unexpected status " + rr.getStatus() + ". This should never happen!");
@@ -407,8 +393,6 @@ public class ApiController {
    *  
    * @param projectId The id of the Redmatch project.
    * @return The response entity.
-   * @throws IOException 
-   * @throws DataFormatException 
    */
   @ApiOperation(value = "Transforms the REDCap data using the current rules and mappings and "
       + "returns the generated resources in a bundle.")
@@ -420,7 +404,7 @@ public class ApiController {
   public ResponseEntity<Parameters> transformProject(@PathVariable String projectId) {
     try {
       Parameters res = api.transformProject(projectId);
-      return new ResponseEntity<Parameters>(res, HttpStatus.OK);
+      return new ResponseEntity<>(res, HttpStatus.OK);
     } catch (Exception e) {
       throw new RuntimeException(e); 
     }
@@ -470,10 +454,9 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "/project/{projectId}", method = RequestMethod.DELETE, 
       produces = "text/plain")
-  @Transactional
   public ResponseEntity<Void> deleteRedmatchProject(@PathVariable String projectId) {
     api.deleteRedmatchProject(projectId);
-    return new ResponseEntity<Void>(HttpStatus.NO_CONTENT);
+    return new ResponseEntity<>(HttpStatus.NO_CONTENT);
   }
   
   /**
@@ -501,7 +484,7 @@ public class ApiController {
 
     switch (rr.getStatus()) {
       case UPDATED:
-        return new ResponseEntity<RedmatchProject>(res, headers, HttpStatus.OK);
+        return new ResponseEntity<>(res, headers, HttpStatus.OK);
       case CREATED:
       default:
         throw new RuntimeException(
@@ -579,11 +562,11 @@ public class ApiController {
       .setSeverity(IssueSeverity.ERROR)
       .setCode(IssueType.EXCEPTION)
       .setDiagnostics(msg + " [" + e.getLocalizedMessage() + "]");
-    return new ResponseEntity<OperationOutcome>(oo, getHeaders(), status);
+    return new ResponseEntity<>(oo, getHeaders(), status);
   }
 
   private ResponseEntity<String> getResponse(HttpStatus status, String message) {
-    return new ResponseEntity<String>(gson.toJson(message), getHeaders(), status);
+    return new ResponseEntity<>(gson.toJson(message), getHeaders(), status);
   }
 
   private HttpHeaders getHeaders() {
@@ -595,11 +578,8 @@ public class ApiController {
   private List<String> parseElements(String elements) {
     final List<String> elems = new ArrayList<>();
     if (elements != null) {
-      for (String e : elements.split("[,]")) {
-        elems.add(e);
-      }
+      Collections.addAll(elems, elements.split("[,]"));
     }
     return elems;
   }
-
 }

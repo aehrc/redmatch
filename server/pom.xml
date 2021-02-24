@@ -35,10 +35,15 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
-    <!-- Spring Boot MongoDB support. -->
+    <!-- Spring Boot JPA support and H2 database. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-mongodb</artifactId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
     </dependency>
     <!-- Spring Boot security support. -->
     <dependency>
@@ -257,6 +262,7 @@
         </configuration>
       </plugin>
       <!-- Used to create a Docker image. -->
+      <!--
       <plugin>
         <groupId>com.spotify</groupId>
         <artifactId>dockerfile-maven-plugin</artifactId>
@@ -266,6 +272,7 @@
           <skipDockerInfo>true</skipDockerInfo>
         </configuration>
       </plugin>
+      -->
       <!-- Used to configure unit tests. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
