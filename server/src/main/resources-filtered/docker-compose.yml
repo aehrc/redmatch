@@ -1,22 +1,12 @@
 version: '3'
 volumes:
-  mongodb_data_container:
-    driver: local
   shared:
     driver: local
 services:
-  mongo:
-    image: mongo:4.2.6-bionic
-    container_name: mongo
-    expose:
-      - "27017"
-    volumes:
-      - mongodb_data_container:/data/db
   redmatch:
     image: aehrc/redmatch:@project.version@
     container_name: redmatch
     depends_on:
-      - mongo
       - keycloak
     environment:
       - "SPRING_PROFILES_ACTIVE=prod"
