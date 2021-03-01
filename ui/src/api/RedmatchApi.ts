@@ -69,8 +69,7 @@ export interface RedmatchApi {
 }
 
 export default (): RedmatchApi => {
-  const redmatchUrl = env('REDMATCH_URL');
-  const axiosInstance = useAxios(redmatchUrl);
+  const axiosInstance = useAxios();
   return {
     getProjects: async function() {
       return get<RedmatchProject[]>(axiosInstance, `/project`, null);

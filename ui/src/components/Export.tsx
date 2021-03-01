@@ -19,11 +19,10 @@ interface Props {
 
 export default function Export(props: Props) {
   const { projectId, onExportStarted, onExportFinished } = props;
-  const redmatchUrl = env("REDMATCH_URL");
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<Error | null>(null);
-  const axiosInstance = useAxios(redmatchUrl);
+  const axiosInstance = useAxios();
 
   const onExport = (projectId: string) => {
     fetchData(projectId)
@@ -45,7 +44,7 @@ export default function Export(props: Props) {
 
     try {
       await http.post<IParameters>(
-        `${redmatchUrl}/project/${projectId}/$transform`,
+        `/project/${projectId}/$transform`,
         null,
         {
           headers: {
@@ -68,7 +67,7 @@ export default function Export(props: Props) {
     try {
       const { data: blobData } = await http({
         method: 'post',
-        url: `${redmatchUrl}/project/${projectId}/$export`,
+        url: `/project/${projectId}/$export`,
         responseType: 'blob',
         headers: {
           "Accept": "application/zip"
