@@ -9,25 +9,9 @@ services:
     depends_on:
       - keycloak
     environment:
-      - "SPRING_PROFILES_ACTIVE=prod"
-      - redmatch.targetFolder=/usr/share/redmatch
-      - redmatch.security.enabled=true
-      - spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:10001/auth/realms/Aehrc
-      - spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://keycloak:8080/auth/realms/Aehrc/protocol/openid-connect/certs
+      - "SPRING_PROFILES_ACTIVE=docker"
     ports:
       - 8080:8080
-    volumes:
-      - shared:/usr/share/redmatch
-  redmatch-ui:
-    image: aehrc/redmatch-ui:@project.version@
-    container_name: redmatch-ui
-    depends_on:
-      - redmatch
-    environment:
-      - REACT_APP_REDMATCH_URL=http://localhost:8080
-      - REACT_APP_TERMINOLOGY_URL=https://r4.ontoserver.csiro.au/fhir
-    ports:
-      - 8888:80
     volumes:
       - shared:/usr/share/redmatch
   keycloak:
@@ -39,3 +23,4 @@ services:
         KEYCLOAK_IMPORT: tmp/realm-export.json
       ports:
         - 10001:8080
+        - 9990:9990

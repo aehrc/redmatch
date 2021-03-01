@@ -56,23 +56,28 @@ Finally, Redmatch communicates with REDCap through its API and requires a token 
 
 ![REDCap API token](img/redcap_api_token.png?raw=true "REDCap API token")
 
-## Running Redmatch
+## Building and running Redmatch
 
-To run Redmatch locally, the project has to be built first. Checkout the Redmatch source to you computer and then run the following:
+To run Redmatch locally, the project has to be built first. The following applications are required to build Redmatch from source:
+
+* [Maven](https://maven.apache.org/install.html)
+* [Docker](https://docs.docker.com/get-docker/)
+* [Yarn](https://classic.yarnpkg.com/en/docs/install/#mac-stable)
+
+Once these applications are installed locally, you can checkout the Redmatch source to you computer and run the following commands:
 
 ```
 % cd redmatch
 % mvn clean verify
 ```
 
-Redmatch is distributed as Docker images, one for the backend and one for the frontend. A sample Docker Compose file is available in the project root.
+Redmatch is distributed as a Docker image. A sample Docker Compose file is available in the project root.
 
 The following ports are used and should be available before running the Docker Compose file:
-- 8888, used by the Redmatch frontend
-- 8080, used by the Redmatch backend
+- 8080, used by Redmatch
 - 10001, used by Keycloak
 
-The sample Docker compose file creates four components: A Mongo DB instance (used by Redmatch), the Redmatch backend, the Redmatch frontend and a preconfigured Keycloak instance used to provide authentication and authorisation services. The following users are preconfigured in Keycloak:
+The sample Docker compose file creates two components: Redmatch and a preconfigured Keycloak instance used to provide authentication and authorisation services. The following users are preconfigured in Keycloak:
 
 | User      | Password    | Type                                                                                    |
 | --------- | ----------  | -------------------------------------------------------------------------------------   |
@@ -85,6 +90,8 @@ To run Redmatch locally use the following command in the project root:
 ```
 % docker-compose up -d
 ```
+
+NOTE: The Redmatch Docker image is created locally as part of the build process and should be available, but you might need to log into Docker Hub to download the Keyclock image used in the sample Docker compose file. To do this, run `docker login` before running the `docker-compose` command.
 
 WARNING: This sample configuration is meant to provide an easy way to run Redmatch locally but should not be used in a production environment. For available configuration options check out the [Redmatch configuration page](configuration.md).
 
