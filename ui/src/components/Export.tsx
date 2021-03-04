@@ -5,11 +5,10 @@
  */
 import { Box, Toolbar, Button, CircularProgress } from "@material-ui/core";
 import React, { useState } from "react";
-import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
-import env from "@beam-australia/react-env";
 import TextField from '@material-ui/core/TextField';
 import { ApiError } from "./ApiError";
 import { useAxios } from "../utils/hooks";
+import RedmatchApi from "../api/RedmatchApi";
 
 interface Props {
   projectId: string;
@@ -35,24 +34,8 @@ export default function Export(props: Props) {
     setStatus('loading');
     setValue('Transforming project in Redmatch...');
 
-    let http = undefined;
-    if (axiosInstance.current) {
-      http = axiosInstance.current;
-    } else {
-      throw new Error('Undefined Axios current instance.');
-    }
-
     try {
-      await http.post<IParameters>(
-        `/project/${projectId}/$transform`,
-        null,
-        {
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      await RedmatchApi().export(projectId);
       setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
     } catch (error) {
       const e : Error = { 
@@ -64,6 +47,12 @@ export default function Export(props: Props) {
     }
 
     // Download ZIP
+    let http = undefined;
+    if (axiosInstance.current) {
+      http = axiosInstance.current;
+    } else {
+      throw new Error('Undefined Axios current instance.');
+    }
     try {
       const { data: blobData } = await http({
         method: 'post',

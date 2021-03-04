@@ -131,7 +131,7 @@ export default function ProjectDetail(props: Props) {
   }
 
   const handleUpdate = () => {
-    updateMetadata([reportId]);
+    updateProject([reportId]);
   }
 
   const handleExportStarted = () => {
@@ -142,9 +142,9 @@ export default function ProjectDetail(props: Props) {
     setExporting(false);
   }
 
-  const { mutateAsync: updateMetadata, status: updateStatusMetadata, error: updateErrorMetadata } = 
+  const { mutateAsync: updateProject, status: updateStatusMetadata, error: updateErrorMetadata } =
     useMutation<RedmatchProject, Error, [string]>(
-      RedmatchApi().updateMetadata, {
+      RedmatchApi().updateProject, {
         onSettled: () => {
           client.invalidateQueries('RedmatchProject');
         }
@@ -169,9 +169,7 @@ export default function ProjectDetail(props: Props) {
                 token: '', 
                 name: '', 
                 rulesDocument: '', 
-                metadata: {
-                  fields: []
-                },
+                fields: [],
                 mappings: [],
                 issues: []
               }, 
@@ -208,9 +206,7 @@ export default function ProjectDetail(props: Props) {
                 token: '', 
                 name: '', 
                 rulesDocument: '', 
-                metadata: {
-                  fields: []
-                },
+                fields: [],
                 mappings: [],
                 issues: []
               }, 
@@ -269,7 +265,7 @@ export default function ProjectDetail(props: Props) {
           <ProjectInfo project={project} />
         </TabPanel>
         <TabPanel className={classes.tabContent} index={1} value={activeTab}>
-          <ProjectMetadata metadata={project.metadata} onUpdate={handleUpdate} status={status} updateStatus={updateStatusMetadata}/>
+          <ProjectMetadata project={project} onUpdate={handleUpdate} status={status} updateStatus={updateStatusMetadata}/>
         </TabPanel>
         <TabPanel className={classes.tabContent} index={2} value={activeTab}>
           <Rules project={project} onSave={handleOnSaveRules} onSaveNeeded={handleOnSaveNeededRules} status={status} updateStatus={updateStatusRules}/>

@@ -263,7 +263,46 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     assertEquals("http://snomed.info/sct", indeterminate.getTargetSystem());
     assertEquals("32570681000036100", indeterminate.getTargetCode());
   }
-  
+
+  @Test
+  public void testIssuesBug() throws URISyntaxException {
+    log.info("Running testIssuesBug");
+    // Set the mock REDCap client
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project"))
+            .accept(MediaType.APPLICATION_JSON)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+
+    // Update rules
+    RequestEntity<String> rulesRequest = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+            .accept(MediaType.APPLICATION_JSON)
+            .body("NOTNULL(demo_sex) { Observation<bio-sex> : * status = CODE_LITERAL(final) }");
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(1, resp.getIssues().size());
+
+    rulesRequest = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+            .accept(MediaType.APPLICATION_JSON)
+            .body("NOTNULL(dem_sex) { Observation<bio-sex> : * status = CODE_LITERAL(final) }");
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(0, resp.getIssues().size());
+  }
+
   private void populateMappingsBugFirstPass(List<Mapping> mappings) {
     for (Mapping mapping : mappings) {
       String fieldId = mapping.getRedcapFieldId();

@@ -26,10 +26,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @ConditionalOnProperty(value = "redmatch.security.enabled", havingValue = "true")
 public class JwtSecurityConfig extends WebSecurityConfigurerAdapter {
 
-  @Override
-  public void configure(WebSecurity web) throws Exception {
-    web.ignoring().antMatchers("/");
-  }
+  //@Override
+  //public void configure(WebSecurity web) throws Exception {
+  //  web.ignoring().antMatchers("/");
+  //}
 
   @Override
   protected void configure(HttpSecurity http) throws Exception {
