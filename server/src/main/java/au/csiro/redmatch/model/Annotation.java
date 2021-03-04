@@ -140,7 +140,7 @@ public class Annotation {
 
   @Override
   public String toString() {
-    return annotationType != null ? annotationType.toString() : "NA" + " [" + rowStart + ", " + colStart + "]["
+    return (annotationType != null ? annotationType.toString() : "NA") + " [" + rowStart + ", " + colStart + "]["
             + rowEnd + "," + colEnd +  "]: " + text;
   }
 

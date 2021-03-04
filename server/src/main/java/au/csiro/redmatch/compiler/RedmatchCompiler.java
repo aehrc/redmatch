@@ -141,6 +141,9 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * @return A Document object or null if there is an unrecoverable compilation problem.
    */
   public Document compile(RedmatchProject project) {
+    // Clear issues
+    project.deleteAllIssues();
+
     String rulesDocument = project.getRulesDocument();
 
     if (rulesDocument == null) {

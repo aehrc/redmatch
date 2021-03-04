@@ -220,7 +220,7 @@ public class ApiController {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 406, message = "The system does not support the requested content type."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{projectId}/mapping", 
+  @RequestMapping(value = "/project/{projectId}/mapping",
       method = RequestMethod.GET, produces = {"application/json", "application/vnd.ms-excel" })
   public ResponseEntity<?> getMappings(@RequestHeader(value = "Accept") String accept,
       @PathVariable String projectId) {
@@ -268,7 +268,7 @@ public class ApiController {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 406, message = "The uploaded file is empty."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{projectId}/$import-mappings", 
+  @RequestMapping(value = "/project/{projectId}/$import-mappings",
       method = RequestMethod.POST, produces = "application/json")
   public ResponseEntity<?> importMappings(
       @RequestParam("file") MultipartFile file,
@@ -314,7 +314,7 @@ public class ApiController {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 400, message = "The mappings are empty."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{redmatchId}/$update-mappings", 
+  @RequestMapping(value = "/project/{redmatchId}/$update-mappings",
       method = RequestMethod.POST, produces = "application/json")
   public ResponseEntity<RedmatchProject> updateMappings(
       @PathVariable String redmatchId,
@@ -354,7 +354,7 @@ public class ApiController {
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{projectId}/$update-rules", 
+  @RequestMapping(value = "/project/{projectId}/$update-rules",
       method = RequestMethod.POST, produces = "application/json")
   public ResponseEntity<RedmatchProject> updateRulesDocument(
       @PathVariable String projectId, 
@@ -415,7 +415,7 @@ public class ApiController {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 406, message = "The system does not support the requested content type."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{projectId}/$export", 
+  @RequestMapping(value = "/project/{projectId}/$export",
       method = RequestMethod.POST, produces = "application/zip" )
   public ResponseEntity<?> exportProject(@RequestHeader(value = "Accept") String accept,
       @PathVariable String projectId) {
@@ -469,7 +469,7 @@ public class ApiController {
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "The operation completed successfully."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "project/{projectId}/$update", 
+  @RequestMapping(value = "/project/{projectId}/$update",
       method = RequestMethod.POST, produces = "application/json")
   public ResponseEntity<RedmatchProject> refreshRedcapMetadata(
       @PathVariable String projectId,
