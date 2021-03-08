@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
+import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -152,7 +153,7 @@ public class FhirExporter {
   /**
    * Exports a bundle with all the clinical resources (i.e. all the non-terminology resources).
    * 
-   * @param metadata The REDCap metadata.
+   * @param project The Redmatch project.
    * @param rulesDocument The mapping rules.
    * @param mappings The mappings from REDCap fields to codes in a terminology.
    * @param rows The REDCap data. 
@@ -160,12 +161,11 @@ public class FhirExporter {
    * @return A bundle with the generated resources.
    */
   @Transactional
-  public Bundle createClinicalBundle(Metadata metadata, Document rulesDocument, 
+  public Bundle createClinicalBundle(RedmatchProject project, Document rulesDocument,
       List<Mapping> mappings, List<Row> rows) {
     final Bundle res = new Bundle();
     res.setType(BundleType.TRANSACTION);
-    final Map<String, DomainResource> m = createClinicalResourcesFromRules(metadata, rulesDocument, 
-        mappings, rows);
+    final Map<String, DomainResource> m = createClinicalResourcesFromRules(project, rulesDocument, rows);
     for (String key : m.keySet()) {
       final DomainResource dr = m.get(key);
       res.addEntry().setResource(dr).setRequest(new BundleEntryRequestComponent()
@@ -178,21 +178,18 @@ public class FhirExporter {
    * Saves all the generated FHIR resources in ND-JSON format in a folder. Each file the same
    * resource type. A map of resource types and filenames is returned.
    * 
-   * @param projectId The project id. Used to create a folder to export.
-   * @param metadata The REDCap metadata.
-   * @param rulesDocument The mapping rules.
-   * @param mappings The mappings from REDCap fields to codes in a terminology.
+   * @param project The Redmatch project.
+   * @param rulesDocument The compiled rules document.
    * @param rows The REDCap data. 
    * @return A map of resource types and files where these resources were saved.
    * @throws IOException 
    * @throws DataFormatException 
    */
-  public Map<String, String> saveResourcesToFolder(String projectId, Metadata metadata, 
-      Document rulesDocument, List<Mapping> mappings, List<Row> rows) 
+  public Map<String, String> saveResourcesToFolder(RedmatchProject project, Document rulesDocument, List<Row> rows)
           throws DataFormatException, IOException {
     
     // Create folder if it doesn't exist
-    Path tgtDir = Files.createDirectories(targetFolder.resolve(Path.of(projectId)));
+    Path tgtDir = Files.createDirectories(targetFolder.resolve(Path.of(project.getId())));
     
     // Tries to delete any old files in there
     for(File file: targetFolder.toFile().listFiles()) {
@@ -205,8 +202,7 @@ public class FhirExporter {
       }
     }
     
-    final Map<String, DomainResource> map = 
-        createClinicalResourcesFromRules(metadata, rulesDocument, mappings, rows);
+    final Map<String, DomainResource> map = createClinicalResourcesFromRules(project, rulesDocument, rows);
     
     // Group resources by type
     final Map<String, List<DomainResource>> grouped = new HashMap<>();
@@ -241,7 +237,8 @@ public class FhirExporter {
    * Returns a vertex in the graph. Should only be called after checking the graph contains the vertex.
    *
    * @param g The graph.
-   * @param rn The vertex.
+   * @param resourceType The resource type of a vertex.
+   * @param resourceId The resource id of a vertex.
    * @return The vertex in the graph.
    */
   private ResourceNode getVertex(Graph<ResourceNode, DefaultEdge> g, 
@@ -258,18 +255,17 @@ public class FhirExporter {
    * Creates FHIR resources based on data from REDCap, mappings and a set of rules. Returns a map,
    * indexed by resource id.
    * 
-   * @param metadata The REDCap metadata.
+   * @param project The Redmatch project.
    * @param rulesDocument The mapping rules.
-   * @param mappings The mappings for the REDCap fields.
    * @param rows The REDCap data.
    * 
    * @return The map of created resources, indexed by resource id.
    */
   @Transactional
-  public Map<String, DomainResource> createClinicalResourcesFromRules(Metadata metadata, 
-      Document rulesDocument, List<Mapping> mappings, List<Row> rows) {
+  public Map<String, DomainResource> createClinicalResourcesFromRules(RedmatchProject project, Document rulesDocument,
+                                                                      List<Row> rows) {
     final Map<String, DomainResource> fhirResourceMap = new HashMap<>();
-    final String uniqueField = metadata.getUniqueFieldId();
+    final String uniqueField = project.getUniqueFieldId();
     
     /*
      * We need to decide if an instance of a resource is created for every patient (i.e., for every
@@ -395,10 +391,10 @@ public class FhirExporter {
     for (ResourceNode rn : sortedNodes) {
       if (rn.referenceData.equals(GrammarObject.DataReference.NO)) {
         for (Rule rule : getReferencingRules(rn, rulesDocument)) {
-          for (Resource r : rule.getResourcesToCreate(metadata, null)) {
+          for (Resource r : rule.getResourcesToCreate(project, null)) {
             // Only create this resource - rules might create more that one resource
             if (rn.equalsResource(r)) {
-              createResource(r, fhirResourceMap, metadata, null, mappings, null, uniqueIds);
+              createResource(r, fhirResourceMap, project, null, null, uniqueIds);
             }
           }
         }
@@ -417,10 +413,10 @@ public class FhirExporter {
       for (ResourceNode rn : sortedNodes) {
         if (rn.referenceData.equals(GrammarObject.DataReference.YES)) {
           for (Rule rule : getReferencingRules(rn, rulesDocument)) {
-            for (Resource r : rule.getResourcesToCreate(metadata, data)) {
+            for (Resource r : rule.getResourcesToCreate(project, data)) {
               // Only create this resource - rules might create more that one resource
               if (rn.equalsResource(r)) {
-                createResource(r, fhirResourceMap, metadata, data, mappings, recordId, uniqueIds);
+                createResource(r, fhirResourceMap, project, data, recordId, uniqueIds);
               }
             }
           }
@@ -462,14 +458,14 @@ public class FhirExporter {
    * 
    * @param resource The internal resource representation.
    * @param fhirResourceMap The FHIR resource map.
-   * @param metadata The REDCap metadata.
+   * @param project The Redmatch project.
    * @param data The row of REDCap data.
    * @param recordId The id of this record. Used to create the FHIR ids.
    * @param uniqueIds Set of resources that have a single instance.
    */
   @Transactional
-  private void createResource(Resource resource, Map<String, DomainResource> fhirResourceMap, Metadata metadata,
-      Map<String, String> data, List<Mapping> mappings, String recordId, Set<String> uniqueIds) {
+  private void createResource(Resource resource, Map<String, DomainResource> fhirResourceMap, RedmatchProject project,
+      Map<String, String> data, String recordId, Set<String> uniqueIds) {
     final String resourceId = resource.getResourceId();
     final String fhirId = resourceId + (recordId != null ? ("-" + recordId) : "");
 
@@ -489,7 +485,7 @@ public class FhirExporter {
       fhirResourceMap.put(fhirId, fhirResource);
     }
     for (AttributeValue attVal : resource.getResourceAttributeValues()) {
-      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), metadata, data, mappings,
+      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), project, data,
           recordId, uniqueIds, fhirResourceMap);
     }
   }
@@ -510,17 +506,16 @@ public class FhirExporter {
    * @param attributes A list of {@link Attribute}. This represents a single attribute that might be
    *        several levels down. The list represents the path to the attribute.
    * @param value The value to set.
-   * @param metadata The REDCap metadata.
+   * @param project The Redmatch project.
    * @param row The row of data to be used to set this value.
-   * @param mappings Mappings of REDCap codes to codes in a terminology.
    * @param recordId The id of this record. Used to create the FHIR ids.
    * @param uniqueIds Set of resource ids that have a single instance.
    * @param fhirResourceMap Map of FHIR resource created so far.
    */
   @Transactional
   private void setValue(DomainResource resource, List<Attribute> attributes,
-      au.csiro.redmatch.model.grammar.redmatch.Value value, Metadata metadata,
-      Map<String, String> row, List<Mapping> mappings, String recordId, Set<String> uniqueIds,
+      au.csiro.redmatch.model.grammar.redmatch.Value value, RedmatchProject project,
+      Map<String, String> row, String recordId, Set<String> uniqueIds,
       Map<String, DomainResource> fhirResourceMap) {
 
     // Get chain of attribute names
@@ -558,7 +553,7 @@ public class FhirExporter {
         }
       }
 
-      theValue = getValue(value, fhirType, metadata, row, mappings, recordId, enumFactory, uniqueIds, fhirResourceMap);
+      theValue = getValue(value, fhirType, project, row, recordId, enumFactory, uniqueIds, fhirResourceMap);
       if (theValue == null) {
         throw new RuleApplicationException("Unable to get value: " + value);
       }
@@ -596,9 +591,8 @@ public class FhirExporter {
    * 
    * @param value The value specified in the transformation rules.
    * @param fhirType The type of the FHIR attribute where this value will be set.
-   * @param metadata The REDCap metadata.
+   * @param project The Redmatch project.
    * @param row The row of data from REDCap.
-   * @param mappings A list of mappings between REDCap values and codes in a terminology.
    * @param recordId The id of this record. Used to create the references to FHIR ids.
    * @param enumFactory If the type is an enumeration, this is the fatory to create an instance.
    * @param uniqueIds Set of resource ids that have a single instance.
@@ -607,7 +601,7 @@ public class FhirExporter {
    */
   @Transactional
   private Base getValue(au.csiro.redmatch.model.grammar.redmatch.Value value, Class<?> fhirType,
-      Metadata metadata, Map<String, String> row, List<Mapping> mappings, String recordId, 
+      RedmatchProject project, Map<String, String> row, String recordId,
       Class<?> enumFactory, Set<String> uniqueIds, Map<String, DomainResource> fhirResourceMap) {
     if(value instanceof BooleanValue) {
       return new BooleanType(((BooleanValue) value).getValue());
@@ -673,13 +667,13 @@ public class FhirExporter {
     } else if (value instanceof CodeSelectedValue) {
       CodeSelectedValue csv = (CodeSelectedValue) value;
       String fieldId = csv.getFieldId();
-      Mapping m = getSelectedMapping(fieldId, row, metadata, mappings);
+      Mapping m = getSelectedMapping(fieldId, row, project);
       validateMappingForCode(m);
       return getCode(m.getTargetCode(), fhirType, enumFactory);
     } else if (value instanceof ConceptSelectedValue) {
       ConceptSelectedValue csv = (ConceptSelectedValue) value;
       String fieldId = csv.getFieldId();
-      Mapping m = getSelectedMapping(fieldId, row, metadata, mappings);
+      Mapping m = getSelectedMapping(fieldId, row, project);
       validateMappingForConcept(m);
       
       return getConcept(m.getTargetSystem(), m.getTargetCode(), m.getTargetDisplay(), fhirType);
@@ -687,7 +681,7 @@ public class FhirExporter {
       // Ontoserver REDCap plugin format: 74400008|Appendicitis|http://snomed.info/sct
       ConceptValue cv = (ConceptValue) value;
       String fieldId = cv.getFieldId();
-      au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
+      au.csiro.redmatch.model.Field f = project.getField(fieldId);
       
       switch (f.getFieldType()) {
       case CHECKBOX:
@@ -698,7 +692,7 @@ public class FhirExporter {
       case CHECKBOX_OPTION:
       case DROPDOW_OR_RADIO_OPTION:
         // In this case we look for a mapping to the field itself, not its options
-        Mapping m = findMapping(mappings, fieldId);
+        Mapping m = findMapping(project.getMappings(), fieldId);
         validateMappingForConcept(m);
         return getConcept(m.getTargetSystem(), m.getTargetCode(), m.getTargetDisplay(), fhirType);
       case TEXT:
@@ -714,7 +708,7 @@ public class FhirExporter {
         } else {
           // Deal with plain text
           // Find the mapping
-          Map<String, Mapping> map = findMappings(mappings, fieldId);
+          Map<String, Mapping> map = findMappings(project.getMappings(), fieldId);
           m = map.get(val);
           
           // We don't validate here because it is ok if the mapping is not filled out
@@ -743,7 +737,7 @@ public class FhirExporter {
       FieldValue fv = (FieldValue) value;
       String fieldId = fv.getFieldId();
       String val = getValue(row, fieldId);
-      au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
+      au.csiro.redmatch.model.Field f = project.getField(fieldId);
       
       switch (f.getFieldType()) {
       case TEXT:
@@ -1024,25 +1018,23 @@ public class FhirExporter {
    * Gets the mapping for a selected value, accounting for the differences between RADIOs, DROPDOWNs
    * and CHECKBOX_OPTIONs.
    * 
-   * @param fieldId
-   * @param row
-   * @param metadata
-   * @param mappings
-   * @return
+   * @param fieldId The REDCap field id.
+   * @param row A row of REDCap data.
+   * @param project The Redmatch project.
+   * @return The mapping.
    */
-  private Mapping getSelectedMapping(String fieldId, Map<String, String> row, Metadata metadata, 
-      List<Mapping> mappings) {
+  private Mapping getSelectedMapping(String fieldId, Map<String, String> row, RedmatchProject project) {
     if (row == null) {
       throw new RuntimeException("Row was null when getting selected mapping for field " 
           + fieldId + ". This should never happen!");
     }
-    au.csiro.redmatch.model.Field f = metadata.getField(fieldId);
+    au.csiro.redmatch.model.Field f = project.getField(fieldId);
     FieldType ft = f.getFieldType();
     if (ft.equals(FieldType.RADIO) || ft.equals(FieldType.DROPDOWN)) {
       String val = getValue(row, fieldId);
-      return findMapping(mappings, fieldId + "___" + val);
+      return findMapping(project.getMappings(), fieldId + "___" + val);
     } else if (ft.equals(FieldType.CHECKBOX_OPTION)) {
-      return findMapping(mappings, fieldId);
+      return findMapping(project.getMappings(), fieldId);
     } else {
       throw new RuleApplicationException("Cannot get selected mapping for field of type " + ft);
     }

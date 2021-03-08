@@ -5,13 +5,11 @@
  */
 package au.csiro.redmatch.web;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -43,6 +41,8 @@ import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.validation.MockTerminolgyClient;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
  * Integration test for the REST controller.
  * 
@@ -71,7 +71,7 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
   /**
    * A template used by the Spring framework to do REST calls.
    */
-  private RestTemplate template = new RestTemplateBuilder()
+  private final RestTemplate template = new RestTemplateBuilder()
     .errorHandler(new DefaultResponseErrorHandler() {
         @Override
         protected boolean hasError(HttpStatus statusCode) {
@@ -99,19 +99,37 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     log.info("Setting terminology client to mock implementation.");
     RedmatchGrammarValidator rgv = appCtx.getBean(RedmatchGrammarValidator.class);
     rgv.setClient(new MockTerminolgyClient());
-    
+  }
+
+  @Test
+  public void testCreateProject() throws URISyntaxException {
+    log.info("Running testCreateProject");
+    // Set the mock REDCap client
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project"))
+            .accept(MediaType.APPLICATION_JSON)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    assertEquals(26, resp.getFields().size());
   }
   
   @Test
   public void testUpdateMappings() throws URISyntaxException {
+    log.info("Running testUpdateMappings");
     // Set the mock REDCap client
-    log.info("Setting REDCap client to mock implementation.");
     RedcapImporter ri = ctx.getBean(RedcapImporter.class);
     ri.setRedcapClient(new MockRedcapClient("tutorial"));
     
     // Create project
-    log.info("Creating Redmatch project");
-    RedmatchProject body = new RedmatchProject("1", "http://dummyredcapurl.com/api");
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
     body.setName("Tutorial IT");
     body.setToken("xxx");
     RequestEntity<RedmatchProject> request = RequestEntity
@@ -121,18 +139,20 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
         .body(body);
     ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
     RedmatchProject resp = response.getBody();
+    int numFields = resp.getFields().size();
+    assertTrue(numFields > 0);
+
     final String projectId = resp.getId();
     
     // Update rules
-    log.info("Updating transformation rules");
     RequestEntity<String> rulesRequest = RequestEntity
         .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
         .accept(MediaType.APPLICATION_JSON)
         .body(new ResourceLoader().loadRulesString("tutorial"));
-    log.info("Sending request: " + rulesRequest);
     response = template.exchange(rulesRequest, RedmatchProject.class);
     
     resp = response.getBody();
+    assertEquals(numFields, resp.getFields().size());
     assertEquals(18, resp.getMappings().size());
     
     // Populate mappings and update project
@@ -152,21 +172,19 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
         .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
         .accept(MediaType.APPLICATION_JSON)
         .body(new ResourceLoader().loadRulesString("tutorial_short"));
-    log.info("Sending request: " + rulesRequest);
     response = template.exchange(rulesRequest, RedmatchProject.class);
     resp = response.getBody();
     assertEquals(6, resp.getMappings().size());
   }
-  
+
   @Test
   public void testUpdateMappingsBug() throws URISyntaxException {
+    log.info("Running testUpdateMappingsBug");
     // Set the mock REDCap client
-    log.info("Setting REDCap client to mock implementation.");
     RedcapImporter ri = ctx.getBean(RedcapImporter.class);
     ri.setRedcapClient(new MockRedcapClient("bug"));
     // Create project
-    log.info("Creating Redmatch project");
-    RedmatchProject body = new RedmatchProject("2", "http://dummyredcapurl.com/api");
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
     body.setName("Redmatch bug");
     body.setToken("xxx");
     RequestEntity<RedmatchProject> request = RequestEntity
@@ -179,12 +197,10 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     final String projectId = resp.getId();
     
     // Update rules
-    log.info("Updating transformation rules");
     RequestEntity<String> rulesRequest = RequestEntity
         .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
         .accept(MediaType.APPLICATION_JSON)
         .body(new ResourceLoader().loadRulesString("bug"));
-    log.info("Sending request: " + rulesRequest);
     response = template.exchange(rulesRequest, RedmatchProject.class);
     
     resp = response.getBody();
@@ -247,7 +263,46 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     assertEquals("http://snomed.info/sct", indeterminate.getTargetSystem());
     assertEquals("32570681000036100", indeterminate.getTargetCode());
   }
-  
+
+  @Test
+  public void testIssuesBug() throws URISyntaxException {
+    log.info("Running testIssuesBug");
+    // Set the mock REDCap client
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project"))
+            .accept(MediaType.APPLICATION_JSON)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+
+    // Update rules
+    RequestEntity<String> rulesRequest = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+            .accept(MediaType.APPLICATION_JSON)
+            .body("NOTNULL(demo_sex) { Observation<bio-sex> : * status = CODE_LITERAL(final) }");
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(1, resp.getIssues().size());
+
+    rulesRequest = RequestEntity
+            .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+            .accept(MediaType.APPLICATION_JSON)
+            .body("NOTNULL(dem_sex) { Observation<bio-sex> : * status = CODE_LITERAL(final) }");
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(0, resp.getIssues().size());
+  }
+
   private void populateMappingsBugFirstPass(List<Mapping> mappings) {
     for (Mapping mapping : mappings) {
       String fieldId = mapping.getRedcapFieldId();
@@ -357,5 +412,4 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
       }
     }
   }
-
 }

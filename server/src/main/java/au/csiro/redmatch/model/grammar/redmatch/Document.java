@@ -11,11 +11,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import au.csiro.redmatch.model.RedmatchProject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import au.csiro.redmatch.model.Field;
-import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Field.TextValidationType;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 
@@ -52,13 +52,12 @@ public class Document extends GrammarObject {
    * The CONCEPT keyword only requires a mapping when used on a REDCap field of type TEXT that is 
    * not an autocomplete field.
    * 
-   * @param metadata The metadata of the project. Required to calculate which fields are required
-   * based on the rules.
+   * @param project The Redmatch project. Required to calculate which fields are required based on the rules.
    * 
    * @return A map with the REDCap field ids referenced in the rules and a boolean value that 
    *     indicates if the field needs to be mapped
    */
-  public Map<String, Boolean> getReferencedFields(Metadata metadata) {
+  public Map<String, Boolean> getReferencedFields(RedmatchProject project) {
     final Map<String, Boolean> res = new HashMap<>();
 
     for (Rule rule : rules) {
@@ -95,11 +94,11 @@ public class Document extends GrammarObject {
       for (Resource resource : rule.getResources()) {
         for (AttributeValue av : resource.getResourceAttributeValues()) {
           final Value val = av.getValue();
-          if (val != null && val instanceof FieldBasedValue) {
+          if (val instanceof FieldBasedValue) {
             FieldBasedValue fbv = (FieldBasedValue) val;
             String rulesFieldId = fbv.getFieldId();
             if (fbv instanceof ConceptSelectedValue || fbv instanceof CodeSelectedValue) {
-              for (Field field : metadata.getFields()) {
+              for (Field field : project.getFields()) {
                 // Need to do this to account for xx___yy type fields
                 if (field.getFieldId().startsWith(rulesFieldId) 
                     && !field.getFieldId().equals(rulesFieldId)) {
@@ -107,7 +106,7 @@ public class Document extends GrammarObject {
                 }
               }
             } else if (fbv instanceof ConceptValue) {
-              Field f = metadata.getField(rulesFieldId);
+              Field f = project.getField(rulesFieldId);
               
               if (f == null) {
                 log.warn("Found null field " + rulesFieldId + " in expression " + fbv);

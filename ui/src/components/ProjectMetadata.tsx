@@ -3,19 +3,19 @@
  * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
  * Software Licence Agreement.
  */
-import { Metadata } from "../api/RedmatchApi";
+import { RedmatchProject } from "../api/RedmatchApi";
 import { Table, TableBody, TableCell, TableRow, TableHead, Box, Toolbar, Button, CircularProgress, Typography } from "@material-ui/core";
 import React from "react";
 
 interface Props {
-  metadata: Metadata;
+  project: RedmatchProject;
   status: string;
   updateStatus: string;
   onUpdate: () => void;
 }
 
 export default function ProjectMetadata(props: Props) {
-  const { metadata, status, updateStatus, onUpdate } = props;
+  const { project, status, updateStatus, onUpdate } = props;
 
   function renderContent() {
     if (status === 'loading') {
@@ -46,7 +46,7 @@ export default function ProjectMetadata(props: Props) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {metadata.fields.map((field, i) => {
+            {project.fields.map((field, i) => {
               return (
                 <TableRow key={i}>
                   <TableCell>{field.fieldId}</TableCell>

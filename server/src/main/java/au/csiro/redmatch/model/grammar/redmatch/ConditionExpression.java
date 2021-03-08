@@ -8,6 +8,7 @@ package au.csiro.redmatch.model.grammar.redmatch;
 import java.util.List;
 import java.util.Map;
 
+import au.csiro.redmatch.model.RedmatchProject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -248,7 +249,7 @@ public class ConditionExpression extends Condition {
     return sb.toString();
   }
 
-  private boolean doEvaluate(Metadata metadata, Map<String, String> data) {
+  private boolean doEvaluate(RedmatchProject project, Map<String, String> data) {
     switch (conditionType) {
       case EXPRESSION:
         // 'VALUE' '(' variableIdentifier ')'('=' | '!=' | '<' | '>' | '<=' | '>=') (STRING | NUMBER)
@@ -279,7 +280,7 @@ public class ConditionExpression extends Condition {
         }
 
         // Get data type from REDCap metadata
-        Field field = metadata.getField(this.fieldId);
+        Field field = project.getField(this.fieldId);
         if (field == null) {
           throw new RuleApplicationException("No field " + this.fieldId + " found in metadata.");
         }
@@ -354,23 +355,23 @@ public class ConditionExpression extends Condition {
       case TRUE:
         return true;
       case NOTNULL:
-        return isNotNull(metadata, data);
+        return isNotNull(project, data);
       case NULL:
-        return !isNotNull(metadata, data);
+        return !isNotNull(project, data);
       default:
         throw new RuntimeException("Unexpected condition type " + conditionType);
     }
   }
   
-  private boolean isNotNull(Metadata metadata, Map<String, String> data) {
+  private boolean isNotNull(RedmatchProject project, Map<String, String> data) {
     // Get the field that is referenced in this condition expression
-    Field field = metadata.getField(fieldId);
+    Field field = project.getField(fieldId);
     FieldType ft = field.getFieldType();
     
     // Deal with special case where field is a checkbox - in this case we need to check that any
     // of the possible values are populated
     if (ft.equals(FieldType.CHECKBOX)) {
-      for (Field f : metadata.getFields()) {
+      for (Field f : project.getFields()) {
         // The checkbox entry fields start with the name of the checkbox field
         if (f.getFieldId().startsWith(this.fieldId) && !f.getFieldId().equals(this.fieldId)) {
           String value = data.get(f.getFieldId());
@@ -387,11 +388,11 @@ public class ConditionExpression extends Condition {
   }
 
   @Override
-  public boolean evaluate(Metadata metadata, Map<String, String> data) {
+  public boolean evaluate(RedmatchProject project, Map<String, String> data) {
     if (negated) {
-      return !doEvaluate(metadata, data);
+      return !doEvaluate(project, data);
     } else {
-      return doEvaluate(metadata, data);
+      return doEvaluate(project, data);
     }
   }
 

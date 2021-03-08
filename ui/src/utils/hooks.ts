@@ -9,14 +9,13 @@ import type { AxiosInstance } from 'axios';
 
 import { useKeycloak } from '@react-keycloak/web';
 
-export const useAxios = (baseURL: string) => {
+export const useAxios = () => {
   const axiosInstance = useRef<AxiosInstance>();
   const { keycloak, initialized } = useKeycloak();
   const kcToken = keycloak?.token ?? '';
 
   useEffect(() => {
     axiosInstance.current = axios.create({
-      baseURL,
       headers: {
         Authorization: initialized ? `Bearer ${kcToken}` : undefined,
       },
@@ -35,7 +34,7 @@ export const useAxios = (baseURL: string) => {
     return () => {
       axiosInstance.current = undefined;
     };
-  }, [baseURL, initialized, kcToken, keycloak]);
+  }, [initialized, kcToken, keycloak]);
 
   return axiosInstance;
 };
