@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -25,12 +26,17 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @ConditionalOnProperty(value = "redmatch.security.enabled", havingValue = "true")
 public class JwtSecurityConfig extends WebSecurityConfigurerAdapter {
 
+  //@Override
+  //public void configure(WebSecurity web) throws Exception {
+  //  web.ignoring().antMatchers("/");
+  //}
+
   @Override
   protected void configure(HttpSecurity http) throws Exception {
     http.cors()
     .and()
     .authorizeRequests()
-    .antMatchers("/**")
+    .antMatchers("/project/**")
     .hasRole("user")
     .and()
     .oauth2ResourceServer(

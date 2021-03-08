@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -10,7 +12,7 @@
 
   <artifactId>server</artifactId>
   <packaging>jar</packaging>
-  
+
   <name>Redmatch Server</name>
   <description>Backend for Redmatch, a tool designed to transform REDCap forms into FHIR resources.</description>
 
@@ -26,6 +28,7 @@
     <antlr4.listener>true</antlr4.listener>
     <springfox-swagger.version>2.9.2</springfox-swagger.version>
     <wiremock.version>2.26.3</wiremock.version>
+    <jib.arch>amd64</jib.arch>
     <start-class>au.csiro.redmatch.Application</start-class>
   </properties>
 
@@ -35,10 +38,15 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
-    <!-- Spring Boot MongoDB support. -->
+    <!-- Spring Boot JPA support and H2 database. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-mongodb</artifactId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
     </dependency>
     <!-- Spring Boot security support. -->
     <dependency>
@@ -141,7 +149,7 @@
 
   <build>
     <resources>
-    <resource>
+      <resource>
         <directory>src/main/resources</directory>
         <filtering>false</filtering>
       </resource>
@@ -150,16 +158,34 @@
         <filtering>true</filtering>
       </resource>
     </resources>
-    <!-- Copies filtered Docker Compose file to project root. -->
+    <!-- Used to copy files around. -->
     <plugins>
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
-         <executions>
+        <executions>
+          <!-- Copies filtered Docker Compose file to project root. -->
           <execution>
+            <id>copy-docker-compose</id>
             <phase>process-resources</phase>
             <configuration>
-               <target>
-                 <copy file="${project.build.outputDirectory}/docker-compose.yml" toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
+              <target>
+                <copy file="${project.build.outputDirectory}/docker-compose.yml"
+                      toFile="${project.basedir}/../docker-compose.yml" overwrite="true" />
+              </target>
+            </configuration>
+            <goals>
+              <goal>run</goal>
+            </goals>
+          </execution>
+          <!-- Used to copy the UI files as static resources. -->
+          <execution>
+            <id>copy-ui</id>
+            <phase>compile</phase>
+            <configuration>
+              <target>
+                <copy todir="${project.basedir}/target/classes/public">
+                  <fileset dir="${project.basedir}/../ui/build"/>
+                </copy>
               </target>
             </configuration>
             <goals>
@@ -238,7 +264,8 @@
           <libDirectory>${basedir}/src/main/antlr4/au/csiro/redmatch/grammar</libDirectory>
         </configuration>
       </plugin>
-      <!-- Used to generate a summary of the licenses for all libraries in this project. Needs to run from the command line using mvn license:add-third-party. -->
+      <!-- Used to generate a summary of the licenses for all libraries in this project. Needs to run from the command
+      line using mvn license:add-third-party. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -252,19 +279,49 @@
           </execution>
         </executions>
         <configuration>
-        <thirdPartyFilename>DISCLAIMER.txt</thirdPartyFilename>
+          <thirdPartyFilename>DISCLAIMER.txt</thirdPartyFilename>
           <outputDirectory>${project.basedir}</outputDirectory>
         </configuration>
       </plugin>
       <!-- Used to create a Docker image. -->
       <plugin>
-        <groupId>com.spotify</groupId>
-        <artifactId>dockerfile-maven-plugin</artifactId>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>2.8.0</version>
         <configuration>
-          <repository>aehrc/redmatch</repository>
-          <useMavenSettingsForAuth>true</useMavenSettingsForAuth>
-          <skipDockerInfo>true</skipDockerInfo>
+          <from>
+            <image>openjdk:17-slim-buster</image>
+            <platforms>
+              <platform>
+                <architecture>${jib.arch}</architecture>
+                <os>linux</os>
+              </platform>
+            </platforms>
+          </from>
+          <to>
+            <image>aehrc/redmatch</image>
+            <tags>
+              <tag>${project.version}</tag>
+              <tag>latest</tag>
+            </tags>
+          </to>
+          <container>
+            <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+            <volumes>
+              <volume>/usr/share/redmatch</volume>
+            </volumes>
+            <format>Docker</format>
+          </container>
+          <containerizingMode>packaged</containerizingMode>
         </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>dockerBuild</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <!-- Used to configure unit tests. -->
       <plugin>
@@ -274,9 +331,9 @@
           <useSystemClassLoader>false</useSystemClassLoader>
           <forkCount>0</forkCount>
           <argLine>
-              – illegal-access=permit
+            – illegal-access=permit
           </argLine>
-      </configuration>
+        </configuration>
       </plugin>
       <!-- Used to configure integration tests. -->
       <plugin>
@@ -286,7 +343,7 @@
           <useSystemClassLoader>false</useSystemClassLoader>
           <forkCount>0</forkCount>
           <argLine>
-              – illegal-access=permit
+            – illegal-access=permit
           </argLine>
           <classesDirectory>${project.build.outputDirectory}</classesDirectory>
         </configuration>
@@ -306,4 +363,18 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>m1</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <jib.arch>arm64</jib.arch>
+      </properties>
+    </profile>
+  </profiles>
 </project>

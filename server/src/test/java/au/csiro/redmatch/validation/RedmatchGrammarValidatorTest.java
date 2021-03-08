@@ -42,11 +42,11 @@ public class RedmatchGrammarValidatorTest {
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.extension.url", res);
-    assertThat(res, is(Arrays.asList("Quantity.extension.url")));
+    assertThat(res, is(Collections.singletonList("Quantity.extension.url")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.system", res);
-    assertThat(res, is(Arrays.asList("Quantity.system")));
+    assertThat(res, is(Collections.singletonList("Quantity.system")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.url", res);
@@ -54,7 +54,7 @@ public class RedmatchGrammarValidatorTest {
     res.clear();
     
     val.getOtherExtensions("Observation.valueRatio.extension.valueRatio.extension.url", res);
-    assertThat(res, is(Arrays.asList("Ratio.extension.url")));
+    assertThat(res, is(Collections.singletonList("Ratio.extension.url")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.extension.valueQuantity.extension."

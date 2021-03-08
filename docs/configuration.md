@@ -20,7 +20,6 @@ The following properties can be set in the fronend component:
 
 | Property                                              | Default Value                       | Description                                                             |
 | ----------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
-| REACT_APP_REDMATCH_URL                                | http://localhost:8080'              | The root endpoint of the Redmatch API.                                  |
 | REACT_APP_TERMINOLOGY_URL                             | https://r4.ontoserver.csiro.au/fhir | The URL of a FHIR terminology server. Required to find concepts to map. |
 | REACT_APP_KEYCLOAK_URL                                | http://localhost:10001/auth         | The Keycloak authorisation endpoint.                                    |
 | REACT_APP_KEYCLOAK_REALM                              | Aehrc                               | The Keycloak realm.                                                     |

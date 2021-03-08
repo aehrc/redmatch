@@ -3,10 +3,11 @@
  * Organisation (CSIRO) ABN 41 687 119 230. Licensed under the CSIRO Open Source
  * Software Licence Agreement.
  */
-import env from "@beam-australia/react-env";
 import { MutationFunction, QueryFunction, QueryFunctionContext } from "react-query";
 import { useAxios } from "../utils/hooks";
 import { get, post } from "./Api";
+import { AxiosResponse } from "axios";
+import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
 
 export interface UnsavedRedmatchProject {
   name: string;
@@ -19,7 +20,7 @@ export interface RedmatchProject extends UnsavedRedmatchProject {
   id: string;
   rulesDocument: string;
   issues: Issue[];
-  metadata: Metadata;
+  fields: Field[];
   mappings: Mapping[];
 }
 
@@ -31,10 +32,6 @@ export interface Issue {
   colEnd: number;
   text: string;
   annotationType: string;
-}
-
-export interface Metadata {
-  fields: Field[];
 }
 
 export interface Field {
@@ -65,12 +62,12 @@ export interface RedmatchApi {
   createProject: MutationFunction<RedmatchProject, UnsavedRedmatchProject>;
   updateRules: MutationFunction<RedmatchProject, [string, string]>;
   updateMappings: MutationFunction<RedmatchProject, [string, Mapping[]]>;
-  updateMetadata: MutationFunction<RedmatchProject, [string]>;
+  updateProject: MutationFunction<RedmatchProject, [string]>;
+  export(projectId: string): Promise<AxiosResponse<IParameters>>;
 }
 
 export default (): RedmatchApi => {
-  const redmatchUrl = env('REDMATCH_URL');
-  const axiosInstance = useAxios(redmatchUrl);
+  const axiosInstance = useAxios();
   return {
     getProjects: async function() {
       return get<RedmatchProject[]>(axiosInstance, `/project`, null);
@@ -102,12 +99,28 @@ export default (): RedmatchApi => {
         null
       );
     },
-    updateMetadata: async function(params: any[]) {
+    updateProject: async function(params: any[]) {
       return post<RedmatchProject>(
         axiosInstance,
         `/project/${params[0]}/$update`,
         null,
         null);
+    },
+    export: async function(projectId: string) {
+      if (axiosInstance.current) {
+        return axiosInstance.current.post<IParameters>(
+          `/project/${projectId}/$transform`,
+          null,
+          {
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            }
+          }
+        );
+      } else {
+        throw new Error('Undefined Axios current instance.');
+      }
     }
   };
 };

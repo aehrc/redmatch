@@ -44,7 +44,7 @@ public class MockTerminolgyClient implements ITerminologyClient {
   
   private static final Log log = LogFactory.getLog(MockTerminolgyClient.class);
   
-  private Map<String, Map<String, ConceptDefinitionComponent>> codeMap = new HashMap<>();
+  private final Map<String, Map<String, ConceptDefinitionComponent>> codeMap = new HashMap<>();
   
   public MockTerminolgyClient() {
     log.info("Loading Redmatch grammar code system into memory");
