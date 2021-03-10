@@ -63,7 +63,6 @@ export interface RedmatchApi {
   updateRules: MutationFunction<RedmatchProject, [string, string]>;
   updateMappings: MutationFunction<RedmatchProject, [string, Mapping[]]>;
   updateProject: MutationFunction<RedmatchProject, [string]>;
-  export(projectId: string): Promise<AxiosResponse<IParameters>>;
 }
 
 export default (): RedmatchApi => {
@@ -105,22 +104,6 @@ export default (): RedmatchApi => {
         `/project/${params[0]}/$update`,
         null,
         null);
-    },
-    export: async function(projectId: string) {
-      if (axiosInstance.current) {
-        return axiosInstance.current.post<IParameters>(
-          `/project/${projectId}/$transform`,
-          null,
-          {
-            headers: {
-              "Accept": "application/json",
-              "Content-Type": "application/json"
-            }
-          }
-        );
-      } else {
-        throw new Error('Undefined Axios current instance.');
-      }
     }
   };
 };

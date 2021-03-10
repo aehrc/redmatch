@@ -8,7 +8,7 @@ import React, { useState } from "react";
 import TextField from '@material-ui/core/TextField';
 import { ApiError } from "./ApiError";
 import { useAxios } from "../utils/hooks";
-import RedmatchApi from "../api/RedmatchApi";
+import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
 
 interface Props {
   projectId: string;
@@ -34,26 +34,27 @@ export default function Export(props: Props) {
     setStatus('loading');
     setValue('Transforming project in Redmatch...');
 
-    try {
-      await RedmatchApi().export(projectId);
-      setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
-    } catch (error) {
-      const e : Error = { 
-        name: 'Transformation error', 
-        message: 'There was a problem with the transformation. Please check all mappings have been completed.'
-      };
-      setError(e);
-      return;
-    }
-
-    // Download ZIP
     let http = undefined;
     if (axiosInstance.current) {
       http = axiosInstance.current;
     } else {
       throw new Error('Undefined Axios current instance.');
     }
+        
     try {
+      await http.post<IParameters>(
+        `/project/${projectId}/$transform`,
+        null,
+        {
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
+
+      // Download ZIP
       const { data: blobData } = await http({
         method: 'post',
         url: `/project/${projectId}/$export`,
@@ -73,9 +74,10 @@ export default function Export(props: Props) {
         link.parentNode.removeChild(link);
       }
     } catch (error) {
+      console.log(error);
       const e : Error = { 
-        name: 'Download error', 
-        message: 'There was a problem downloading the file.'
+        name: 'EXPORTING error', 
+        message: 'There was a problem exporting the FHIR resources.'
       };
       setError(e);
     } finally {
