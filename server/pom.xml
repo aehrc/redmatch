@@ -364,6 +364,8 @@
     </plugins>
   </build>
   <profiles>
+    <!-- If using Docker Machine to deploy, the jib.arch property can be overriden by setting the property on the
+    command line. -->
     <profile>
       <id>m1</id>
       <activation>
