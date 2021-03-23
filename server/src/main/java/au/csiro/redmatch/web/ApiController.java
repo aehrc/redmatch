@@ -5,6 +5,7 @@
  */
 package au.csiro.redmatch.web;
 
+import au.csiro.redmatch.util.RawJson;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
@@ -21,7 +22,6 @@ import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
@@ -122,7 +122,7 @@ public class ApiController {
     headers.setLocation(uriComponents.toUri());
     headers.setContentType(MediaType.APPLICATION_JSON);
 
-    if (rr.getStatus() == OperationResponse.RegistrationStatus.CREATED) {
+    if (rr.getStatus() == OperationResponse.Status.CREATED) {
       return new ResponseEntity<>(res, headers, HttpStatus.CREATED);
     }
     throw new RuntimeException(
@@ -186,7 +186,7 @@ public class ApiController {
       @ApiResponse(code = 404, message = "The project was not found."),
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "/project/{projectId}", method = RequestMethod.GET, 
-  produces = "application/json")
+    produces = "application/json")
   public ResponseEntity<RedmatchProject> getRedmatchProject(@PathVariable String projectId) {
     final RedmatchProject p = api.resolveRedmatchProject(projectId, false);
     return new ResponseEntity<>(p, HttpStatus.OK);
@@ -270,7 +270,7 @@ public class ApiController {
       @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
   @RequestMapping(value = "/project/{projectId}/$import-mappings",
       method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<?> importMappings(
+  public ResponseEntity<RedmatchProject> importMappings(
       @RequestParam("file") MultipartFile file,
       @PathVariable String projectId,
       UriComponentsBuilder b) {
@@ -294,11 +294,10 @@ public class ApiController {
                 "Unexpected status " + rr.getStatus() + ". This should never happen!");
         }
       } catch (IOException e) {
-        return getResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
-            "There was a problem reading the file.");
+        throw new RuntimeException(e);
       }
     } else {
-      return getResponse(HttpStatus.BAD_REQUEST, "The mappings file is empty!");
+      throw new InvalidMappingsException("The mappings file is empty!");
     }
   }
   
@@ -384,68 +383,83 @@ public class ApiController {
             "Unexpected status " + rr.getStatus() + ". This should never happen!");
     }
   }
-  
+
   /**
-   * Transforms the REDCap data using the current rules and mappings and returns the generated
-   * resources in a bundle.
-   * 
-   * TODO: decide how to deal with warnings.
-   *  
-   * @param projectId The id of the Redmatch project.
+   * Returns the generated FHIR model as a bundle or a ZIP file with ND-JSON.
+   *
+   * @param accept The accept headers sent by the client.
+   * @param projectId The project id.
    * @return The response entity.
    */
-  @ApiOperation(value = "Transforms the REDCap data using the current rules and mappings and "
-      + "returns the generated resources in a bundle.")
+  @ApiOperation(value = "Returns the generated FHIR model as a bundle or a ZIP file with ND-JSON.")
   @ApiResponses(value = {
-      @ApiResponse(code = 200, message = "The operation completed successfully."),
-      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "/project/{projectId}/$transform", 
-      method = RequestMethod.POST, produces = "application/json")
-  public ResponseEntity<Parameters> transformProject(@PathVariable String projectId) {
-    try {
-      Parameters res = api.transformProject(projectId);
-      return new ResponseEntity<>(res, HttpStatus.OK);
-    } catch (Exception e) {
-      throw new RuntimeException(e); 
-    }
-  }
-  
-  @ApiOperation(value = "Export generated ND-JSON files as a ZIP file.")
-  @ApiResponses(value = {
-      @ApiResponse(code = 200, message = "The operation completed successfully."),
-      @ApiResponse(code = 406, message = "The system does not support the requested content type."),
-      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value = "/project/{projectId}/$export",
-      method = RequestMethod.POST, produces = "application/zip" )
-  public ResponseEntity<?> exportProject(@RequestHeader(value = "Accept") String accept,
-      @PathVariable String projectId) {
-    
-    if (accept != null && !accept.isEmpty()) {
+          @ApiResponse(code = 200, message = "The operation completed successfully."),
+          @ApiResponse(code = 406, message = "The system does not support the requested content type."),
+          @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "/project/{projectId}/fhir",
+          method = RequestMethod.GET, produces = {"application/fhir+json", "application/zip" })
+  public ResponseEntity<?> getFhir(@RequestHeader(value = "Accept") String accept,
+                                   @PathVariable String projectId,
+                                   @RequestParam(value = "updateData", required = true) boolean updateData) {
+
+    int format = 0; // 0 - not acceptable, 1 - fhir+json, 2 - zip (nd-json)
+    if (accept == null || accept.isEmpty()) {
+      // We assume this equivalent to */*
+      format = 1;
+    } else {
       final Set<String> acceptHeaders = WebUtils.parseAcceptHeaders(accept);
-      if (!acceptHeaders.contains("application/zip") && !acceptHeaders.contains("*/*")) {
-        return getResponse(HttpStatus.NOT_ACCEPTABLE, 
-            "Can only handle application/zip and */*, but got " + accept + " (parsed: " 
-                + acceptHeaders + ")");
+      if (acceptHeaders.contains("application/json") || acceptHeaders.contains("application/fhir+json")
+              || acceptHeaders.contains("*/*")) {
+        format = 1;
+      } else if (acceptHeaders.contains("application/zip") || acceptHeaders.contains("application/x-ndjson")) {
+        format = 2;
       }
     }
-    
-    final HttpHeaders headers = new HttpHeaders();
-    headers.add("Content-Disposition", "attachment; filename=\"study_" + projectId 
-        + "_export.zip\"");
 
-    byte[] res;
-    try {
-      res = api.downloadExportedFiles(projectId);
-    } catch (IOException e) {
-      // If there is an IO issue we still should send back a 500
-      throw new RuntimeException(e);
+    if (format == 0) {
+      return getResponse(HttpStatus.NOT_ACCEPTABLE,
+              "Can only handle application/json, application/fhir+json, application/x-ndjson, " +
+                      "application/zip and */*, but got " + accept);
+    } else if (format == 1) {
+      // FHIR + JSON
+      return ResponseEntity
+          .ok()
+          .contentType(MediaType.parseMediaType("application/json"))
+          .body(new RawJson(api.getFhirBundle(projectId, updateData)));
+    } else {
+      // NDJSON
+      final HttpHeaders headers = new HttpHeaders();
+      headers.add("Content-Disposition", "attachment; filename=\"study_" + projectId
+          + "_export.zip\"");
+
+      byte[] res;
+      try {
+        res = api.getNdJsonZipFile(projectId, updateData);
+      } catch (IOException e) {
+        // If there is an IO issue we still should send back a 500
+        throw new RuntimeException(e);
+      }
+      final ByteArrayResource resource = new ByteArrayResource(res);
+      return ResponseEntity.ok().headers(headers).contentLength(res.length)
+          .contentType(MediaType.parseMediaType("application/zip")).body(resource);
     }
-    final ByteArrayResource resource = new ByteArrayResource(res);
-
-    return ResponseEntity.ok().headers(headers).contentLength(res.length)
-        .contentType(MediaType.parseMediaType("application/vnd.ms-excel")).body(resource);
   }
-  
+
+  /**
+   * Returns the generated graph model in JSON format.
+   *
+   * @param projectId The project id.
+   * @return The response entity.
+   */
+  @ApiOperation(value = "Returns the generated graph model in JSON format.")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "The operation completed successfully."),
+      @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value = "/project/{projectId}/graph", method = RequestMethod.GET, produces = "application/json")
+  public ResponseEntity<RawJson> getGraph(@PathVariable String projectId,
+                                          @RequestParam(value = "updateData", required = true) boolean updateData) {
+    return new ResponseEntity<>(RawJson.from(api.getGraph(projectId, updateData)), HttpStatus.OK);
+  }
   
   @ApiOperation(value = "Deletes a Redmatch project.")
   @ApiResponses(value = { @ApiResponse(code = 204, message = "The Redmatch project was deleted "

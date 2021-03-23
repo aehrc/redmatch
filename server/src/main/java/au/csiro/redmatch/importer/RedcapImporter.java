@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 import au.csiro.redmatch.model.*;
+import au.csiro.redmatch.util.HashUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,9 +71,10 @@ public class RedcapImporter {
    *
    * @param fieldIds The fields to return.
    * @param project The Redmatch project where the metadata will be added.
+   * @return boolean True if metadata was added to the project or false otherwise.
    */
-  public void addMetadata(Set<String> fieldIds, RedmatchProject project) {
-    addMetadata(redcapClient.getMetadata(project.getRedcapUrl(), project.getToken(), fieldIds), project);
+  public boolean addMetadata(Set<String> fieldIds, RedmatchProject project) {
+    return addMetadata(redcapClient.getMetadata(project.getRedcapUrl(), project.getToken(), fieldIds), project);
   }
 
   /**
@@ -80,8 +82,20 @@ public class RedcapImporter {
    * 
    * @param metadata The REDCap JSON metadata.
    * @param project The Redmatch project where the metadata will be added.
+   * @return boolean True if metadata was added to the project or false otherwise.
    */
-  public void addMetadata(String metadata, RedmatchProject project) {
+  public boolean addMetadata(String metadata, RedmatchProject project) {
+    // Check if project has metadata and if it is the same as the one in REDCap
+    String currentHash = HashUtils.sha256(metadata);
+    String projectHash = project.getMetadataHash();
+    if (projectHash != null && projectHash.equals(currentHash)) {
+      // Nothing to do - metadata hasn't changed
+      return false;
+    }
+
+    // If we get here then metadata hasn't been added before or has changed
+    project.setMetadataHash(currentHash);
+
     // Get items from JSON
     Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
     List<Map<String, String>> meta = gson.fromJson(metadata, listType);
@@ -153,6 +167,7 @@ public class RedcapImporter {
       }
       project.addField(field);
     }
+    return true;
   }
   
   /**
@@ -161,7 +176,7 @@ public class RedcapImporter {
    * @param data The JSON list.
    * @return The list of {@link Row}s.
    */
-  public List<Row> parseData(String data) {
+  public RedcapReport parseData(String data) {
     Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
     final List<Map<String, String>> rows = gson.fromJson(data, listType);
     
@@ -172,7 +187,8 @@ public class RedcapImporter {
       entry.setData(row);
       res.add(entry);
     }
-    return res;
+
+    return new RedcapReport(res, HashUtils.sha256(data));
   }
   
   /**
@@ -183,7 +199,7 @@ public class RedcapImporter {
    * @param reportId The report id.
    * @return The rows in the report.
    */
-  public List<Row> getReport(String url, String token, String reportId) {
+  public RedcapReport getReport(String url, String token, String reportId) {
     return parseData(redcapClient.getReport(url, token, reportId));
   }
 }

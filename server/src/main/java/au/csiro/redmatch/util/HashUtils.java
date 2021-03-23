@@ -5,6 +5,10 @@
  */
 package au.csiro.redmatch.util;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 /**
  * Hashing utilities.
  * 
@@ -24,6 +28,34 @@ public class HashUtils {
       return "0";
     }
     return String.valueOf(Math.abs(s.hashCode() % 100000));
+  }
+
+  /**
+   * Returns a string's SHA256 hash.
+   *
+   * @param s The string.
+   * @return It's hash.
+   */
+  public static String sha256(String s) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] encodedhash = digest.digest(s.getBytes(StandardCharsets.UTF_8));
+      return bytesToHex(encodedhash);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static String bytesToHex(byte[] hash) {
+    StringBuilder hexString = new StringBuilder(2 * hash.length);
+    for (int i = 0; i < hash.length; i++) {
+      String hex = Integer.toHexString(0xff & hash[i]);
+      if(hex.length() == 1) {
+        hexString.append('0');
+      }
+      hexString.append(hex);
+    }
+    return hexString.toString();
   }
 
 }

@@ -13,13 +13,13 @@ package au.csiro.redmatch.model;
  */
 public class OperationResponse {
 
-  public enum RegistrationStatus {
-    CREATED, UPDATED
+  public enum Status {
+    CREATED, UPDATED, NOT_MODIFIED
   }
 
   private final String projectId;
 
-  private final RegistrationStatus status;
+  private final Status status;
  
   /**
    * Creates a new project registration response.
@@ -27,7 +27,7 @@ public class OperationResponse {
    * @param projectId The id of the project.
    * @param status The status of the project.
    */
-  public OperationResponse(String projectId, RegistrationStatus status) {
+  public OperationResponse(String projectId, Status status) {
     super();
     this.projectId = projectId;
     this.status = status;
@@ -37,7 +37,7 @@ public class OperationResponse {
     return projectId;
   }
 
-  public RegistrationStatus getStatus() {
+  public Status getStatus() {
     return status;
   }
 

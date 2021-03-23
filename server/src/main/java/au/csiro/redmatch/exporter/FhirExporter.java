@@ -5,13 +5,11 @@
  */
 package au.csiro.redmatch.exporter;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,13 +18,18 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.annotation.PostConstruct;
 
+import au.csiro.redmatch.exceptions.RedmatchException;
 import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Bundle;
@@ -151,86 +154,108 @@ public class FhirExporter {
   }
 
   /**
-   * Exports a bundle with all the clinical resources (i.e. all the non-terminology resources).
+   * Creates a bundle with all the clinical resources (i.e. all the non-terminology resources).
    * 
    * @param project The Redmatch project.
    * @param rulesDocument The mapping rules.
-   * @param mappings The mappings from REDCap fields to codes in a terminology.
-   * @param rows The REDCap data. 
-   * 
+   * @param rows The REDCap data.
    * @return A bundle with the generated resources.
    */
   @Transactional
-  public Bundle createClinicalBundle(RedmatchProject project, Document rulesDocument,
-      List<Mapping> mappings, List<Row> rows) {
+  public Bundle createBundle(RedmatchProject project, Document rulesDocument, List<Row> rows) {
     final Bundle res = new Bundle();
-    res.setType(BundleType.TRANSACTION);
+    res.setType(BundleType.COLLECTION);
     final Map<String, DomainResource> m = createClinicalResourcesFromRules(project, rulesDocument, rows);
     for (String key : m.keySet()) {
       final DomainResource dr = m.get(key);
-      res.addEntry().setResource(dr).setRequest(new BundleEntryRequestComponent()
-          .setMethod(HTTPVerb.PUT).setUrl(dr.fhirType() + "/" + key));
+      res.addEntry().setResource(dr);
     }
     return res;
   }
-  
+
   /**
-   * Saves all the generated FHIR resources in ND-JSON format in a folder. Each file the same
-   * resource type. A map of resource types and filenames is returned.
-   * 
-   * @param project The Redmatch project.
-   * @param rulesDocument The compiled rules document.
-   * @param rows The REDCap data. 
-   * @return A map of resource types and files where these resources were saved.
-   * @throws IOException 
-   * @throws DataFormatException 
+   * Loads a {@link Bundle} from its JSON representation.
+   *
+   * @param json The bundle's JSON representation.
+   * @return The bundle.
    */
-  public Map<String, String> saveResourcesToFolder(RedmatchProject project, Document rulesDocument, List<Row> rows)
-          throws DataFormatException, IOException {
-    
-    // Create folder if it doesn't exist
-    Path tgtDir = Files.createDirectories(targetFolder.resolve(Path.of(project.getId())));
-    
-    // Tries to delete any old files in there
-    for(File file: targetFolder.toFile().listFiles()) {
-      if (!file.isDirectory() && file.getAbsolutePath().endsWith(".ndjson")) {
-        if (file.delete()) {
-          log.debug("Deleted file " + file.getAbsolutePath());
-        } else {
-          log.debug("Unable to deleted file " + file.getAbsolutePath());
-        }
-      }
-    }
-    
-    final Map<String, DomainResource> map = createClinicalResourcesFromRules(project, rulesDocument, rows);
-    
+  public Bundle loadBundle(String json) {
+    return (Bundle) ctx.newJsonParser().parseResource(json);
+  }
+
+  /**
+   * Returns the JSON representation of a FHIR resource.
+   *
+   * @param res The FHIR resource.
+   * @return It's JSON representation.
+   */
+  public String toJson(IBaseResource res) {
+    IParser jsonParser = ctx.newJsonParser();
+    return jsonParser.encodeResourceToString(res);
+  }
+
+  /**
+   * Returns a ZIP file with a collection of FHIR resources in ND-JSON format.
+   *
+   * @param resources The FHIR resources.
+   * @return A ZIP file with the resources in ND-JSON format.
+   *
+   * @throws IOException
+   */
+  public byte[] generateNdJsonZip(String bundleJson) {
+    final IParser jsonParser = ctx.newJsonParser();
+    Bundle bundle = (Bundle) jsonParser.parseResource(bundleJson);
+
     // Group resources by type
     final Map<String, List<DomainResource>> grouped = new HashMap<>();
-    for (String key : map.keySet()) {
-      DomainResource dr = map.get(key);
-      String resourceType = dr.getResourceType().toString();
-      List<DomainResource> list = grouped.get(resourceType);
-      if (list == null) {
-        list = new ArrayList<>();
-        grouped.put(resourceType, list);
-      }
-      list.add(dr);
-    }
-    
-    // Save to folder in ND-JSON
-    final Map<String, String> res = new HashMap<>();
-    IParser jsonParser = ctx.newJsonParser();
-    for (String key : grouped.keySet()) {
-      File f = new File(tgtDir.toFile(), key + ".ndjson");
-      res.put(key, f.getAbsolutePath());
-      try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
-        for(DomainResource dr : grouped.get(key)) {
-          jsonParser.encodeResourceToWriter(dr, bw);
-          bw.newLine();
+    bundle.getEntry()
+        .stream()
+        .filter(s -> s.hasResource() && s.getResource() instanceof DomainResource)
+        .forEach(s -> {
+          DomainResource dr = (DomainResource) s.getResource();
+          String resourceType = dr.getResourceType().toString();
+          List<DomainResource> list = grouped.get(resourceType);
+          if (list == null) {
+            list = new ArrayList<>();
+            grouped.put(resourceType, list);
+          }
+          list.add(dr);
+        });
+
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+
+        for (String key : grouped.keySet()) {
+          String fileName = key + ".ndjson";
+          ZipEntry zipEntry = new ZipEntry(fileName);
+          zos.putNextEntry(zipEntry);
+
+          // Build string for this file
+          StringBuilder sb = new StringBuilder();
+          for (DomainResource dr : grouped.get(key)) {
+            sb.append(jsonParser.encodeResourceToString(dr));
+            sb.append("\n");
+          }
+
+          // Write string bytes to ZIP
+          log.info("Adding file " + fileName + " to zip.");
+          try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(sb.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = bais.read(buffer)) > 0) {
+              zos.write(buffer, 0, len);
+            }
+            zos.closeEntry();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
       }
+      return baos.toByteArray();
+    } catch (IOException e) {
+      throw new RedmatchException("There was a problem generating the ND-JSON representation of the FHIR output.", e);
     }
-    return res;
   }
 
   /**

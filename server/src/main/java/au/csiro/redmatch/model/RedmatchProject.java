@@ -76,6 +76,46 @@ public class RedmatchProject {
   private List<Annotation> issues = new ArrayList<>();
 
   /**
+   * The version of this resource.
+   */
+  private Long version;
+
+  /**
+   * A hash of the JSON representation of the metadata that comes from REDCap. Used to determine if the metadata has
+   * changed and a new version of the resource is needed.
+   */
+  private String metadataHash;
+
+  /**
+   * A hash of the JSON representation of the data that comes from REDCap. Used to determine if the metadata has
+   * changed and a new version of the resource is needed.
+   */
+  private String dataHash;
+
+  /**
+   * The version of this resource used to populate the blobs that contain the resulting FHIR model and the graph
+   * representation.
+   */
+  private Long blobsVersion= -1L;
+
+  /**
+   * The JSON representation of the result of the transformation. Should be cleared any time the version of the resource
+   * is incremented. Used to cache the transformation, which is an expensive operation.
+   */
+  @Lob
+  @JsonIgnore
+  private String fhirJson;
+
+  /**
+   * The JSON representation of the graph model used to visualise the resulting FHIR model. Should be cleared any time
+   * the version of the resource is incremented. Used to cache the generation of the visualisation, which is an
+   * expensive operation.
+   */
+  @Lob
+  @JsonIgnore
+  private String graphJson;
+
+  /**
    * Default constructor.
    */
   public RedmatchProject() {}
@@ -111,6 +151,7 @@ public class RedmatchProject {
     this(reportId, redcapUrl);
     this.token = token;
     this.name = name;
+    this.version = 1L;
   }
 
   /**
@@ -314,6 +355,71 @@ public class RedmatchProject {
   public void deleteAllIssues() {
     issues.stream().forEach(x -> x.setProject(null));
     issues.clear();
+  }
+
+  public void incrementVersion() {
+    this.version++;
+  }
+
+  public String getMetadataHash() {
+    return metadataHash;
+  }
+
+  public void setMetadataHash(String metadataHash) {
+    this.metadataHash = metadataHash;
+  }
+
+  public String getDataHash() {
+    return dataHash;
+  }
+
+  public void setDataHash(String dataHash) {
+    this.dataHash = dataHash;
+  }
+
+  public Long getVersion() {
+    return version;
+  }
+
+  public Long getBlobsVersion() {
+    return blobsVersion;
+  }
+
+  public void setBlobsVersion(Long blobsVersion) {
+    this.blobsVersion = blobsVersion;
+  }
+
+  public String getFhirJson() {
+    return fhirJson;
+  }
+
+  public void setFhirJson(String fhirJson) {
+    this.fhirJson = fhirJson;
+  }
+
+  public String getGraphJson() {
+    return graphJson;
+  }
+
+  public void setGraphJson(String graphJson) {
+    this.graphJson = graphJson;
+  }
+
+  /**
+   * Indicates if the cache of the FHIR model and its graph representation are up to date. The caches are up to date if
+   * their version is the same as the version of the resource.
+   *
+   * @return boolean True of the caches are up to date or false otherwise.
+   */
+  public boolean isCacheUpToDate() {
+    if (this.fhirJson == null) {
+      return false;
+    }
+    if (this.blobsVersion == this.version) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   @Override

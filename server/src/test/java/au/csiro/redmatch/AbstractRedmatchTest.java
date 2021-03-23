@@ -52,7 +52,7 @@ public abstract class AbstractRedmatchTest extends ResourceLoader {
   
   protected List<Row> loadData(String name) {
     String json = loadReportString(name);
-    return redcapImporter.parseData(json);
+    return redcapImporter.parseData(json).getRows();
   }
   
   protected void printErrors(List<Annotation> errors) {
