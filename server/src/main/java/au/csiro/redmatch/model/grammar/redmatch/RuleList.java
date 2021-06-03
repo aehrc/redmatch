@@ -29,11 +29,28 @@ public class RuleList extends GrammarObject {
   }
 
   @Override
-  public boolean referencesData() {
-    boolean referencesData = false;
-    for (Rule r : rules) {
-      referencesData = referencesData || r.referencesData();
+  public DataReference referencesData() {
+    DataReference referencesData = DataReference.NO;
+    
+    for(Rule rule : rules) {
+      switch(rule.referencesData()) {
+        case YES:
+          referencesData = DataReference.YES;
+          break;
+        case RESOURCE:
+          if (referencesData.equals(DataReference.NO)) {
+            referencesData = DataReference.RESOURCE;
+          }
+          break;
+        case NO:
+          // Do nothing
+          break;
+        
+        default:
+          throw new RuntimeException("Unexpected value " + referencesData);
+      }
     }
+    
     return referencesData;
   }
   

@@ -5,20 +5,23 @@
  */
 package au.csiro.redmatch.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import javax.persistence.*;
 
 /**
  * Represents a mapping between a REDCap field to a concept in a code system.
- * 
+ *
  * @author Alejandro Metke Jimenez
  *
  */
-@Document
+@Entity
 public class Mapping implements Comparable<Mapping> {
 
   @Id
-  private String id;
+  @GeneratedValue(strategy= GenerationType.AUTO)
+  private Long id;
+
+  @ManyToOne
+  private RedmatchProject project;
 
   /**
    * The id of the REDCap field in this mapping.
@@ -72,14 +75,6 @@ public class Mapping implements Comparable<Mapping> {
 
   public Mapping() {
 
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public void setId(String id) {
-    this.id = id;
   }
 
   public String getRedcapFieldId() {
@@ -145,10 +140,6 @@ public class Mapping implements Comparable<Mapping> {
   public void setTargetDisplay(String targetDisplay) {
     this.targetDisplay = targetDisplay;
   }
-  
-  public boolean hasTargetDisplay() {
-    return this.targetDisplay != null;
-  }
 
   public String getValueSetUrl() {
     return valueSetUrl;
@@ -157,10 +148,6 @@ public class Mapping implements Comparable<Mapping> {
   public void setValueSetUrl(String valueSetUrl) {
     this.valueSetUrl = valueSetUrl;
   }
-  
-  public boolean hasValueSetUrl() {
-    return this.valueSetUrl != null;
-  }
 
   public String getValueSetName() {
     return valueSetName;
@@ -168,10 +155,6 @@ public class Mapping implements Comparable<Mapping> {
 
   public void setValueSetName(String valueSetName) {
     this.valueSetName = valueSetName;
-  }
-  
-  public boolean hasValueSetName() {
-    return this.valueSetName != null;
   }
 
   public boolean isInactive() {
@@ -184,6 +167,10 @@ public class Mapping implements Comparable<Mapping> {
   
   public boolean isSet() {
     return hasTargetSystem() && hasTargetCode();
+  }
+
+  public void setProject(RedmatchProject project) {
+    this.project = project;
   }
 
   @Override
@@ -210,11 +197,8 @@ public class Mapping implements Comparable<Mapping> {
     } else if (!redcapFieldId.equals(other.redcapFieldId))
       return false;
     if (text == null) {
-      if (other.text != null)
-        return false;
-    } else if (!text.equals(other.text))
-      return false;
-    return true;
+      return other.text == null;
+    } else return text.equals(other.text);
   }
 
   @Override

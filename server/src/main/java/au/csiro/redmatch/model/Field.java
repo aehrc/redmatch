@@ -5,7 +5,8 @@
  */
 package au.csiro.redmatch.model;
 
-import org.springframework.data.annotation.Id;
+
+import javax.persistence.*;
 
 /**
  * Represents a field in a REDCap form.
@@ -13,6 +14,7 @@ import org.springframework.data.annotation.Id;
  * @author Alejandro Metke Jimenez
  *
  */
+@Entity
 public class Field {
 
   public enum FieldType {
@@ -25,9 +27,13 @@ public class Field {
     DATETIME_SECONDS_YMD, DATETIME_SECONDS_MDY, DATETIME_SECONDS_DMY, PHONE, EMAIL, NUMBER, 
     INTEGER, ZIPCODE, FHIR_TERMINOLOGY
   }
-  
+
   @Id
-  private String id;
+  @GeneratedValue(strategy= GenerationType.AUTO)
+  private Long id;
+
+  @ManyToOne
+  private RedmatchProject project;
 
   private FieldType fieldType;
 
@@ -151,10 +157,13 @@ public class Field {
     this.fieldLabel = fieldLabel;
   }
 
+  public void setProject(RedmatchProject project) {
+    this.project = project;
+  }
+
   @Override
   public String toString() {
     return "Field [id=" + id + ", fieldType=" + fieldType + ", textValidationType="
         + textValidationType + ", fieldId=" + fieldId + ", fieldLabel=" + fieldLabel + "]";
   }
-
 }

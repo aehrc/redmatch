@@ -5,48 +5,34 @@
  */
 package au.csiro.redmatch.exporter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import au.csiro.redmatch.AbstractRedmatchTest;
+import au.csiro.redmatch.api.RedmatchApi;
+import au.csiro.redmatch.client.ITerminologyClient;
+import au.csiro.redmatch.compiler.RedmatchCompiler;
+import au.csiro.redmatch.model.Annotation;
+import au.csiro.redmatch.model.Mapping;
+import au.csiro.redmatch.model.RedmatchProject;
+import au.csiro.redmatch.model.Row;
+import au.csiro.redmatch.model.grammar.redmatch.Document;
+import au.csiro.redmatch.validation.MockTerminolgyClient;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
+import org.hl7.fhir.r4.model.Observation.ObservationStatus;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Encounter;
-import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
-import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
-import org.hl7.fhir.r4.model.Observation.ObservationStatus;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.ResearchStudy;
-import org.hl7.fhir.r4.model.Type;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-
-import au.csiro.redmatch.AbstractRedmatchTest;
-import au.csiro.redmatch.client.ITerminologyClient;
-import au.csiro.redmatch.compiler.RedmatchCompiler;
-import au.csiro.redmatch.importer.RedcapImporter;
-import au.csiro.redmatch.model.Annotation;
-import au.csiro.redmatch.model.Mapping;
-import au.csiro.redmatch.model.Metadata;
-import au.csiro.redmatch.model.Row;
-import au.csiro.redmatch.model.grammar.redmatch.Document;
-import au.csiro.redmatch.validation.MockTerminolgyClient;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * FHIR exporter unit tests.
@@ -54,7 +40,7 @@ import au.csiro.redmatch.validation.MockTerminolgyClient;
  * @author Alejandro Metke Jimenez
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @PropertySource("classpath:application.properties")
 @SpringBootTest
 public class FhirExporterIT extends AbstractRedmatchTest {
@@ -67,13 +53,13 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   
   @Autowired
   private RedmatchCompiler compiler;
-  
+
   @Autowired
-  private RedcapImporter redcapImporter;
+  private RedmatchApi redmatchApi;
   
-  private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
+  private final ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
-  @Before
+  @BeforeEach
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);
@@ -81,25 +67,24 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   
   @Test
   public void testCreateClinicalResourcesFromRulesDataMappings() {
-    Metadata metadata = this.loadMetadata("data_mappings");
+    RedmatchProject project = this.loadProject("data_mappings");
     List<Row> rows = this.loadData("data_mappings");
-    String rules = this.loadRulesString("data_mappings");
     
-    Document rulesDocument = compiler.compile(rules, metadata);
+    Document rulesDocument = compiler.compile(project);
     assertNotNull(rulesDocument);
-    final List<Annotation> compilationErrors = compiler.getErrorMessages();
+    final List<Annotation> compilationErrors = project.getIssues();
     for (Annotation ann : compilationErrors) {
       System.out.println(ann);
     }
     assertTrue(compilationErrors.isEmpty());
     
-    List<Mapping> mappings = redcapImporter.generateMappings(metadata, 
-        rulesDocument.getReferencedFields(metadata), rows);
+    List<Mapping> mappings = redmatchApi.generateMappings(project.getFields(),
+        rulesDocument.getReferencedFields(project), rows);
     
     populateDataMappings(mappings);
+    project.addMappings(mappings);
     
-    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
-        rulesDocument, mappings, rows);
+    Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(project, rulesDocument, rows);
     
     System.out.println(res.keySet());
     
@@ -177,25 +162,25 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   
   @Test
   public void testCreateClinicalResourcesFromRules() {
-    Metadata metadata = this.loadMetadata("tutorial");
+    RedmatchProject project = this.loadProject("tutorial");
     List<Row> rows = this.loadData("tutorial");
-    String rules = this.loadRulesString("tutorial");
-    Document rulesDocument = compiler.compile(rules, metadata);
+
+    Document rulesDocument = compiler.compile(project);
     assertNotNull(rulesDocument);
-    final List<Annotation> compilationErrors = compiler.getErrorMessages();
+    final List<Annotation> compilationErrors = project.getIssues();
     for (Annotation ann : compilationErrors) {
       System.out.println(ann);
     }
     assertTrue(compilationErrors.isEmpty());
     
-    List<Mapping> mappings = redcapImporter.generateMappings(metadata, 
-        rulesDocument.getReferencedFields(metadata), rows);
+    List<Mapping> mappings = redmatchApi.generateMappings(project.getFields(),
+            rulesDocument.getReferencedFields(project), rows);
     
     populateMappings(mappings);
+    project.addMappings(mappings);
     
     try {
-      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(metadata, 
-          rulesDocument, mappings, rows);
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(project, rulesDocument, rows);
     
       System.out.println(res.keySet());
       
@@ -214,7 +199,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
       assertEquals("http://ns.electronichealth.net.au/id/medicare-number", ident.getSystem());
       assertEquals("12345678911", ident.getValue());
       assertTrue(p1.hasDeceasedBooleanType());
-      assertEquals(false, p1.getDeceasedBooleanType().booleanValue());
+      assertFalse(p1.getDeceasedBooleanType().booleanValue());
       assertEquals(p1.getGender(), AdministrativeGender.MALE);
       
       // c1-1 and c2-1
@@ -236,26 +221,26 @@ public class FhirExporterIT extends AbstractRedmatchTest {
       assertEquals("CAKUT", c21.getCode().getText());
       
       // obs1-1 and obs3-1    
-      testObservation(res, "obs1-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001558", 
+      testObservation(res, "obs1-1", "HP:0001558",
           "Decreased fetal movement", "POS");
       
-      testObservation(res, "obs3-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0031910", 
+      testObservation(res, "obs3-1", "HP:0031910",
           "Abnormal cranial nerve physiology", "POS");
       
-      testObservation(res, "m-weak-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
+      testObservation(res, "m-weak-1", "HP:0001324",
           "Muscle weakness", "POS");
       
-      testObservation(res, "facial-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0010628", 
+      testObservation(res, "facial-1", "HP:0010628",
           "Facial palsy", "NEG");
       
-      testObservation(res, "ptosis-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000508", 
+      testObservation(res, "ptosis-1", "HP:0000508",
           "Ptosis", "POS");
       
-      testObservation(res, "oph-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0000602", 
+      testObservation(res, "oph-1", "HP:0000602",
           "Ophthalmoplegia", "NEG");
       
-      testObservation(res, "right-tricep-1", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001252", 
-          "Muscular hypotonia", "POS", "699996001", "Triceps brachii muscle and/or tendon structure", 
+      testObservation(res, "right-tricep-1", "HP:0001252",
+          "Muscular hypotonia", "699996001", "Triceps brachii muscle and/or tendon structure",
           false);
       
       // Patient 2
@@ -289,18 +274,46 @@ public class FhirExporterIT extends AbstractRedmatchTest {
       assertEquals("73211009", cod.getCode());
       assertEquals("Diabetes mellitus", cod.getDisplay());
       
-      testObservation(res, "m-weak-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001324", 
+      testObservation(res, "m-weak-2", "HP:0001324",
           "Muscle weakness", "NEG");
       
-      testObservation(res, "left-bicep-2", "http://purl.obolibrary.org/obo/hp.owl", "HP:0001276", 
-          "Hypertonia", "POS", "699956003", "Biceps brachii muscle and/or tendon structure", true);
+      testObservation(res, "left-bicep-2", "HP:0001276",
+          "Hypertonia", "699956003", "Biceps brachii muscle and/or tendon structure", true);
     } catch (Exception e) {
       e.printStackTrace();
-      assertTrue(false);
+      fail();
+    }
+  }
+  
+  /**
+   * Test case for issue where a single resource is created despite the rules having a reference to
+   * the patient.
+   */
+  @Test
+  public void testIssue13() {
+    RedmatchProject project = this.loadProject("bug", loadTestFile("rules_bug_patient_reference.rdm"));
+    List<Row> rows = this.loadData("bug");
+
+    Document rulesDocument = compiler.compile(project);
+    assertNotNull(rulesDocument);
+    final List<Annotation> compilationErrors = project.getIssues();
+    for (Annotation ann : compilationErrors) {
+      System.out.println(ann);
+    }
+    assertTrue(compilationErrors.isEmpty());
+
+    try {
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(project, rulesDocument, rows);
+      System.out.println(res.keySet());
+      assertEquals(12, res.size());
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
     }
   }
 
-  private void testObservation(Map<String, DomainResource> res, String id, String system, String code, String display, String interpretation) {
+  private void testObservation(Map<String, DomainResource> res, String id, String code, String display,
+                               String interpretation) {
     DomainResource dr  = res.get(id);
     assertTrue(res.containsKey(id));
     assertTrue(dr instanceof Observation);
@@ -309,7 +322,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals(ObservationStatus.FINAL, obs.getStatus());
     assertTrue(obs.hasCode());
     Coding cod = obs.getCode().getCodingFirstRep();
-    assertEquals(system, cod.getSystem());
+    assertEquals("http://purl.obolibrary.org/obo/hp.owl", cod.getSystem());
     assertEquals(code, cod.getCode());
     assertEquals(display, cod.getDisplay());
     assertTrue(obs.hasInterpretation());
@@ -321,9 +334,9 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals(interpretation, cod.getCode());
   }
   
-  private void testObservation(Map<String, DomainResource> res, String id, String system, 
-      String code, String display, String interpretation, String bodySiteCode, 
-      String bodySiteDisplay, boolean lateralityLeft) {
+  private void testObservation(Map<String, DomainResource> res, String id,
+                               String code, String display, String bodySiteCode,
+                               String bodySiteDisplay, boolean lateralityLeft) {
     DomainResource dr  = res.get(id);
     assertTrue(res.containsKey(id));
     assertTrue(dr instanceof Observation);
@@ -332,7 +345,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     assertEquals(ObservationStatus.FINAL, obs.getStatus());
     assertTrue(obs.hasCode());
     Coding cod = obs.getCode().getCodingFirstRep();
-    assertEquals(system, cod.getSystem());
+    assertEquals("http://purl.obolibrary.org/obo/hp.owl", cod.getSystem());
     assertEquals(code, cod.getCode());
     assertEquals(display, cod.getDisplay());
     assertTrue(obs.hasInterpretation());
@@ -341,7 +354,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     cod = inter.getCodingFirstRep();
     assertEquals("http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", 
         cod.getSystem());
-    assertEquals(interpretation, cod.getCode());
+    assertEquals("POS", cod.getCode());
     
     assertTrue(obs.hasBodySite());
     CodeableConcept bodySite = obs.getBodySite();
@@ -397,76 +410,81 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   private void populateMappings (List<Mapping> mappings) {
     for (Mapping mapping : mappings) {
       String fieldId = mapping.getRedcapFieldId();
-      if (fieldId.equals("pat_sex___1")) {
-        mapping.setTargetCode("male");
-      } else if (fieldId.equals("pat_sex___2")) {
-        mapping.setTargetCode("female");
-      } else if (fieldId.equals("phenotype___1")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001558");
-        mapping.setTargetDisplay("Decreased fetal movement");
-      } else if (fieldId.equals("phenotype___2")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001270");
-        mapping.setTargetDisplay("Motor delay");
-      } else if (fieldId.equals("phenotype___3")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0031910");
-        mapping.setTargetDisplay("Abnormal cranial nerve physiology");
-      } else if (fieldId.equals("phenotype___4")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0012587");
-        mapping.setTargetDisplay("Macroscopic hematuria");
-      } else if (fieldId.equals("m_weak")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001324");
-        mapping.setTargetDisplay("Muscle weakness");
-      } else if (fieldId.equals("facial")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0010628");
-        mapping.setTargetDisplay("Facial palsy");
-      } else if (fieldId.equals("ptosis")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0000508");
-        mapping.setTargetDisplay("Ptosis");
-      } else if (fieldId.equals("oph")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0000602");
-        mapping.setTargetDisplay("Ophthalmoplegia");
-      } else if (fieldId.equals("left_bicep___1")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001252");
-        mapping.setTargetDisplay("Muscular hypotonia");
-      } else if (fieldId.equals("left_bicep___3")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001276");
-        mapping.setTargetDisplay("Hypertonia");
-      } else if (fieldId.equals("right_bicep___1")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001252");
-        mapping.setTargetDisplay("Muscular hypotonia");
-      } else if (fieldId.equals("right_bicep___3")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001276");
-        mapping.setTargetDisplay("Hypertonia");
-      } else if (fieldId.equals("left_tricep___1")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001252");
-        mapping.setTargetDisplay("Muscular hypotonia");
-      } else if (fieldId.equals("left_tricep___3")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001276");
-        mapping.setTargetDisplay("Hypertonia");
-      } else if (fieldId.equals("right_tricep___1")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001252");
-        mapping.setTargetDisplay("Muscular hypotonia");
-      } else if (fieldId.equals("right_tricep___3")) {
-        mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
-        mapping.setTargetCode("HP:0001276");
-        mapping.setTargetDisplay("Hypertonia");
+      switch (fieldId) {
+        case "pat_sex___1":
+          mapping.setTargetCode("male");
+          break;
+        case "pat_sex___2":
+          mapping.setTargetCode("female");
+          break;
+        case "dem_sex___1":
+          mapping.setTargetSystem("http://snomed.info/sct");
+          mapping.setTargetCode("248153007");
+          mapping.setTargetDisplay("Male");
+          break;
+        case "dem_sex___2":
+          mapping.setTargetSystem("http://snomed.info/sct");
+          mapping.setTargetCode("248152002");
+          mapping.setTargetDisplay("Female");
+          break;
+        case "phenotype___1":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0001558");
+          mapping.setTargetDisplay("Decreased fetal movement");
+          break;
+        case "phenotype___2":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0001270");
+          mapping.setTargetDisplay("Motor delay");
+          break;
+        case "phenotype___3":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0031910");
+          mapping.setTargetDisplay("Abnormal cranial nerve physiology");
+          break;
+        case "phenotype___4":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0012587");
+          mapping.setTargetDisplay("Macroscopic hematuria");
+          break;
+        case "m_weak":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0001324");
+          mapping.setTargetDisplay("Muscle weakness");
+          break;
+        case "facial":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0010628");
+          mapping.setTargetDisplay("Facial palsy");
+          break;
+        case "ptosis":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0000508");
+          mapping.setTargetDisplay("Ptosis");
+          break;
+        case "oph":
+        case "mito_mw_ophthal":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0000602");
+          mapping.setTargetDisplay("Ophthalmoplegia");
+          break;
+        case "left_bicep___1":
+        case "right_bicep___1":
+        case "left_tricep___1":
+        case "right_tricep___1":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0001252");
+          mapping.setTargetDisplay("Muscular hypotonia");
+          break;
+        case "left_bicep___3":
+        case "right_tricep___3":
+        case "right_bicep___3":
+        case "left_tricep___3":
+          mapping.setTargetSystem("http://purl.obolibrary.org/obo/hp.owl");
+          mapping.setTargetCode("HP:0001276");
+          mapping.setTargetDisplay("Hypertonia");
+          break;
       }
     }
   }
-
 }

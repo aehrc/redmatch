@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Map;
 
 import au.csiro.redmatch.model.Metadata;
+import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 
 /**
@@ -159,20 +160,20 @@ public class Rule extends GrammarObject {
   /**
    * Evaluates the rule and returns all the {@link Resource}s that need to be created.
    * 
-   * @param metadata The REDCap metadata. 
+   * @param project The Redmatch project.
    * @param data A row of REDCap data.
    * @return A collection of resources to create.
    */
-  public Collection<Resource> getResourcesToCreate(Metadata metadata, Map<String, String> data) {
+  public Collection<Resource> getResourcesToCreate(RedmatchProject project, Map<String, String> data) {
     
     final Collection<Resource> res = new ArrayList<>();
     
-    if (condition.evaluate(metadata, data)) {
+    if (condition.evaluate(project, data)) {
       // Return resources from main body
-      return doGetResourcesToCreate(metadata, data, body);
+      return doGetResourcesToCreate(project, data, body);
     } else if (elseBody != null){
       // Return resources from else body
-      return doGetResourcesToCreate(metadata, data, elseBody);
+      return doGetResourcesToCreate(project, data, elseBody);
     }
     
     return res;
@@ -186,12 +187,21 @@ public class Rule extends GrammarObject {
    * @return True if the rule references any form fields (including the condition), or false 
    * otherwise.
    */
-  public boolean referencesData() {
-    return condition.referencesData() || body.referencesData() 
-        || (elseBody != null ? elseBody.referencesData() : false);
+  public DataReference referencesData() {
+    if (condition.referencesData().equals(DataReference.YES) 
+        || body.referencesData().equals(DataReference.YES) 
+        || (elseBody != null ? elseBody.referencesData().equals(DataReference.YES) : false)) {
+      return DataReference.YES;
+    } else if (condition.referencesData().equals(DataReference.RESOURCE) 
+        || body.referencesData().equals(DataReference.RESOURCE) 
+        || (elseBody != null ? elseBody.referencesData().equals(DataReference.RESOURCE) : false)) {
+      return DataReference.RESOURCE;
+    } else {
+      return DataReference.NO;
+    }
   }
 
-  private Collection<Resource> doGetResourcesToCreate(Metadata metadata, Map<String, String> data, 
+  private Collection<Resource> doGetResourcesToCreate(RedmatchProject project, Map<String, String> data,
       Body body) {
     
     final Collection<Resource> res = new ArrayList<>();
@@ -205,7 +215,7 @@ public class Rule extends GrammarObject {
     
     // Recursively evaluate any nested rules
     for (Rule r : body.getRules()) {
-      res.addAll(r.getResourcesToCreate(metadata, data));
+      res.addAll(r.getResourcesToCreate(project, data));
     }
     
     return res;

@@ -18,7 +18,7 @@ const eventLogger = (event: unknown, error: unknown) => {
 }
 
 const tokenLogger = (tokens: unknown) => {
-  console.log('onKeycloakTokens', tokens)
+  console.log((tokens as any).token)
 }
 
 const init = {

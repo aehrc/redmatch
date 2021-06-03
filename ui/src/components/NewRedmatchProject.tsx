@@ -44,7 +44,6 @@ export default function NewRedmatchProject(props: Props) {
         console.log('Unable to create new project: ' + error);
       },
       onSuccess: () => {
-        console.log('ERROR ' + error);
         setRequest(initialRequest);
         return onSuccess();
       }

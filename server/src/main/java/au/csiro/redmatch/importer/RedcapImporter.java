@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import au.csiro.redmatch.model.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +26,6 @@ import com.google.gson.reflect.TypeToken;
 
 import au.csiro.redmatch.client.IRedcapClient;
 import au.csiro.redmatch.exceptions.RedmatchException;
-import au.csiro.redmatch.model.Field;
-import au.csiro.redmatch.model.Mapping;
-import au.csiro.redmatch.model.Metadata;
-import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.Field.FieldType;
 import au.csiro.redmatch.model.Field.TextValidationType;
 
@@ -69,36 +66,22 @@ public class RedcapImporter {
   }
 
   /**
-   * Returns the project id of a REDCap project.
-   * 
-   * @param projectInfo The JSON string with the project info.
-   * @return The project id.
+   * Adds the REDCap metadata to a Redmatch project.
+   *
+   * @param fieldIds The fields to return.
+   * @param project The Redmatch project where the metadata will be added.
    */
-  public String getProjectId(String projectInfo) {
-    return parseProjectInfo(projectInfo).get("project_id");
+  public void addMetadata(Set<String> fieldIds, RedmatchProject project) {
+    addMetadata(redcapClient.getMetadata(project.getRedcapUrl(), project.getToken(), fieldIds), project);
   }
 
   /**
-   * Returns a map with the name-value pairs in the project info.
-   * 
-   * @param projectInfo The JSON string with the project info.
-   * @return The project info as a map of name value pairs.
-   */
-  public Map<String, String> parseProjectInfo(String projectInfo) {
-    final Type mapType = new TypeToken<HashMap<String, String>>() {}.getType();
-    return gson.fromJson(projectInfo, mapType);
-  }
-  
-  /**
-   * Creates a {@link Metadata} from the REDCap metadata.
+   * Creates a {@link RedmatchProject} from the REDCap metadata.
    * 
    * @param metadata The REDCap JSON metadata.
-   * 
-   * @return The metadata.
+   * @param project The Redmatch project where the metadata will be added.
    */
-  public Metadata parseMetadata(String metadata) {
-    final Metadata res = new Metadata();
-    
+  public void addMetadata(String metadata, RedmatchProject project) {
     // Get items from JSON
     Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
     List<Map<String, String>> meta = gson.fromJson(metadata, listType);
@@ -164,14 +147,12 @@ public class RedcapImporter {
               f.setFieldType(FieldType.DROPDOW_OR_RADIO_OPTION);
             }
             f.setTextValidationType(TextValidationType.NONE);
-            res.getFields().add(f);
+            project.addField(f);
           }
         }
       }
-      res.getFields().add(field);
+      project.addField(field);
     }
-
-    return res;
   }
   
   /**
@@ -191,152 +172,6 @@ public class RedcapImporter {
       entry.setData(row);
       res.add(entry);
     }
-    
-    return res;
-    
-  }
-  
-  /**
-   * Generates the mappings from the metadata.
-   * 
-   * @param metadata The internal object that represents the REDCap metadata.
-   * @param fieldIds The map of the ids of the fields defined in the transformation rules and a 
-   * boolean value that indicates if they are required. A field requires mapping when it is part of 
-   * the "resource" section of the rule and uses the CONCEPT, CONCEPT_SELECTED or CODE_SELECTED 
-   * keyword.
-   * @param url REDCap URL.
-   * @param token The API token.
-   * @param reportId The report id.
-   * 
-   * @return The mappings for the fields defined in the rules. If the fields in the rules reference
-   *         fields that do not exist in REDCap then these will be ignored.
-   */
-  public List<Mapping> generateMappings(Metadata metadata, Map<String, Boolean> fieldIds, 
-      String url, String token, String reportId) {
-    log.info("Generating mappings");
-    if (fieldIds.isEmpty()) {
-      return Collections.emptyList(); // Optimisation
-    }
-
-    final List<Field> fields = metadata.getFields();
-    log.debug("Determining if there are CONCEPT mappings to free text.");
-    
-    Set<String> fieldsWithTextToMap = new HashSet<>();
-    for (Field field : fields) {
-      String redcapFieldId = field.getFieldId();
-      log.debug("Processing field " + redcapFieldId);
-      if (fieldIds.containsKey(redcapFieldId) && fieldIds.get(redcapFieldId).booleanValue()) {
-        FieldType fieldType = field.getFieldType();
-        
-        if (FieldType.TEXT.equals(fieldType)) {
-          // Need to create a mapping for each data element
-          fieldsWithTextToMap.add(redcapFieldId);
-        }
-      }
-    }
-    
-    if (!fieldsWithTextToMap.isEmpty()) {
-      log.debug("There are mappings to free text.");
-      return generateMappings(metadata, fieldIds, this.getReport(url, token, reportId));
-    } else {
-      log.debug("There are no mappings to free text.");
-      return generateMappings(metadata, fieldIds, null);
-    }
-  }
-
-  /**
-   * Generates the mappings from the metadata.
-   * 
-   * @param metadata The internal object that represents the REDCap metadata.
-   * @param fieldIds The map of the ids of the fields defined in the transformation rules and a 
-   * boolean value that indicates if they are required. A field requires mapping when it is part of 
-   * the "resource" section of the rule and uses the CONCEPT, CONCEPT_SELECTED or CODE_SELECTED 
-   * keyword.
-   * @param report The rows of the report. Can be null if there are not CONCEPT mappings to plain
-   * text fields.
-   * 
-   * @return The mappings for the fields defined in the rules. If the fields in the rules reference
-   *         fields that do not exist in REDCap then these will be ignored.
-   */
-  public List<Mapping> generateMappings(Metadata metadata, Map<String, Boolean> fieldIds, 
-      List<Row> report) {
-    log.info("Generating mappings");
-    if (fieldIds.isEmpty()) {
-      return Collections.emptyList(); // Optimisation
-    }
-
-    final List<Mapping> res = new ArrayList<>();
-    final List<Field> fields = metadata.getFields();
-    log.debug("Processing " + fields.size() + " fields.");
-    
-    Set<String> fieldsWithTextToMap = new HashSet<>();
-    for (Field field : fields) {
-      String redcapFieldId = field.getFieldId();
-      log.debug("Processing field " + redcapFieldId);
-      if (fieldIds.containsKey(redcapFieldId) && fieldIds.get(redcapFieldId).booleanValue()) {
-        log.debug("Creating mappings for field " + field);
-        String label = field.getFieldLabel();
-        FieldType fieldType = field.getFieldType();
-        
-        if (FieldType.TEXT.equals(fieldType)) {
-          // Need to create a mapping for each data element
-          fieldsWithTextToMap.add(redcapFieldId);
-        } else {
-          Mapping mapping = new Mapping();
-          mapping.setRedcapFieldId(redcapFieldId);
-          mapping.setRedcapFieldType(fieldType.toString());
-          mapping.setRedcapLabel(label);
-          res.add(mapping);
-        }
-      }
-    }
-    
-    if (!fieldsWithTextToMap.isEmpty()) {
-      if (report == null) {
-        throw new RedmatchException("There are text mappings in fields " + fieldsWithTextToMap 
-            + " but no report was provided.");
-      }
-      
-      final Map<String, Set<String>> map = new HashMap<>();
-      for (String field : fieldsWithTextToMap) {
-        map.put(field, new HashSet<>());
-      }
-      
-      // Get data and index
-      for (Row row : report) {
-        final Map<String, String> data = row.getData();
-        for (String field : fieldsWithTextToMap) {
-          String s = data.get(field);
-          if (s != null && !s.isBlank()) {
-            map.get(field).add(s);
-          }
-        }
-      }
-      
-      for (Field field : fields) {
-        String redcapFieldId = field.getFieldId();
-        log.debug("Processing field " + redcapFieldId);
-        if (fieldIds.containsKey(redcapFieldId) && fieldIds.get(redcapFieldId).booleanValue()) {
-          log.debug("Creating data mappings for field " + field);
-          String label = field.getFieldLabel();
-          FieldType fieldType = field.getFieldType();
-          
-          if (FieldType.TEXT.equals(fieldType)) {
-            for (String text : map.get(redcapFieldId)) {
-              // Need to create a mapping for each data element
-              Mapping mapping = new Mapping();
-              mapping.setRedcapFieldId(redcapFieldId);
-              mapping.setRedcapFieldType(fieldType.toString());
-              mapping.setRedcapLabel(label);
-              mapping.setText(text);
-              res.add(mapping);
-            }
-          }
-        }
-      }
-    }
-    
-    Collections.sort(res);
     return res;
   }
   
@@ -351,17 +186,4 @@ public class RedcapImporter {
   public List<Row> getReport(String url, String token, String reportId) {
     return parseData(redcapClient.getReport(url, token, reportId));
   }
-  
-  /**
-   * Returns the REDCap metadata.
-   * 
-   * @param url REDCap URL.
-   * @param token The API token.
-   * @param fieldIds The fields to return.
-   * @return The REDCap metadata.
-   */
-  public Metadata getMetadata(String url, String token, Set<String> fieldIds) {
-    return parseMetadata(redcapClient.getMetadata(url, token, fieldIds));
-  }
-
 }
