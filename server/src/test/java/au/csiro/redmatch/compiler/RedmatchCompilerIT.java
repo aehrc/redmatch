@@ -5,33 +5,32 @@
  */
 package au.csiro.redmatch.compiler;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.FileNotFoundException;
 import java.util.List;
 
+import au.csiro.redmatch.model.RedmatchProject;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import au.csiro.redmatch.AbstractRedmatchTest;
 import au.csiro.redmatch.client.ITerminologyClient;
 import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.model.Annotation;
-import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.grammar.redmatch.Attribute;
 import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
 import au.csiro.redmatch.model.grammar.redmatch.Body;
@@ -59,7 +58,7 @@ import au.csiro.redmatch.validation.MockTerminolgyClient;
  * @author Alejandro Metke Jimenez
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @PropertySource("classpath:application.properties")
 @SpringBootTest
 public class RedmatchCompilerIT extends AbstractRedmatchTest {
@@ -70,9 +69,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   @Autowired
   private RedmatchCompiler compiler;
   
-  private ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
+  private final ITerminologyClient mockTerminologyServer = new MockTerminolgyClient();
   
-  @Before
+  @BeforeEach
   public void hookMock() {
     log.info("Setting mock terminology server");
     compiler.getValidator().setClient(mockTerminologyServer);
@@ -96,9 +95,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "}";
     
     printTokens(rule);
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
   }
@@ -121,9 +120,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "}";
     
     printTokens(rule);
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
   }
@@ -141,9 +140,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
         "}";
     
     printTokens(rule);
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertFalse(errors.isEmpty());
   }
@@ -158,9 +157,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -226,9 +225,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertFalse(errors.isEmpty());
   }
@@ -239,9 +238,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -256,9 +255,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -277,9 +276,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -298,9 +297,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -318,11 +317,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
-    assertTrue(!errors.isEmpty());
+    assertFalse(errors.isEmpty());
   }
   
   @Test
@@ -331,9 +330,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
   }
@@ -347,11 +346,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
-    assertTrue(!errors.isEmpty());
+    assertFalse(errors.isEmpty());
   }
   
   @Test
@@ -362,11 +361,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
-    assertTrue(!errors.isEmpty());
+    assertFalse(errors.isEmpty());
   }
   
   @Test
@@ -375,9 +374,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -422,9 +421,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -469,9 +468,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    final Metadata metadata = loadMetadata("tutorial");
-    compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    final RedmatchProject project = loadProject("tutorial", rule);
+    compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     
     assertFalse(errors.isEmpty());
@@ -479,20 +478,19 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   
   @Test
   public void testTutorialPatient() {
-    final String rule = 
-        "TRUE { \n" + 
-        "  Patient<p>:\n" + 
-        "    *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)\n" + 
-        "    *identifier.type.text = 'Medicare Number'\n" + 
-        "    *identifier.system = \'http://ns.electronichealth.net.au/id/medicare-number\'\n" + 
-        "    *identifier.value = VALUE(pat_medicare)\n" + 
-        "}";
+    final String rule = "TRUE { \n" +
+                "  Patient<p>:\n" +
+                "    *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)\n" +
+                "    *identifier.type.text = 'Medicare Number'\n" +
+                "    *identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number'\n" +
+                "    *identifier.value = VALUE(pat_medicare)\n" +
+                "}";
     
     printTokens(rule);
     
-    Metadata metadata = this.loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    RedmatchProject project = this.loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -523,7 +521,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
     testConceptLiteralAttributeValue(attrsVals.get(0), new String[] {"identifier", "type"}, 
-        new int[] {-1, -1}, "http://hl7.org/fhir/v2/0203", "MC", null);
+        new int[] {-1, -1});
     
     // identifier.type.text = "Medicare Number"
     testStringAttributeValue(attrsVals.get(1), new String[] {"identifier", "type", "text"}, 
@@ -539,11 +537,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
   }
   
   @Test
-  public void testTutorialCondition() throws FileNotFoundException {
+  public void testTutorialCondition() {
     final String rule = 
         "VALUE(dx_num) > 0 {\n" + 
         "  REPEAT(1..2: x)\n" + 
-        "  VALUE(dx_${x}) = \'NOT_FOUND\' {\n" + 
+        "  VALUE(dx_${x}) = 'NOT_FOUND' {\n" +
         "    // No code was found so we use the free text\n" + 
         "    Condition<c${x}>: \n" + 
         "      *code.text = VALUE(dx_text_${x})\n" + 
@@ -558,9 +556,9 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     printTokens(rule);
     
-    Metadata metadata = this.loadMetadata("tutorial");
-    Document doc = compiler.compile(rule, metadata);
-    List<Annotation> errors = compiler.getErrorMessages();
+    RedmatchProject project = this.loadProject("tutorial", rule);
+    Document doc = compiler.compile(project);
+    List<Annotation> errors = project.getIssues();
     printErrors(errors);
     assertTrue(errors.isEmpty());
     
@@ -570,8 +568,8 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     Rule r = rules.get(0);
     
     // Test the condition
-    testConditionExpression(r, ConditionType.EXPRESSION, "dx_num", ConditionExpressionOperator.GT,
-        0);
+    testConditionExpression(r
+    );
     
     // Test body - should have two nested rules (repeats clause is evaluated)
     Body b = r.getBody();
@@ -581,8 +579,8 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals(2, nestedRules.size());
     
     Rule nestedRule = nestedRules.get(0);
-    testConditionExpression(nestedRule, ConditionType.EXPRESSION, "dx_1", 
-        ConditionExpressionOperator.EQ, "NOT_FOUND");
+    testConditionExpression(nestedRule, "dx_1"
+    );
     
     // Test nested body
     b = nestedRule.getBody();
@@ -601,7 +599,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
-    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1}, "Patient", "p");
+    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1});
     
     // Test else body
     b = nestedRule.getElseBody();
@@ -620,11 +618,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
-    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1}, "Patient", "p");
+    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1});
     
     nestedRule = nestedRules.get(1);
-    testConditionExpression(nestedRule, ConditionType.EXPRESSION, "dx_2", 
-        ConditionExpressionOperator.EQ, "NOT_FOUND");
+    testConditionExpression(nestedRule, "dx_2"
+    );
     
     // Test nested body
     b = nestedRule.getBody();
@@ -643,7 +641,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
-    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1}, "Patient", "p");
+    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1});
     
     // Test else body
     b = nestedRule.getElseBody();
@@ -662,11 +660,11 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     
     // subject = REF(Patient<p>)
     av = resource.getResourceAttributeValues().get(1);
-    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1}, "Patient", "p");
+    testReferenceAttributeValue(av, new String[] {"subject"},  new int[] {-1});
   }
   
-  private void testFieldBasedAttributeValue(AttributeValue av, String[] expectedPath, 
-      int[] expectedIndexes, String expectedValue, Class<? extends FieldBasedValue> clazz) {
+  private void testFieldBasedAttributeValue(AttributeValue av, String[] expectedPath, int[] expectedIndexes,
+                                            String expectedValue, Class<? extends FieldBasedValue> clazz) {
     List<Attribute> attrs = av.getAttributes();
     assertEquals (expectedPath.length, attrs.size());
     
@@ -686,8 +684,8 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals(clazz, val.getClass());
   }
   
-  private void testStringAttributeValue(AttributeValue av, String[] expectedPath, 
-      int[] expectedIndexes, String expectedValue) {
+  private void testStringAttributeValue(AttributeValue av, String[] expectedPath, int[] expectedIndexes,
+                                        String expectedValue) {
     List<Attribute> attrs = av.getAttributes();
     assertEquals (expectedPath.length, attrs.size());
     
@@ -706,8 +704,7 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     assertEquals(expectedValue, ((StringValue) val).getStringValue());
   }
   
-  private void testConceptLiteralAttributeValue(AttributeValue av, String[] expectedPath, 
-      int[] expectedIndexes, String expectedSystem, String expectedCode, String expectedDisplay) {
+  private void testConceptLiteralAttributeValue(AttributeValue av, String[] expectedPath, int[] expectedIndexes) {
     List<Attribute> attrs = av.getAttributes();
     assertEquals (expectedPath.length, attrs.size());
     
@@ -724,13 +721,13 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     Value val = av.getValue();
     assertTrue(val instanceof ConceptLiteralValue);
     ConceptLiteralValue clv = (ConceptLiteralValue) val;
-    assertEquals(expectedSystem, clv.getSystem());
-    assertEquals(expectedCode, clv.getCode());
-    assertEquals(expectedDisplay, clv.getDisplay());
+    assertEquals("http://hl7.org/fhir/v2/0203", clv.getSystem());
+    assertEquals("MC", clv.getCode());
+    assertNull(clv.getDisplay());
   }
   
-  private void testReferenceAttributeValue(AttributeValue av, String[] expectedPath, 
-      int[] expectedIndexes, String expectedResourceType, String expectedResourceId) {
+  private void testReferenceAttributeValue(AttributeValue av, String[] expectedPath,
+                                           int[] expectedIndexes) {
     List<Attribute> attrs = av.getAttributes();
     assertEquals (expectedPath.length, attrs.size());
     
@@ -747,30 +744,28 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     Value val = av.getValue();
     assertTrue(val instanceof ReferenceValue);
     ReferenceValue rv = (ReferenceValue) val;
-    assertEquals(expectedResourceType, rv.getResourceType());
-    assertEquals(expectedResourceId, rv.getResourceId());
+    assertEquals("Patient", rv.getResourceType());
+    assertEquals("p", rv.getResourceId());
   }
   
-  private void testConditionExpression(Rule r, ConditionType type, String fieldId, 
-      ConditionExpressionOperator op, int value) {
+  private void testConditionExpression(Rule r) {
     Condition c = r.getCondition();
     assertTrue(c instanceof ConditionExpression);
     ConditionExpression ce = (ConditionExpression) c;
-    assertEquals(type, ce.getConditionType());
-    assertEquals(fieldId, ce.getFieldId());
-    assertEquals(op, ce.getOperator());
-    assertEquals(value, ce.getIntValue().intValue());
+    assertEquals(ConditionType.EXPRESSION, ce.getConditionType());
+    assertEquals("dx_num", ce.getFieldId());
+    assertEquals(ConditionExpressionOperator.GT, ce.getOperator());
+    assertEquals(0, ce.getIntValue().intValue());
   }
   
-  private void testConditionExpression(Rule r, ConditionType type, String fieldId, 
-      ConditionExpressionOperator op, String value) {
+  private void testConditionExpression(Rule r, String fieldId) {
     Condition c = r.getCondition();
     assertTrue(c instanceof ConditionExpression);
     ConditionExpression ce = (ConditionExpression) c;
-    assertEquals(type, ce.getConditionType());
+    assertEquals(ConditionType.EXPRESSION, ce.getConditionType());
     assertEquals(fieldId, ce.getFieldId());
-    assertEquals(op, ce.getOperator());
-    assertEquals(value, ce.getStringValue());
+    assertEquals(ConditionExpressionOperator.EQ, ce.getOperator());
+    assertEquals("NOT_FOUND", ce.getStringValue());
   }
 
 }

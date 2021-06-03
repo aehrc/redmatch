@@ -25,7 +25,6 @@ This tool is targeted at domain experts that know about FHIR but don't necessari
 * Spring Boot
 * HAPI FHIR
 * ANTLR
-* MongoDB
 * Apache POI
 * React
 

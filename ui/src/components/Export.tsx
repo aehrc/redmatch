@@ -5,11 +5,10 @@
  */
 import { Box, Toolbar, Button, CircularProgress } from "@material-ui/core";
 import React, { useState } from "react";
-import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
-import env from "@beam-australia/react-env";
 import TextField from '@material-ui/core/TextField';
 import { ApiError } from "./ApiError";
 import { useAxios } from "../utils/hooks";
+import { IParameters } from "@ahryman40k/ts-fhir-types/lib/R4";
 
 interface Props {
   projectId: string;
@@ -19,11 +18,10 @@ interface Props {
 
 export default function Export(props: Props) {
   const { projectId, onExportStarted, onExportFinished } = props;
-  const redmatchUrl = env("REDMATCH_URL");
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<Error | null>(null);
-  const axiosInstance = useAxios(redmatchUrl);
+  const axiosInstance = useAxios();
 
   const onExport = (projectId: string) => {
     fetchData(projectId)
@@ -42,10 +40,10 @@ export default function Export(props: Props) {
     } else {
       throw new Error('Undefined Axios current instance.');
     }
-
+        
     try {
       await http.post<IParameters>(
-        `${redmatchUrl}/project/${projectId}/$transform`,
+        `/project/${projectId}/$transform`,
         null,
         {
           headers: {
@@ -55,20 +53,11 @@ export default function Export(props: Props) {
         }
       );
       setValue(prev => prev + '\nTransformation was successful.\nDownloading file.');
-    } catch (error) {
-      const e : Error = { 
-        name: 'Transformation error', 
-        message: 'There was a problem with the transformation. Please check all mappings have been completed.'
-      };
-      setError(e);
-      return;
-    }
 
-    // Download ZIP
-    try {
+      // Download ZIP
       const { data: blobData } = await http({
         method: 'post',
-        url: `${redmatchUrl}/project/${projectId}/$export`,
+        url: `/project/${projectId}/$export`,
         responseType: 'blob',
         headers: {
           "Accept": "application/zip"
@@ -85,9 +74,10 @@ export default function Export(props: Props) {
         link.parentNode.removeChild(link);
       }
     } catch (error) {
+      console.log(error);
       const e : Error = { 
-        name: 'Download error', 
-        message: 'There was a problem downloading the file.'
+        name: 'EXPORTING error', 
+        message: 'There was a problem exporting the FHIR resources.'
       };
       setError(e);
     } finally {

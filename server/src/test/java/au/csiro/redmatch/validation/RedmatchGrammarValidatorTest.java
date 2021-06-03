@@ -5,8 +5,9 @@
  */
 package au.csiro.redmatch.validation;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,8 +15,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.is;
-
-import org.junit.Test;
 
 /**
  * @author Alejandro Metke
@@ -43,11 +42,11 @@ public class RedmatchGrammarValidatorTest {
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.extension.url", res);
-    assertThat(res, is(Arrays.asList("Quantity.extension.url")));
+    assertThat(res, is(Collections.singletonList("Quantity.extension.url")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.system", res);
-    assertThat(res, is(Arrays.asList("Quantity.system")));
+    assertThat(res, is(Collections.singletonList("Quantity.system")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.url", res);
@@ -55,7 +54,7 @@ public class RedmatchGrammarValidatorTest {
     res.clear();
     
     val.getOtherExtensions("Observation.valueRatio.extension.valueRatio.extension.url", res);
-    assertThat(res, is(Arrays.asList("Ratio.extension.url")));
+    assertThat(res, is(Collections.singletonList("Ratio.extension.url")));
     res.clear();
     
     val.getOtherExtensions("Encounter.extension.valueQuantity.extension.valueQuantity.extension."

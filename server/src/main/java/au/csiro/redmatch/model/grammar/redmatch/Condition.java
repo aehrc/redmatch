@@ -8,6 +8,7 @@ package au.csiro.redmatch.model.grammar.redmatch;
 import java.util.Map;
 
 import au.csiro.redmatch.model.Metadata;
+import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
 
 /**
@@ -26,11 +27,11 @@ public abstract class Condition extends GrammarObject {
   /**
    * Evaluates the condition to true or false.
    * 
-   * @param metadata The metadata.
+   * @param project The Redmatch project.
    * @param data A row of data.
    * @return True if the condition evaluates to true, false otherwise.
    */
-  public abstract boolean evaluate(Metadata metadata, Map<String, String> data);
+  public abstract boolean evaluate(RedmatchProject project, Map<String, String> data);
 
   public boolean isNegated() {
     return negated;

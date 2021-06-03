@@ -5,8 +5,7 @@
  */
 package au.csiro.redmatch.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import javax.persistence.*;
 
 /**
  * Represents a rule validation error.
@@ -14,11 +13,15 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * @author Alejandro Metke Jimenez
  *
  */
-@Document
+@Entity
 public class Annotation {
 
   @Id
-  private String id;
+  @GeneratedValue(strategy=GenerationType.AUTO)
+  private Long id;
+
+  @ManyToOne
+  private RedmatchProject project;
 
   /**
    * The line where the problem starts.
@@ -75,11 +78,11 @@ public class Annotation {
     this.annotationType = annotationType;
   }
 
-  public String getId() {
+  public Long getId() {
     return id;
   }
 
-  public void setId(String id) {
+  public void setId(Long id) {
     this.id = id;
   }
 
@@ -131,10 +134,14 @@ public class Annotation {
     this.annotationType = annotationType;
   }
 
+  public void setProject(RedmatchProject project) {
+    this.project = project;
+  }
+
   @Override
   public String toString() {
-    return annotationType.toString() + " [" + rowStart + ", " + colStart + "][" + rowEnd + "," 
-        + colEnd +  "]: " + text;
+    return (annotationType != null ? annotationType.toString() : "NA") + " [" + rowStart + ", " + colStart + "]["
+            + rowEnd + "," + colEnd +  "]: " + text;
   }
 
 }

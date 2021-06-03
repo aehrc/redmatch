@@ -7,7 +7,7 @@ package au.csiro.redmatch.model.grammar.redmatch;
 
 import java.util.Map;
 
-import au.csiro.redmatch.model.Metadata;
+import au.csiro.redmatch.model.RedmatchProject;
 
 /**
  * Represents a node in a tree of conditions.
@@ -62,25 +62,25 @@ public class ConditionNode extends Condition {
     return rightCondition;
   }
 
-  private boolean doEvaluate(Metadata metadata, Map<String, String> data) {
+  private boolean doEvaluate(RedmatchProject project, Map<String, String> data) {
     switch (op) {
       case AND:
-        return leftCondition.evaluate(metadata, data)
-            && rightCondition.evaluate(metadata, data);
+        return leftCondition.evaluate(project, data)
+            && rightCondition.evaluate(project, data);
       case OR:
-        return leftCondition.evaluate(metadata, data)
-            || rightCondition.evaluate(metadata, data);
+        return leftCondition.evaluate(project, data)
+            || rightCondition.evaluate(project, data);
       default:
         throw new RuntimeException("Unexpected condition node operator. This should never happen!");
     }
   }
 
   @Override
-  public boolean evaluate(Metadata metadata, Map<String, String> data) {
+  public boolean evaluate(RedmatchProject project, Map<String, String> data) {
     if (negated) {
-      return !doEvaluate(metadata, data);
+      return !doEvaluate(project, data);
     } else {
-      return doEvaluate(metadata, data);
+      return doEvaluate(project, data);
     }
   }
 
@@ -90,8 +90,16 @@ public class ConditionNode extends Condition {
   }
 
   @Override
-  public boolean referencesData() {
-    return leftCondition.referencesData() || rightCondition.referencesData();
+  public DataReference referencesData() {
+    if (leftCondition.referencesData().equals(DataReference.YES) 
+        || rightCondition.referencesData().equals(DataReference.YES)) {
+      return DataReference.YES;
+    } else if (leftCondition.referencesData().equals(DataReference.RESOURCE) 
+        || rightCondition.referencesData().equals(DataReference.RESOURCE)) {
+      return DataReference.RESOURCE;
+    } else {
+      return DataReference.NO;
+    }
   }
 
 }

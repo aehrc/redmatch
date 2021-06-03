@@ -1,15 +1,24 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>au.csiro.redmatch</groupId>
+
+	<parent>
+		<groupId>au.csiro.redmatch</groupId>
+		<artifactId>redmatch</artifactId>
+		<version>1.3.0-SNAPSHOT</version>
+	</parent>
+
 	<artifactId>ui</artifactId>
-	<version>1.2.1</version>
 	<packaging>pom</packaging>
+
 	<name>Redmatch UI</name>
+	<description>User interface for Redmatch, a tool designed to transform REDCap forms into FHIR resources.</description>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<dockerfile-maven.version>1.4.13</dockerfile-maven.version>
 	</properties>
+
 	<build>
 		<plugins>
 			<!-- Copies the grammar files from the server module. -->
@@ -35,88 +44,75 @@
 					</execution>
 				</executions>
 			</plugin>
+			<!-- Used to run Yarn to install and build the project. Requires yarn to be installed locally. No longer
+			 using frontend-maven-plugin because it doesn't work with M1 Macs.-->
 			<plugin>
-				<groupId>com.github.eirslett</groupId>
-				<artifactId>frontend-maven-plugin</artifactId>
-				<version>1.10.3</version>
-				<configuration>
-					<installDirectory>target</installDirectory>
-				</configuration>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.0.0</version>
 				<executions>
-					<!-- Installs Node and Yarn. -->
+					<!-- Installs dependencies using Yarn. -->
 					<execution>
-						<id>install yarn</id>
-						<goals>
-							<goal>install-node-and-yarn</goal>
-						</goals>
+						<id>exec-yarn-install</id>
+						<phase>generate-sources</phase>
 						<configuration>
-							<nodeVersion>v12.10.0</nodeVersion>
-							<yarnVersion>v1.22.5</yarnVersion>
+							<executable>yarn</executable>
+							<arguments>
+								<argument>install</argument>
+							</arguments>
 						</configuration>
+						<goals>
+							<goal>exec</goal>
+						</goals>
 					</execution>
 					<!-- Installs dependencies using Yarn. -->
 					<execution>
-						<id>yarn install</id>
-						<goals>
-							<goal>yarn</goal>
-						</goals>
-					</execution>
-					<!-- Generates the typescript files for the ANTLR grammar that is copied from the server. -->
-					<execution>
-						<id>run antlr4ts</id>
-						<goals>
-							<goal>yarn</goal>
-						</goals>
+						<id>exec-yarn-antlr4ts</id>
+						<phase>generate-sources</phase>
 						<configuration>
-							<arguments>antlr4ts</arguments>
+							<executable>yarn</executable>
+							<arguments>
+								<argument>antlr4ts</argument>
+							</arguments>
 						</configuration>
-					</execution>
-					<!-- Processess environment variables. -->
-					<execution>
-						<id>yarn prestart</id>
 						<goals>
-							<goal>yarn</goal>
+							<goal>exec</goal>
 						</goals>
-						<configuration>
-							<arguments>prestart</arguments>
-						</configuration>
 					</execution>
-					<!-- Creates a production build to be used in the Docker image. -->
+					<!-- Processes environment variables. -->
 					<execution>
-						<id>yarn build</id>
+						<id>exec-yarn-prestart</id>
+						<phase>generate-sources</phase>
+						<configuration>
+							<executable>yarn</executable>
+							<arguments>
+								<argument>prestart</argument>
+							</arguments>
+						</configuration>
 						<goals>
-							<goal>yarn</goal>
+							<goal>exec</goal>
 						</goals>
-						<configuration>
-							<arguments>build</arguments>
-						</configuration>
 					</execution>
-				</executions>
-			</plugin>
-			<!-- Used to create a Docker image. -->
-			<plugin>
-				<groupId>com.spotify</groupId>
-				<artifactId>dockerfile-maven-plugin</artifactId>
-				<version>${dockerfile-maven.version}</version>
-				<executions>
+					<!-- Creates a production build. -->
 					<execution>
-						<id>default</id>
+						<id>exec-yarn-build</id>
+						<phase>generate-sources</phase>
+						<configuration>
+							<executable>yarn</executable>
+							<arguments>
+								<argument>build</argument>
+							</arguments>
+						</configuration>
 						<goals>
-							<goal>build</goal>
+							<goal>exec</goal>
 						</goals>
 					</execution>
 				</executions>
-				<configuration>
-					<repository>aehrc/redmatch-ui</repository>
-					<tag>${project.version}</tag>
-					<skipDockerInfo>true</skipDockerInfo>
-				</configuration>
 			</plugin>
 			<!-- Used to implement the GitFlow pattern in this project. -->
 			<plugin>
 				<groupId>com.amashchenko.maven.plugin</groupId>
 				<artifactId>gitflow-maven-plugin</artifactId>
-				<version>1.15.0</version>
 			</plugin>
 		</plugins>
 	</build>

@@ -61,7 +61,7 @@ public class AttributeValue extends GrammarObject {
   }
 
   @Override
-  public boolean referencesData() {
+  public DataReference referencesData() {
     return value.referencesData();
   }
 
