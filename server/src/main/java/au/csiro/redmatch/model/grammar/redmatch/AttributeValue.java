@@ -62,7 +62,7 @@ public class AttributeValue extends GrammarObject {
 
   @Override
   public DataReference referencesData() {
-    return value.referencesData();
+    return value != null ? value.referencesData() : DataReference.NO;
   }
 
 }
