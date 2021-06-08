@@ -738,29 +738,31 @@ public class FhirExporter {
       String fieldId = fv.getFieldId();
       String val = getValue(row, fieldId);
       au.csiro.redmatch.model.Field f = project.getField(fieldId);
+
+      FieldValue.DatePrecision pr = fv.getDatePrecision();
       
       switch (f.getFieldType()) {
       case TEXT:
         if (f.hasTextValidationType()) {
           switch (f.getTextValidationType()) {
           case DATETIME_DMY:
-            return getDate(val, fhirType, dateTimeYmdFormat);
+            return getDate(val, fhirType, dateTimeYmdFormat, pr);
           case DATETIME_MDY:
-            return getDate(val, fhirType, dateTimeYmdFormat);
+            return getDate(val, fhirType, dateTimeYmdFormat, pr);
           case DATETIME_SECONDS_DMY:
-            return getDate(val, fhirType, dateTimeSecondsYmdFormat);
+            return getDate(val, fhirType, dateTimeSecondsYmdFormat, pr);
           case DATETIME_SECONDS_MDY:
-            return getDate(val, fhirType, dateTimeSecondsYmdFormat);
+            return getDate(val, fhirType, dateTimeSecondsYmdFormat, pr);
           case DATETIME_SECONDS_YMD:
-            return getDate(val, fhirType, dateTimeSecondsYmdFormat);
+            return getDate(val, fhirType, dateTimeSecondsYmdFormat, pr);
           case DATETIME_YMD:
-            return getDate(val, fhirType, dateTimeYmdFormat);
+            return getDate(val, fhirType, dateTimeYmdFormat, pr);
           case DATE_DMY:
-            return getDate(val, fhirType, dateYmdFormat);
+            return getDate(val, fhirType, dateYmdFormat, pr);
           case DATE_MDY:
-            return getDate(val, fhirType, dateYmdFormat);
+            return getDate(val, fhirType, dateYmdFormat, pr);
           case DATE_YMD:
-            return getDate(val, fhirType, dateYmdFormat);
+            return getDate(val, fhirType, dateYmdFormat, pr);
           case EMAIL:
             return getString(val, fhirType, "EMAIL");
           case INTEGER:
@@ -949,13 +951,46 @@ public class FhirExporter {
     }
   }
   
-  private Base getDate(String val, Class<?> fhirType, SimpleDateFormat sdf) {
+  private Base getDate(String val, Class<?> fhirType, SimpleDateFormat sdf, FieldValue.DatePrecision precision) {
+    Date d = processDate(sdf, val);
+    if (precision != null) {
+      Calendar instance = Calendar.getInstance();
+      instance.setTime(d);
+
+      switch (precision) {
+        case YEAR:
+          instance.clear(Calendar.MONTH);
+          instance.clear(Calendar.DAY_OF_MONTH);
+          instance.clear(Calendar.DAY_OF_WEEK);
+          instance.clear(Calendar.DAY_OF_YEAR);
+          instance.clear(Calendar.DAY_OF_WEEK_IN_MONTH);
+          instance.clear(Calendar.HOUR_OF_DAY);
+          instance.clear(Calendar.AM_PM);
+          instance.clear(Calendar.HOUR);
+          break;
+        case MONTH:
+          instance.clear(Calendar.DAY_OF_MONTH);
+          instance.clear(Calendar.DAY_OF_WEEK);
+          instance.clear(Calendar.DAY_OF_YEAR);
+          instance.clear(Calendar.DAY_OF_WEEK_IN_MONTH);
+          instance.clear(Calendar.HOUR_OF_DAY);
+          instance.clear(Calendar.AM_PM);
+          instance.clear(Calendar.HOUR);
+          break;
+        case DAY:
+          instance.clear(Calendar.HOUR_OF_DAY);
+          instance.clear(Calendar.AM_PM);
+          instance.clear(Calendar.HOUR);
+          break;
+      }
+      d = instance.getTime();
+    }
     if (fhirType.isAssignableFrom(InstantType.class)) {
-      return new InstantType(processDate(sdf, val));
+      return new InstantType(d);
     } else if (fhirType.isAssignableFrom(DateTimeType.class)) {
-      return new DateTimeType(processDate(sdf, val));
+      return new DateTimeType(d);
     } else if (fhirType.isAssignableFrom(DateType.class)) {
-      return new DateType(processDate(sdf, val));
+      return new DateType(d);
     } else {
       throw new RuleApplicationException("Tried to assign REDCap DATE TIME field to FHIR "
           + "type " + fhirType.getCanonicalName() + ". Only Instant, DateTime and Date are "

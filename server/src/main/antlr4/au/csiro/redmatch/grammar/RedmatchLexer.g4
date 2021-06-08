@@ -128,3 +128,4 @@ INDEX             : [0-9]+;
 PATH              : LOWERCASE (LOWERCASE | UPPERCASE)*;
 WHITE_SPACE       : [ \r\n\t]+ -> skip;
 ATTRIBUTE_END     : '=' -> popMode;
+COMMA             : ',';

@@ -1,0 +1,42 @@
+[
+  {
+    "field_name": "stud_num",
+    "form_name": "study_identifiers",
+    "section_header": "",
+    "field_type": "text",
+    "field_label": "Study Number:",
+    "select_choices_or_calculations": "",
+    "field_note": "",
+    "text_validation_type_or_show_slider_number": "",
+    "text_validation_min": "",
+    "text_validation_max": "",
+    "identifier": "",
+    "branching_logic": "",
+    "required_field": "",
+    "custom_alignment": "",
+    "question_number": "",
+    "matrix_group_name": "",
+    "matrix_ranking": "",
+    "field_annotation": ""
+  },
+  {
+    "field_name": "dem_dob",
+    "form_name": "demographics",
+    "section_header": "",
+    "field_type": "text",
+    "field_label": "Date of Birth:",
+    "select_choices_or_calculations": "",
+    "field_note": "Enter as dd/mm/yyyy",
+    "text_validation_type_or_show_slider_number": "date_dmy",
+    "text_validation_min": "",
+    "text_validation_max": "",
+    "identifier": "",
+    "branching_logic": "",
+    "required_field": "",
+    "custom_alignment": "",
+    "question_number": "",
+    "matrix_group_name": "",
+    "matrix_ranking": "",
+    "field_annotation": ""
+  }
+]

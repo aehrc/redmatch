@@ -19,6 +19,10 @@ package au.csiro.redmatch.model.grammar.redmatch;
  */
 public class FieldValue extends FieldBasedValue {
 
+  public enum DatePrecision { YEAR, MONTH, DAY };
+
+  private DatePrecision datePrecision;
+
   public FieldValue() {
     super();
   }
@@ -27,9 +31,18 @@ public class FieldValue extends FieldBasedValue {
     super(fieldId);
   }
 
+  public FieldValue(String fieldId, DatePrecision datePrecision) {
+    super(fieldId);
+    this.datePrecision = datePrecision;
+  }
+
+  public DatePrecision getDatePrecision() {
+    return datePrecision;
+  }
+
   @Override
   public String toString() {
-    return "VALUE(" + fieldId + ")";
+    return "VALUE(" + fieldId + (datePrecision != null ? ", " + datePrecision.toString() : "")+ ")";
   }
   
 }

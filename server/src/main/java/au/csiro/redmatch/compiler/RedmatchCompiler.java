@@ -601,7 +601,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    *     | reference
    *     | CONCEPT_LITERAL
    *     | CODE_LITERAL
-   *     | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED | VALUE ) OPEN FHIR_OR_REDCAP_ID CLOSE
+   *     | (CONCEPT | CONCEPT_SELECTED | CODE_SELECTED ) OPEN ID CLOSE
+   *     | VALUE OPEN ID (COMMA STRING)? CLOSE
    *     ;
    */
   private Value visitValueInternal(ValueContext ctx, Variables var) {
@@ -623,8 +624,35 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       return new BooleanValue(true);
     } else if (ctx.FALSE() != null) {
       return new BooleanValue(false);
+    }  else if (ctx.VALUE() != null) {
+      String fieldId = processRedcapId(ctx, ctx.ID().getSymbol(), var);
+
+      // Validate REDCap field exists
+      final Field f = project.getField(fieldId);
+      if (f == null) {
+        this.project.addIssue(getAnnotationFromContext(ctx, "Field " + fieldId + " does not exist in REDCap."));
+      }
+      FieldBasedValue val = null;
+
+      // Extract the new optional string - YEAR, MONTH, DAY
+      if (ctx.STRING() != null) {
+        String str = removeEnds(ctx.STRING().getText());
+        if (str.equalsIgnoreCase("YEAR")) {
+           val = new FieldValue(fieldId, FieldValue.DatePrecision.YEAR);
+        } else if (str.equalsIgnoreCase("MONTH")) {
+          val = new FieldValue(fieldId, FieldValue.DatePrecision.MONTH);
+        } else if (str.equalsIgnoreCase("DAY")) {
+          val = new FieldValue(fieldId, FieldValue.DatePrecision.DAY);
+        } else {
+          this.project.addIssue(getAnnotationFromContext(ctx, "Invalid value " + str
+            + ". Valid values are YEAR, MONTH and DAY."));
+        }
+      }
+      if (val == null) {
+        val = new FieldValue(fieldId);
+      }
+      return val;
     } else if (ctx.STRING() != null) {
-      
       if (!(type.equals("string") || type.equals("markdown") || type.equals("id") 
           || type.equals("uri") || type.equals("oid") || type.equals("uuid") 
           || type.equals("canonical") || type.equals("url"))) {
@@ -773,8 +801,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         val = new ConceptSelectedValue(fieldId);
       } else if("CODE_SELECTED".equals(enumConstant)) {
         val = new CodeSelectedValue(fieldId);
-      } else if("VALUE".equals(enumConstant)) {
-        val = new FieldValue(fieldId);
       } else {
         throw new CompilerException("Unexpected value type " + enumConstant);
       }
