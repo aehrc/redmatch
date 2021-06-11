@@ -68,7 +68,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     compiler.getValidator().setClient(mockTerminologyServer);
   }
   
-  //@Test
+  @Test
   public void testCreateClinicalResourcesFromRulesDataMappings() {
     RedmatchProject project = this.loadProject("data_mappings");
     List<Row> rows = this.loadData("data_mappings");
@@ -163,7 +163,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     System.out.println(ref.getReference());
   }
   
-  //@Test
+  @Test
   public void testCreateClinicalResourcesFromRules() {
     RedmatchProject project = this.loadProject("tutorial");
     List<Row> rows = this.loadData("tutorial");
@@ -318,7 +318,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   /**
    * Test case for for functionality to reduce the precision of a date, for anonymisation purposes.
    */
-  //@Test
+  @Test
   public void testIssue3() {
     RedmatchProject project = this.loadProject("date");
     List<Row> rows = this.loadData("date");
@@ -329,12 +329,14 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     for (Annotation ann : compilationErrors) {
       System.out.println(ann);
     }
+
+    printTokens(project.getRulesDocument());
     assertTrue(compilationErrors.isEmpty());
 
     try {
       Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(project, rulesDocument, rows);
       System.out.println(res.keySet());
-      assertEquals(4, res.size());
+      assertEquals(2, res.size());
 
       SimpleDateFormat sdf = new SimpleDateFormat("yyyy");
       res.entrySet().stream().forEach(i -> {
@@ -352,7 +354,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
             e.printStackTrace();
             fail();
           }
-        } else if (key.equals("2")) {
+        } else if (key.equals("p-2")) {
           // 2009
           try {
             Date expected = sdf.parse("2009");

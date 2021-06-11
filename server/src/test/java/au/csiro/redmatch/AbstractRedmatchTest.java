@@ -8,7 +8,11 @@ package au.csiro.redmatch;
 import java.util.List;
 import java.util.UUID;
 
+import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.model.RedmatchProject;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.Lexer;
+import org.antlr.v4.runtime.Token;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,4 +64,13 @@ public abstract class AbstractRedmatchTest extends ResourceLoader {
       log.info(error);
     }
   }
+
+  protected void printTokens(String rule) {
+    System.out.println("TOKENS:");
+    final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rule));
+    for (Token tok : lexer.getAllTokens()) {
+      System.out.println(tok);
+    }
+  }
+
 }

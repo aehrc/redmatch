@@ -25,6 +25,7 @@ import javax.annotation.PostConstruct;
 
 import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
+import au.csiro.redmatch.util.DateUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.Base;
@@ -954,36 +955,7 @@ public class FhirExporter {
   private Base getDate(String val, Class<?> fhirType, SimpleDateFormat sdf, FieldValue.DatePrecision precision) {
     Date d = processDate(sdf, val);
     if (precision != null) {
-      Calendar instance = Calendar.getInstance();
-      instance.setTime(d);
-
-      switch (precision) {
-        case YEAR:
-          instance.clear(Calendar.MONTH);
-          instance.clear(Calendar.DAY_OF_MONTH);
-          instance.clear(Calendar.DAY_OF_WEEK);
-          instance.clear(Calendar.DAY_OF_YEAR);
-          instance.clear(Calendar.DAY_OF_WEEK_IN_MONTH);
-          instance.clear(Calendar.HOUR_OF_DAY);
-          instance.clear(Calendar.AM_PM);
-          instance.clear(Calendar.HOUR);
-          break;
-        case MONTH:
-          instance.clear(Calendar.DAY_OF_MONTH);
-          instance.clear(Calendar.DAY_OF_WEEK);
-          instance.clear(Calendar.DAY_OF_YEAR);
-          instance.clear(Calendar.DAY_OF_WEEK_IN_MONTH);
-          instance.clear(Calendar.HOUR_OF_DAY);
-          instance.clear(Calendar.AM_PM);
-          instance.clear(Calendar.HOUR);
-          break;
-        case DAY:
-          instance.clear(Calendar.HOUR_OF_DAY);
-          instance.clear(Calendar.AM_PM);
-          instance.clear(Calendar.HOUR);
-          break;
-      }
-      d = instance.getTime();
+      d = DateUtils.clear(d, precision);
     }
     if (fhirType.isAssignableFrom(InstantType.class)) {
       return new InstantType(d);

@@ -310,8 +310,7 @@
         </configuration>
         <executions>
           <execution>
-            <!--<phase>package</phase>-->
-            <phase>install</phase>
+            <phase>package</phase>
             <goals>
               <goal>dockerBuild</goal>
             </goals>
