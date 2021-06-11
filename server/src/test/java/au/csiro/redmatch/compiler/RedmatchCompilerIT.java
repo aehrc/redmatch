@@ -77,15 +77,6 @@ public class RedmatchCompilerIT extends AbstractRedmatchTest {
     compiler.getValidator().setClient(mockTerminologyServer);
   }
   
-  public void printTokens(String rule) {
-    System.out.println("TOKENS:");
-    final Lexer lexer = new RedmatchLexer(CharStreams.fromString(rule));
-    for (Token tok : lexer.getAllTokens()) {
-      System.out.println(tok);
-    }
-    
-  }
-  
   @Test
   public void testComplexExtension() {
     String rule = "TRUE {\n" + 

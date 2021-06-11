@@ -32,6 +32,7 @@ OPEN_CURLY        : '{';
 OPEN_CURLY_DOLLAR : '${';
 DOTDOT            : '..';
 COLON             : ':';
+COMMA             : ',';
 ATTRIBUTE_START   : '*' -> pushMode(ATTRIBUTES) ;
 
 fragment LOWERCASE  : [a-z] ;
@@ -128,4 +129,3 @@ INDEX             : [0-9]+;
 PATH              : LOWERCASE (LOWERCASE | UPPERCASE)*;
 WHITE_SPACE       : [ \r\n\t]+ -> skip;
 ATTRIBUTE_END     : '=' -> popMode;
-COMMA             : ',';
