@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,7 @@ import javax.annotation.PostConstruct;
 
 import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.grammar.GrammarObject;
+import au.csiro.redmatch.model.grammar.redmatch.*;
 import au.csiro.redmatch.util.DateUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -71,22 +73,6 @@ import au.csiro.redmatch.model.Metadata;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.Field.FieldType;
 import au.csiro.redmatch.model.Field.TextValidationType;
-import au.csiro.redmatch.model.grammar.redmatch.Attribute;
-import au.csiro.redmatch.model.grammar.redmatch.AttributeValue;
-import au.csiro.redmatch.model.grammar.redmatch.BooleanValue;
-import au.csiro.redmatch.model.grammar.redmatch.CodeLiteralValue;
-import au.csiro.redmatch.model.grammar.redmatch.CodeSelectedValue;
-import au.csiro.redmatch.model.grammar.redmatch.ConceptLiteralValue;
-import au.csiro.redmatch.model.grammar.redmatch.ConceptSelectedValue;
-import au.csiro.redmatch.model.grammar.redmatch.ConceptValue;
-import au.csiro.redmatch.model.grammar.redmatch.Document;
-import au.csiro.redmatch.model.grammar.redmatch.DoubleValue;
-import au.csiro.redmatch.model.grammar.redmatch.FieldValue;
-import au.csiro.redmatch.model.grammar.redmatch.IntegerValue;
-import au.csiro.redmatch.model.grammar.redmatch.ReferenceValue;
-import au.csiro.redmatch.model.grammar.redmatch.Resource;
-import au.csiro.redmatch.model.grammar.redmatch.Rule;
-import au.csiro.redmatch.model.grammar.redmatch.StringValue;
 import au.csiro.redmatch.util.FitbitUrlValidator;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.api.annotation.Child;
@@ -555,12 +541,10 @@ public class FhirExporter {
       }
 
       theValue = getValue(value, fhirType, project, row, recordId, enumFactory, uniqueIds, fhirResourceMap);
-      if (theValue == null) {
-        throw new RuleApplicationException("Unable to get value: " + value);
-      }
-      
-      helper.invokeSetter(theElement, leafAttributeName, theValue, leafAttribute.isList(), index, 
+      if (theValue != null) {
+        helper.invokeSetter(theElement, leafAttributeName, theValue, leafAttribute.isList(), index,
           isValueX);
+      }
     } catch (RuleApplicationException | NoMappingFoundException e) {
       throw e;
     } catch (Exception e) {
@@ -604,6 +588,38 @@ public class FhirExporter {
   private Base getValue(au.csiro.redmatch.model.grammar.redmatch.Value value, Class<?> fhirType,
       RedmatchProject project, Map<String, String> row, String recordId,
       Class<?> enumFactory, Set<String> uniqueIds, Map<String, DomainResource> fhirResourceMap) {
+
+    // If this is a field-based value then make sure that there is a value and if not return null
+    if (value instanceof FieldBasedValue) {
+      FieldBasedValue fbv = (FieldBasedValue) value;
+
+      // Account for field ids of the form xx___y
+      String fieldId = fbv.getFieldId();
+      String shortFieldId = null;
+
+      String regex = "(?<fieldId>.*)___\\d+$";
+      Pattern pattern = Pattern.compile(regex);
+      Matcher matcher = pattern.matcher(fieldId);
+      if (matcher.find()) {
+        shortFieldId = matcher.group("fieldId");
+        log.debug("Transformed fieldId into '" + fieldId + "'");
+      }
+
+      boolean hasValue = false;
+      String rawValue = row.get(fieldId);
+      if (rawValue != null && !rawValue.isEmpty()) {
+        hasValue = true;
+      } else if (shortFieldId != null) {
+        rawValue = row.get(shortFieldId);
+        if (rawValue != null && !rawValue.isEmpty()) {
+          hasValue = true;
+        }
+      }
+      if (!hasValue) {
+        return null;
+      }
+    }
+
     if(value instanceof BooleanValue) {
       return new BooleanType(((BooleanValue) value).getValue());
     } else if (value instanceof CodeLiteralValue) {

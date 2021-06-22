@@ -316,7 +316,7 @@ public class FhirExporterIT extends AbstractRedmatchTest {
   }
 
   /**
-   * Test case for for functionality to reduce the precision of a date, for anonymisation purposes.
+   * Test case for functionality to reduce the precision of a date, for anonymisation purposes.
    */
   @Test
   public void testIssue3() {
@@ -373,6 +373,34 @@ public class FhirExporterIT extends AbstractRedmatchTest {
       fail();
     }
   }
+
+  /**
+   * Test case for bug where some transformations fail if values are not set.
+   */
+  @Test
+  public void testIssue15() {
+    RedmatchProject project = this.loadProject("date");
+    List<Row> rows = this.loadData("date_missing");
+
+    Document rulesDocument = compiler.compile(project);
+    assertNotNull(rulesDocument);
+    final List<Annotation> compilationErrors = project.getIssues();
+    for (Annotation ann : compilationErrors) {
+      System.out.println(ann);
+    }
+    assertTrue(compilationErrors.isEmpty());
+
+    try {
+      Map<String, DomainResource> res = exporter.createClinicalResourcesFromRules(project, rulesDocument, rows);
+      System.out.println(res.keySet());
+      assertEquals(3, res.size());
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+
 
   private void testObservation(Map<String, DomainResource> res, String id, String code, String display,
                                String interpretation) {
