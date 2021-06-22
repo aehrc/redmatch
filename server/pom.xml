@@ -287,13 +287,17 @@
             <image>openjdk:17-slim-buster</image>
             <platforms>
               <platform>
-                <architecture>${jib.arch}</architecture>
+                <architecture>amd64</architecture>
+                <os>linux</os>
+              </platform>
+              <platform>
+                <architecture>arm64</architecture>
                 <os>linux</os>
               </platform>
             </platforms>
           </from>
           <to>
-            <image>aehrc/redmatch</image>
+            <image>docker.io/aehrc/redmatch</image>
             <tags>
               <tag>${project.version}</tag>
               <tag>latest</tag>
@@ -312,7 +316,7 @@
           <execution>
             <phase>package</phase>
             <goals>
-              <goal>dockerBuild</goal>
+              <goal>build</goal>
             </goals>
           </execution>
         </executions>
@@ -352,20 +356,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <!-- If using Docker Machine to deploy, the jib.arch property can be overriden by setting the property on the
-    command line. -->
-    <profile>
-      <id>m1</id>
-      <activation>
-        <os>
-          <family>mac</family>
-          <arch>aarch64</arch>
-        </os>
-      </activation>
-      <properties>
-        <jib.arch>arm64</jib.arch>
-      </properties>
-    </profile>
-  </profiles>
 </project>
