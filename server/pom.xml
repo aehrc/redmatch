@@ -28,7 +28,7 @@
     <antlr4.listener>true</antlr4.listener>
     <springfox-swagger.version>2.9.2</springfox-swagger.version>
     <wiremock.version>2.26.3</wiremock.version>
-    <jib.arch>amd64</jib.arch>
+    <jib.version>3.1.1</jib.version>
     <start-class>au.csiro.redmatch.Application</start-class>
   </properties>
 
@@ -281,7 +281,7 @@
       <plugin>
         <groupId>com.google.cloud.tools</groupId>
         <artifactId>jib-maven-plugin</artifactId>
-        <version>3.1.1</version>
+        <version>${jib.version}</version>
         <configuration>
           <from>
             <image>openjdk:17-slim-buster</image>
@@ -314,7 +314,7 @@
         </configuration>
         <executions>
           <execution>
-            <phase>package</phase>
+            <phase>deploy</phase>
             <goals>
               <goal>build</goal>
             </goals>
@@ -356,4 +356,100 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <!-- Used to build an amd64 version of the Docker image locally during the package phase.  -->
+    <profile>
+      <id>local-docker</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <version>${jib.version}</version>
+            <configuration>
+              <from>
+                <image>openjdk:17-slim-buster</image>
+                <platforms>
+                  <platform>
+                    <architecture>amd64</architecture>
+                    <os>linux</os>
+                  </platform>
+                </platforms>
+              </from>
+              <to>
+                <image>docker.io/aehrc/redmatch</image>
+                <tags>
+                  <tag>${project.version}</tag>
+                  <tag>latest</tag>
+                </tags>
+              </to>
+              <container>
+                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                <volumes>
+                  <volume>/usr/share/redmatch</volume>
+                </volumes>
+                <format>Docker</format>
+              </container>
+              <containerizingMode>packaged</containerizingMode>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>dockerBuild</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- Used to build an arm64 version of the Docker image locally during the package phase.  -->
+    <profile>
+      <id>local-docker-m1</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <version>${jib.version}</version>
+            <configuration>
+              <from>
+                <image>openjdk:17-slim-buster</image>
+                <platforms>
+                  <platform>
+                    <architecture>arm64</architecture>
+                    <os>linux</os>
+                  </platform>
+                </platforms>
+              </from>
+              <to>
+                <image>docker.io/aehrc/redmatch</image>
+                <tags>
+                  <tag>${project.version}</tag>
+                  <tag>latest</tag>
+                </tags>
+              </to>
+              <container>
+                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                <volumes>
+                  <volume>/usr/share/redmatch</volume>
+                </volumes>
+                <format>Docker</format>
+              </container>
+              <containerizingMode>packaged</containerizingMode>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>dockerBuild</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

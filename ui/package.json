@@ -37,12 +37,10 @@
   },
   "devDependencies": {
     "@babel/helper-skip-transparent-expression-wrappers": "^7.12.1",
-    "@beam-australia/react-env": "^2.1.2",
     "antlr4ts-cli": "^0.5.0-alpha.3",
     "react-app-rewired": "^2.1.6"
   },
   "scripts": {
-    "prestart": "react-env",
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",

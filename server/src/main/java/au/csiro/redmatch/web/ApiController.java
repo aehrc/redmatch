@@ -5,16 +5,14 @@
  */
 package au.csiro.redmatch.web;
 
+import au.csiro.redmatch.util.RawJson;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
 import java.io.IOException;
 import java.security.Principal;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,6 +22,8 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -76,6 +76,21 @@ public class ApiController {
   
   @Autowired
   private Gson gson;
+
+  @Value("${ontoserver.url}")
+  private String ontoserverUrl;
+
+  @Value("${ui.keycloak.url}")
+  private String keycloakUrl;
+
+  @Value("${ui.keycloak.realm}")
+  private String keycloakRealm;
+
+  @Value("${ui.keycloak.clientId}")
+  private String keycloakClientId;
+
+  @Autowired
+  private Environment environment;
   
   /**
    * Returns all the Redmatch projects in the system.
@@ -491,7 +506,41 @@ public class ApiController {
             "Unexpected status " + rr.getStatus() + ". This should never happen!");
     }
   }
-  
+
+  /**
+   * Returns a configuration file that can be used by the UI.
+   *
+   * @return The configuration file.
+   */
+  @ApiOperation(value = "Returns a configuration file that can be used in the UI.")
+  @ApiResponses(value = {
+    @ApiResponse(code = 200, message = "The operation completed successfully."),
+    @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
+  @RequestMapping(value="/config/env.js", method = RequestMethod.GET, produces ="application/json")
+  public ResponseEntity<RawJson> getConfig() {
+    String nodeEnv = "development";
+
+    // If profile is docker then set environment to production
+    if(Arrays.stream(environment.getActiveProfiles()).anyMatch(env -> (env.equalsIgnoreCase("docker")))) {
+      nodeEnv = "production";
+    }
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("window._env = {\"NODE_ENV\":\"");
+    sb.append(nodeEnv);
+    sb.append("\",\"REACT_APP_TERMINOLOGY_URL\":\"");
+    sb.append(ontoserverUrl);
+    sb.append("\",REACT_APP_KEYCLOAK_URL\":\"");
+    sb.append(keycloakUrl);
+    sb.append("\",REACT_APP_KEYCLOAK_REALM\":\"");
+    sb.append(keycloakRealm);
+    sb.append("\",REACT_APP_KEYCLOAK_CLIENT_ID\":\"");
+    sb.append(keycloakClientId);
+    sb.append("\"};");
+
+    return new ResponseEntity<>(RawJson.from(sb.toString()), HttpStatus.OK);
+  }
+
   @RequestMapping(value = "/username", method = RequestMethod.GET)
   @ResponseBody
   public String currentUserName(Principal principal) {
