@@ -79,20 +79,6 @@
 							<goal>exec</goal>
 						</goals>
 					</execution>
-					<!-- Processes environment variables. -->
-					<execution>
-						<id>exec-yarn-prestart</id>
-						<phase>generate-sources</phase>
-						<configuration>
-							<executable>yarn</executable>
-							<arguments>
-								<argument>prestart</argument>
-							</arguments>
-						</configuration>
-						<goals>
-							<goal>exec</goal>
-						</goals>
-					</execution>
 					<!-- Creates a production build. -->
 					<execution>
 						<id>exec-yarn-build</id>

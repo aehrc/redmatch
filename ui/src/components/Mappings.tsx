@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableRow, TableHead } from "@material-ui/c
 import { IBundle, ICodeSystem, ICoding, IValueSet } from "@ahryman40k/ts-fhir-types/lib/R4";
 import TextField from '@material-ui/core/TextField';
 import Autocomplete from '@material-ui/lab/Autocomplete';
-import env from "@beam-australia/react-env";
 import http from "axios";
 import CodeSearch from "./CodeSearch";
 import ValueSetConfig from "./ValueSetConfig";
@@ -37,7 +36,7 @@ export const getOptionSelected = (option: IValueSet | null, value: IValueSet | n
 
 export default function Mappings(props: Props) {
   const { project, status, updateStatus, onSave, onSaveNeeded } = props;
-  const terminologyUrl = env('TERMINOLOGY_URL');
+  const terminologyUrl = process.env.REACT_APP_TERMINOLOGY_URL!;
   const [valueSetConfigOpen, setValueSetConfigOpen] = useState(false)
   const [valueSetStatus, setValueSetStatus] = useState<string>('loading');
 
