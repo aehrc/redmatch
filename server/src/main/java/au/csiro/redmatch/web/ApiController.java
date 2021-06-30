@@ -10,6 +10,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
+import java.beans.BeanProperty;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.*;
@@ -23,12 +24,14 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -92,6 +95,16 @@ public class ApiController {
   @Autowired
   private Environment environment;
   
+  @Bean
+  public MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter() {
+    MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
+    List<MediaType> mediaTypes = new ArrayList<>();
+    mediaTypes.addAll(jsonConverter.getSupportedMediaTypes());
+    mediaTypes.add(new MediaType("application", "javascript"));
+    jsonConverter.setSupportedMediaTypes(mediaTypes);
+    return jsonConverter;
+  }
+
   /**
    * Returns all the Redmatch projects in the system.
    * 
@@ -516,7 +529,7 @@ public class ApiController {
   @ApiResponses(value = {
     @ApiResponse(code = 200, message = "The operation completed successfully."),
     @ApiResponse(code = 500, message = "An unexpected server error occurred.") })
-  @RequestMapping(value="/config/env.js", method = RequestMethod.GET, produces ="application/json")
+  @RequestMapping(value="/config/env.js", method = RequestMethod.GET, produces ="application/javascript")
   public ResponseEntity<RawJson> getConfig() {
     String nodeEnv = "development";
 
@@ -530,11 +543,11 @@ public class ApiController {
     sb.append(nodeEnv);
     sb.append("\",\"REACT_APP_TERMINOLOGY_URL\":\"");
     sb.append(ontoserverUrl);
-    sb.append("\",REACT_APP_KEYCLOAK_URL\":\"");
+    sb.append("\",\"REACT_APP_KEYCLOAK_URL\":\"");
     sb.append(keycloakUrl);
-    sb.append("\",REACT_APP_KEYCLOAK_REALM\":\"");
+    sb.append("\",\"REACT_APP_KEYCLOAK_REALM\":\"");
     sb.append(keycloakRealm);
-    sb.append("\",REACT_APP_KEYCLOAK_CLIENT_ID\":\"");
+    sb.append("\",\"REACT_APP_KEYCLOAK_CLIENT_ID\":\"");
     sb.append(keycloakClientId);
     sb.append("\"};");
 

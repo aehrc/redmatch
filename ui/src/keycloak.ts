@@ -5,12 +5,17 @@
  */
 import Keycloak from 'keycloak-js';
 
+const dev = process.env.NODE_ENV === 'development' ? true : false;
+const url = dev ? process.env.REACT_APP_KEYCLOAK_URL : (window as any)._env.REACT_APP_KEYCLOAK_URL;
+const realm = dev ? process.env.REACT_APP_KEYCLOAK_REALM : (window as any)._env.REACT_APP_KEYCLOAK_REALM;
+const clientId = dev ? process.env.REACT_APP_KEYCLOAK_CLIENT_ID : (window as any)._env.REACT_APP_KEYCLOAK_CLIENT_ID;
+
 // Setup Keycloak instance as needed
 // Pass initialization options as required or leave blank to load from 'keycloak.json'
 const keycloak = Keycloak({
-  url: process.env.REACT_APP_KEYCLOAK_URL!,
-  realm: process.env.REACT_APP_KEYCLOAK_REALM!,
-  clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID!,
+  url: url,
+  realm: realm,
+  clientId: clientId,
 });
 
 export default keycloak;
