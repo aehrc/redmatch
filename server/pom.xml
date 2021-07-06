@@ -206,14 +206,6 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Used to run the deploy target without attempting to actually deploy the resulting JAR file. -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
       <!-- Used to configure the Java compiler. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
