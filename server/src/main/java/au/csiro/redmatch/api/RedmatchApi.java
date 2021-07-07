@@ -145,14 +145,23 @@ public class RedmatchApi {
   }
   
   /**
-   * Updates the specified Redmatch project. The following fields might be updated:
-   * 
+   * Updates the specified Redmatch project. The following fields are mandatory:
    * <ul>
-   *   <li>token, because the user might need to change the API token</li>
-   *   <li>name, because this is a user-defined name</li>
-   *   <li>rulesDocument, because the transformation rules need to be defined by the user</li>
-   *   <li>mappings, because the mappings need to be defined by the user</li>
+   *   <li>name</li>
+   *   <li>reportId</li>
+   *   <li>redcapUrl</li>
+   *   <li>token</li>
    * </ul>
+   *
+   * The following fields should never change and should therefore match the ones on the existing project:
+   *
+   * <ul>
+   *   <li>reportId</li>
+   *   <li>redcapUrl</li>
+   * </ul>
+   *
+   * Note that all mappings will be replaced so the user should ensure that all inactive mappings are present or
+   * otherwise they will be lost.
    * 
    * @param newProject The project that contains the updates.
    * @return The result of the update.
@@ -160,35 +169,34 @@ public class RedmatchApi {
   @Transactional
   public OperationResponse updateRedmatchProject(RedmatchProject newProject) {
     log.info("Updating Redmatch project " + newProject.getId());
-    // Try to resolve existing project
     final RedmatchProject existingProject = resolveRedmatchProject(newProject.getId(), true);
     if (existingProject == null) {
-      throw new ProjectNotFoundException("Redmatch project " + newProject.getId() 
+      throw new ProjectNotFoundException("Redmatch project " + newProject.getId()
         + " was not found.");
-    } else {
-      if (newProject.hasToken()) {
-        existingProject.setToken(newProject.getToken());
-      }
-      
-      if (newProject.hasName()) {
-        existingProject.setName(newProject.getName());
-      }
-      
-      if (newProject.hasRulesDocument()) {
-        existingProject.setRulesDocument(newProject.getRulesDocument());
-      }
-      
-      if (newProject.hasMappings()) {
-        List<Mapping> combinedMappings = mergeMappings(existingProject.getMappings(), 
-            newProject.getMappings());
-        existingProject.replaceMappings(combinedMappings);
-      }
-      
-      processRedmatchProject(existingProject);
-
-      RedmatchProject save = dao.save(existingProject);
-      return new OperationResponse(save.getId(), RegistrationStatus.UPDATED);
     }
+
+    if (!newProject.hasName()) {
+      throw new InvalidProjectException("The attribute 'name' is mandatory.");
+    }
+    if(!newProject.hasReportId()) {
+      throw new InvalidProjectException("The attribute 'reportId' is mandatory.");
+    } else if (!newProject.getReportId().equals(existingProject.getReportId())) {
+      throw new InvalidProjectException("The reportId " + newProject.getReportId() + " in the new project does not " +
+        "match the reportId " + existingProject.getReportId() + " in the existing project.");
+    }
+    if(!newProject.hasRedcapUrl()) {
+      throw new InvalidProjectException("The attribute 'redcapUrl' is mandatory.");
+    } else if (!newProject.getRedcapUrl().equals(existingProject.getRedcapUrl())) {
+      throw new InvalidProjectException("The redcapUrl " + newProject.getRedcapUrl() + " in the new project does not " +
+        "match the redcapUrl " + existingProject.getRedcapUrl() + " in the existing project.");
+    }
+    if (!newProject.hasToken()) {
+      throw new InvalidProjectException("The attribute 'token' is mandatory.");
+    }
+      
+    processRedmatchProject(newProject);
+    RedmatchProject save = dao.save(newProject);
+    return new OperationResponse(save.getId(), RegistrationStatus.UPDATED);
   }
 
   /**
@@ -247,10 +255,8 @@ public class RedmatchApi {
   public OperationResponse updateMappings(String projectId, List<Mapping> newMappings) {
     log.info("Updating mappings");
     final RedmatchProject project = resolveRedmatchProject(projectId, false);
-    final RedmatchProject newProject = new RedmatchProject(project.getReportId(), 
-        project.getRedcapUrl());
-    newProject.addMappings(newMappings);
-    return updateRedmatchProject(newProject);
+    project.setMappings(newMappings);
+    return updateRedmatchProject(project);
   }
 
   /**
@@ -287,11 +293,9 @@ public class RedmatchApi {
   @Transactional
   public OperationResponse updateRulesDocument(String projectId, String rulesDocument) {
     log.info("Updating rules document");
-    final RedmatchProject project = resolveRedmatchProject(projectId, false);
+    final RedmatchProject project = resolveRedmatchProject(projectId, true);
     project.setRulesDocument(rulesDocument);
-    processRedmatchProject(project);
-    RedmatchProject savedProject = dao.save(project);
-    return new OperationResponse(savedProject.getId(), RegistrationStatus.UPDATED);
+    return updateRedmatchProject(project);
   }
 
   /**
@@ -487,12 +491,20 @@ public class RedmatchApi {
    * @param rmp The Redmatch project to process.
    */
   private void processRedmatchProject(RedmatchProject rmp) {
-    
+
+    // Sort mappings here so order is always the same
+    if (rmp.hasMappings()) {
+      Collections.sort(rmp.getMappings());
+    }
+
     // Compile rules document and add validation errors.
     final Document doc = compiler.compile(rmp);
     
-    // The document might be empty, depending on the type of errors
-    if (doc == null) {
+    // If the document is empty or has any errors then we inactivate all current mappings
+    if (doc == null || rmp.hasErrors()) {
+      for (Mapping m : rmp.getMappings()) {
+        m.setInactive(true);
+      }
       return;
     }
     

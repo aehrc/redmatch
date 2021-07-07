@@ -206,7 +206,8 @@ public class Mapping implements Comparable<Mapping> {
     return "Mapping [id=" + id + ", redcapFieldId=" + redcapFieldId + ", redcapLabel=" + redcapLabel
         + ", redcapFieldType=" + redcapFieldType + ", text=" + text + ", targetSystem="
         + targetSystem + ", targetCode=" + targetCode + ", targetDisplay=" + targetDisplay
-        + ", valueSetUrl=" + valueSetUrl + ", valueSetName=" + valueSetName + "]";
+        + ", valueSetUrl=" + valueSetUrl + ", valueSetName=" + valueSetName +
+      ", inactive=" + inactive + "]";
   }
 
   @Override
