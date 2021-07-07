@@ -11,6 +11,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
 
+import au.csiro.redmatch.model.Annotation;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.jupiter.api.Test;
@@ -262,6 +263,95 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
     
     assertEquals("http://snomed.info/sct", indeterminate.getTargetSystem());
     assertEquals("32570681000036100", indeterminate.getTargetCode());
+  }
+
+  /**
+   * This test deals with issue #31 where mappings are disappearing unexpectedly. It creates a simple project, defines
+   * valid rules and create mappings. Then the rules are replaced with invalid rules. Finally, valid rules are restored.
+   * The original mappings should still exist.
+   *
+   * @throws URISyntaxException If a syntax exception is thrown.
+   */
+  @Test
+  public void testIssue31() throws URISyntaxException {
+    log.info("Running testUpdateMappingsBug");
+    // Set the mock REDCap client
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    log.info("Creating project");
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project"))
+      .accept(MediaType.APPLICATION_JSON)
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+
+    // Update rules
+    log.info("Updating rules with valid version");
+    RequestEntity<String> rulesRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+      .accept(MediaType.APPLICATION_JSON)
+      .body(new ResourceLoader().loadRulesString("bug"));
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+
+    // Populate mappings and update project
+    log.info("Populating mappings");
+    List<Mapping> mappings = resp.getMappings();
+    populateMappingsBugFirstPass(mappings);
+    RequestEntity<List<Mapping>> mappingsRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-mappings"))
+      .accept(MediaType.APPLICATION_JSON)
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(mappings);
+    response = template.exchange(mappingsRequest, RedmatchProject.class);
+    resp = response.getBody();
+
+    for(Mapping m : resp.getMappings()) {
+      System.out.println(m.toString());
+    }
+
+    assertEquals(4, resp.getMappings().size());
+
+    // Update rules with invalid version
+    log.info("Updating rules with invalid version");
+    rulesRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+      .accept(MediaType.APPLICATION_JSON)
+      .body(new ResourceLoader().loadRulesString("issue31"));
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+
+    System.out.println("ISSUES AFTER INVALID RULES");
+    for (Annotation issue : resp.getIssues()) {
+      System.out.println(issue);
+    }
+
+    for(Mapping m : resp.getMappings()) {
+      System.out.println(m.toString());
+    }
+
+    assertEquals(0, resp.getMappings().size());
+
+    // Update rules again with version
+    log.info("Updating rules again with valid version");
+    rulesRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+      .accept(MediaType.APPLICATION_JSON)
+      .body(new ResourceLoader().loadRulesString("bug"));
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
   }
 
   @Test
