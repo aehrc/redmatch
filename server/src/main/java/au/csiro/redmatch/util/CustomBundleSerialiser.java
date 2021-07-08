@@ -13,15 +13,15 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 
 import java.io.IOException;
 import org.hl7.fhir.r4.model.Bundle;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jackson.JsonComponent;
 
 
-@JsonComponent
 public class CustomBundleSerialiser extends JsonSerializer<Bundle> {
-  
-  @Autowired
+
   private FhirContext ctx;
+
+  public CustomBundleSerialiser(FhirContext ctx) {
+    this.ctx = ctx;
+  }
   
   @Override
   public void serialize(Bundle bundle, JsonGenerator jsonGenerator, 

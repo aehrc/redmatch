@@ -400,8 +400,6 @@ public class FhirExporterIT extends AbstractRedmatchTest {
     }
   }
 
-
-
   private void testObservation(Map<String, DomainResource> res, String id, String code, String display,
                                String interpretation) {
     DomainResource dr  = res.get(id);

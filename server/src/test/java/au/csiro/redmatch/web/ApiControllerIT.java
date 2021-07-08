@@ -332,15 +332,6 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
 
     resp = response.getBody();
 
-    System.out.println("ISSUES AFTER INVALID RULES");
-    for (Annotation issue : resp.getIssues()) {
-      System.out.println(issue);
-    }
-
-    for(Mapping m : resp.getMappings()) {
-      System.out.println(m.toString());
-    }
-
     assertEquals(0, resp.getMappings().size());
 
     // Update rules again with version
@@ -446,7 +437,8 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
       .build();
 
     ResponseEntity<Parameters> transformResponse = template.exchange(transformRequest, Parameters.class);
-    assertNotNull(transformResponse);
+    resp = response.getBody();
+    assertNotNull(resp);
   }
 
   private void populateMappingsBugFirstPass(List<Mapping> mappings) {
