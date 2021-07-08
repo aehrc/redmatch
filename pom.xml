@@ -11,7 +11,7 @@
 
   <groupId>au.csiro.redmatch</groupId>
   <artifactId>redmatch</artifactId>
-  <version>1.3.2</version>
+  <version>1.3.3</version>
   <packaging>pom</packaging>
   
   <name>Redmatch</name>
