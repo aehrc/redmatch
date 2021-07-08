@@ -5,7 +5,8 @@
  */
 package au.csiro.redmatch.web;
 
-import au.csiro.redmatch.util.RawJson;
+import au.csiro.redmatch.util.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
@@ -17,6 +18,7 @@ import java.util.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -24,6 +26,7 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.jackson.JsonComponentModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ByteArrayResource;
@@ -31,6 +34,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -59,7 +63,6 @@ import au.csiro.redmatch.importer.CompilerException;
 import au.csiro.redmatch.model.RedmatchProject;
 import au.csiro.redmatch.model.Mapping;
 import au.csiro.redmatch.model.OperationResponse;
-import au.csiro.redmatch.util.WebUtils;
 
 /**
  * The main controller.
@@ -102,6 +105,15 @@ public class ApiController {
     mediaTypes.addAll(jsonConverter.getSupportedMediaTypes());
     mediaTypes.add(new MediaType("application", "javascript"));
     jsonConverter.setSupportedMediaTypes(mediaTypes);
+
+    Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder.json();
+    JsonComponentModule module  = new JsonComponentModule();
+    module.addSerializer(Bundle.class, new CustomBundleSerialiser());
+    module.addSerializer(OperationOutcome.class, new CustomOperationOutcomeSerialiser());
+    module.addSerializer(Parameters.class, new CustomParametersSerialiser());
+    ObjectMapper objectMapper = builder.modules(module).build();
+    jsonConverter.setObjectMapper(objectMapper);
+
     return jsonConverter;
   }
 
