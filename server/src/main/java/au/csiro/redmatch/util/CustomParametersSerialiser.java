@@ -13,14 +13,14 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 
 import java.io.IOException;
 import org.hl7.fhir.r4.model.Parameters;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jackson.JsonComponent;
 
-@JsonComponent
 public class CustomParametersSerialiser extends JsonSerializer<Parameters> {
-  
-  @Autowired
+
   private FhirContext ctx;
+
+  public CustomParametersSerialiser(FhirContext ctx) {
+    this.ctx = ctx;
+  }
   
   @Override
   public void serialize(Parameters params, JsonGenerator jsonGenerator, 

@@ -6,6 +6,7 @@
 package au.csiro.redmatch.web;
 
 import au.csiro.redmatch.util.*;
+import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
@@ -97,6 +98,9 @@ public class ApiController {
 
   @Autowired
   private Environment environment;
+
+  @Autowired
+  private FhirContext ctx;
   
   @Bean
   public MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter() {
@@ -108,9 +112,9 @@ public class ApiController {
 
     Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder.json();
     JsonComponentModule module  = new JsonComponentModule();
-    module.addSerializer(Bundle.class, new CustomBundleSerialiser());
-    module.addSerializer(OperationOutcome.class, new CustomOperationOutcomeSerialiser());
-    module.addSerializer(Parameters.class, new CustomParametersSerialiser());
+    module.addSerializer(Bundle.class, new CustomBundleSerialiser(ctx));
+    module.addSerializer(OperationOutcome.class, new CustomOperationOutcomeSerialiser(ctx));
+    module.addSerializer(Parameters.class, new CustomParametersSerialiser(ctx));
     ObjectMapper objectMapper = builder.modules(module).build();
     jsonConverter.setObjectMapper(objectMapper);
 
@@ -630,12 +634,20 @@ public class ApiController {
   }
   
   private ResponseEntity<OperationOutcome> getResponse(HttpStatus status, String msg, Exception e) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("[" + e.getLocalizedMessage() + "]");
+
+    Throwable t = e.getCause();
+    while (t != null) {
+      sb.append(", [" + e.getLocalizedMessage() + "]");
+    }
+
     OperationOutcome oo = new OperationOutcome();
     oo
       .addIssue()
       .setSeverity(IssueSeverity.ERROR)
       .setCode(IssueType.EXCEPTION)
-      .setDiagnostics(msg + " [" + e.getLocalizedMessage() + "]");
+      .setDiagnostics(msg + " " + sb.toString());
     return new ResponseEntity<>(oo, getHeaders(), status);
   }
 
