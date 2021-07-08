@@ -14,6 +14,7 @@ import java.util.UUID;
 import au.csiro.redmatch.model.Annotation;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -391,6 +392,61 @@ public class ApiControllerIT extends AbstractTestExecutionListener {
 
     resp = response.getBody();
     assertEquals(0, resp.getIssues().size());
+  }
+
+  /**
+   * Tests the transformation operation.
+   *
+   * @throws URISyntaxException
+   */
+  @Test
+  public void testTransform() throws URISyntaxException {
+    log.info("Running testTransform");
+    // Set the mock REDCap client
+    RedcapImporter ri = ctx.getBean(RedcapImporter.class);
+    ri.setRedcapClient(new MockRedcapClient("bug"));
+    // Create project
+    RedmatchProject body = new RedmatchProject(UUID.randomUUID().toString(), "http://dummyredcapurl.com/api");
+    body.setName("Redmatch bug");
+    body.setToken("xxx");
+    RequestEntity<RedmatchProject> request = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project"))
+      .accept(MediaType.APPLICATION_JSON)
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(body);
+    ResponseEntity<RedmatchProject> response = template.exchange(request, RedmatchProject.class);
+    RedmatchProject resp = response.getBody();
+    final String projectId = resp.getId();
+
+    // Update rules
+    RequestEntity<String> rulesRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-rules"))
+      .accept(MediaType.APPLICATION_JSON)
+      .body(new ResourceLoader().loadRulesString("bug"));
+    response = template.exchange(rulesRequest, RedmatchProject.class);
+
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+
+    // Populate mappings and update project
+    List<Mapping> mappings = resp.getMappings();
+    populateMappingsBugSecondPass(mappings);
+    RequestEntity<List<Mapping>> mappingsRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$update-mappings"))
+      .accept(MediaType.APPLICATION_JSON)
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(mappings);
+    response = template.exchange(mappingsRequest, RedmatchProject.class);
+    resp = response.getBody();
+    assertEquals(4, resp.getMappings().size());
+
+    RequestEntity<Void> transformRequest = RequestEntity
+      .post(new URI("http://localhost:" + port + "/project/" + projectId + "/$transform"))
+      .accept(MediaType.APPLICATION_JSON)
+      .build();
+
+    ResponseEntity<Parameters> transformResponse = template.exchange(transformRequest, Parameters.class);
+    assertNotNull(transformResponse);
   }
 
   private void populateMappingsBugFirstPass(List<Mapping> mappings) {
