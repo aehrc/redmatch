@@ -21,29 +21,6 @@
 
 	<build>
 		<plugins>
-			<!-- Copies the grammar files from the server module. -->
-			<plugin>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.1.0</version>
-				<executions>
-					<execution>
-						<id>copy-resources</id>
-						<phase>generate-resources</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<overwrite>true</overwrite>
-							<outputDirectory>${project.basedir}/src/grammar</outputDirectory>
-							<resources>
-								<resource>
-									<directory>../server/src/main/antlr4</directory>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
 			<!-- Used to run Yarn to install and build the project. Requires yarn to be installed locally. No longer
 			 using frontend-maven-plugin because it doesn't work with M1 Macs.-->
 			<plugin>
