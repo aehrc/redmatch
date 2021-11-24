@@ -24,7 +24,7 @@ description: >- # this means to ignore newlines until "baseurl:"
   Redmatch is a tool designed to transform REDCap 
   forms into FHIR resources.
 logo: /img/redmatch_logo.png
-baseurl: "" # the subpath of your site, e.g. /blog
+baseurl: "/redmatch" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 #twitter_username: jekyllrb
 github_username:  ametke
