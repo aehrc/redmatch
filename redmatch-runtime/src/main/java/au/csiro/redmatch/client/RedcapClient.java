@@ -1,0 +1,198 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
+package au.csiro.redmatch.client;
+
+import au.csiro.redmatch.importer.RedcapJsonImporter;
+import au.csiro.redmatch.model.Row;
+import au.csiro.redmatch.model.Schema;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.message.BasicNameValuePair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Type;
+import java.util.*;
+
+/**
+ * A client to communicate with a REDCap server.
+ *
+ * @author Alejandro Metke Jimenez
+ */
+@Component
+public class RedcapClient implements Client {
+
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(RedcapClient.class);
+
+  private final Gson gson;
+
+  @Autowired
+  public RedcapClient(Gson gson) {
+    this.gson = gson;
+  }
+
+  @Override
+  public Schema getSchema(String endpoint, Credentials credentials) {
+    return getSchema(endpoint, credentials, Collections.emptySet());
+  }
+
+  @Override
+  public Schema getSchema(String endpoint, Credentials credentials, Set<String> fieldIds) {
+    RedcapCredentials rc = (RedcapCredentials) credentials;
+
+    ArrayList<NameValuePair> params = new ArrayList<>();
+    params.add(new BasicNameValuePair("token", rc.getToken()));
+    params.add(new BasicNameValuePair("content", "metadata"));
+    params.add(new BasicNameValuePair("format", "json"));
+    for (String fieldId : fieldIds) {
+      params.add(new BasicNameValuePair("fields[]", fieldId));
+    }
+
+    final RedcapResponse resp = doPost(endpoint, params);
+    String content = resp.getContent();
+    handleRedcapStatus(resp.getStatus(), content);
+
+    // The content should now be valid JSON
+    RedcapJsonImporter imp = new RedcapJsonImporter(gson);
+    return imp.loadSchema(content);
+  }
+
+  @Override
+  public List<Row> getData(String endpoint, Credentials credentials) {
+    return getData(endpoint, credentials, Collections.emptySet());
+  }
+
+  @Override
+  public List<Row> getData(String endpoint, Credentials credentials, Set<String> fieldIds) {
+    RedcapCredentials rc = (RedcapCredentials) credentials;
+
+
+    ArrayList<NameValuePair> params = new ArrayList<>();
+    params.add(new BasicNameValuePair("token", rc.getToken()));
+    params.add(new BasicNameValuePair("content", "record"));
+    params.add(new BasicNameValuePair("format", "json"));
+    for (String fieldId : fieldIds) {
+      params.add(new BasicNameValuePair("fields[]", fieldId));
+    }
+
+    final RedcapResponse resp = doPost(endpoint, params);
+    String content = resp.getContent();
+    handleRedcapStatus(resp.getStatus(), content);
+    return parseData(content);
+  }
+
+  private RedcapResponse doPost(String url, ArrayList<NameValuePair> params) {
+    HttpPost post = new HttpPost(url);
+    post.setHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    try {
+      post.setEntity(new UrlEncodedFormEntity(params));
+    } catch (UnsupportedEncodingException e) {
+      throw new ClientException("There was a problem related to encoding.", e);
+    }
+
+    StringBuilder result = new StringBuilder();
+    HttpClient client = HttpClientBuilder.create().build();
+
+    HttpResponse resp;
+    try {
+      resp = client.execute(post);
+    } catch (IOException e) {
+      throw new ClientException("There was an I/O issue communicating with REDCap at " + url + ".", e);
+    }
+
+    int respCode = resp.getStatusLine().getStatusCode();
+
+    try (BufferedReader reader = new BufferedReader(
+      new InputStreamReader(resp.getEntity().getContent()))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        result.append(line);
+        result.append('\n');
+      }
+    } catch (IOException e) {
+      throw new ClientException("There was an I/O issue reading REDCap's response.", e);
+    }
+
+    final String content = result.toString();
+    checkContentType(resp, content);
+
+    return new RedcapResponse(respCode, content);
+  }
+
+  private void checkContentType(HttpResponse resp, String content) {
+    final Header[] contentTypeHeaders = resp.getHeaders("Content-Type");
+    if (contentTypeHeaders.length >= 1) {
+      final String contentType = contentTypeHeaders[0].getValue();
+      if (!contentType.startsWith("application/json")) {
+        if (log.isErrorEnabled()) {
+          log.error("Unexpected REDCap response");
+        }
+        throw new ClientException("Expected a response from REDCap with content type application/json but was "
+          + contentType + ". Content = '" + content + "'.");
+      }
+    } else {
+      log.warn("Content-Type header was not present in REDCap response.");
+    }
+  }
+
+  private void handleRedcapStatus(int status, String msg) {
+    if (status < 200 || status >= 300) {
+      throw new ClientException(msg);
+    }
+  }
+
+  private List<Row> parseData(String data) {
+    Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
+    final List<Map<String, String>> rows = gson.fromJson(data, listType);
+
+    final List<Row> res = new ArrayList<>();
+
+    for (Map<String, String> row : rows) {
+      Row entry = new Row();
+      entry.setData(row);
+      res.add(entry);
+    }
+    return res;
+  }
+
+  private static class RedcapResponse {
+    private final int status;
+    private final String content;
+
+    /**
+     * Creates a new response with a status and a content string.
+     *
+     * @param status The status.
+     * @param content The content string.
+     */
+    public RedcapResponse(int status, String content) {
+      this.status = status;
+      this.content = content;
+    }
+
+    public int getStatus() {
+      return status;
+    }
+
+    public String getContent() {
+      return content;
+    }
+  }
+}

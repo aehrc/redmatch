@@ -1,0 +1,5 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TTRUE { Patient<p>: *gender = CODE(male) }
+}

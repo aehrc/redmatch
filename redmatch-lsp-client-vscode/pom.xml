@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>au.csiro</groupId>
+		<artifactId>redmatch</artifactId>
+		<version>2.0.0</version>
+	</parent>
+
+	<artifactId>redmatch-lsp-client-vscode</artifactId>
+	<packaging>pom</packaging>
+
+	<name>Redmatch Visual Studio Code Client</name>
+
+	<build>
+		<plugins>
+			<!-- Copies the jar file so it can be launched by the client. -->
+			<plugin>
+				<groupId>com.coderplus.maven.plugins</groupId>
+				<artifactId>copy-rename-maven-plugin</artifactId>
+				<version>1.0</version>
+				<executions>
+					<execution>
+						<id>rename-file</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>rename</goal>
+						</goals>
+						<configuration>
+							<sourceFile>../redmatch-language-server/target/redmatch-language-server-${project.version}-spring-boot.jar</sourceFile>
+							<destinationFile>${project.basedir}/jars/server.jar</destinationFile>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Used to run npm to install and build the project. Requires NPM to be installed locally. -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.0.0</version>
+				<executions>
+					<!-- Installs dependencies using NPM. -->
+					<execution>
+						<id>exec-npm-install</id>
+						<phase>generate-sources</phase>
+						<configuration>
+							<executable>npm</executable>
+							<arguments>
+								<argument>install</argument>
+							</arguments>
+						</configuration>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

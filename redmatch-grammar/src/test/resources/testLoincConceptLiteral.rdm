@@ -1,0 +1,5 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE { Observation<o>: *code = CONCEPT_LITERAL(http://loinc.org|48018-6) }
+}

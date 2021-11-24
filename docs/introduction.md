@@ -1,0 +1,11 @@
+# Introduction
+
+In recent years, clinical trials and studies have increasingly started using electronic systems to capture data required to conduct a range of analysis, such as the effectiveness of a new treatment or its economic value. However, even though these tools allow creating electronic forms easily, they are not designed to capture clinical data, impose few constraints on what should be captured and also have limited data sharing capabilities.
+
+One of the most popular tools currently used to capture research data is [REDCap](https://www.project-redcap.org), a web application created at Vanderbilt University. REDCap is not open source, but it is free to use for non-profit organizations who join the REDCap Consortium. Users can easily create forms to capture data and the system does not impose any restrictions on how to desogn these forms. This is not usually a problem when conducting an analysis on a single data set.
+
+However, to support analyses across multiple data sets, data should be represented using a common data model. Even though this standardisation could be done at the REDCap level (i.e., designing common forms that are used across multiple projects) this rarely happens in practice. Several common data models for clinical data exist, such as [OMOP](https://www.ohdsi.org/data-standardization/the-common-data-model/) and [i2b2](https://community.i2b2.org/wiki/display/BUN/i2b2+Common+Data+Model+Documentation). However, [FHIR](https://www.hl7.org/fhir/) is being promoted as the preferred mechanism to exchange clinical data for research purposes (see [here](https://grants.nih.gov/grants/guide/notice-files/NOT-OD-19-122.html)). Therefore, Redmatch supports transforming REDCap forms into FHIR resources. Redmatch is a standalone application that communicates with REDCap using its API.
+
+An alternative to Redmatch is a new module that is currently being developed by the REDCap team. The module provides a mechanism to extract data in FHIR format that is tightly integrated to REDCap. That project is available at [https://github.com/vanderbilt-redcap/fhir-services-module](https://github.com/vanderbilt-redcap/fhir-services-module).
+
+[Home](./index.html)

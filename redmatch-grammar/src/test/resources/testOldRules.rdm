@@ -1,0 +1,9 @@
+// Always create a patient.
+TRUE {
+  Patient<p> :
+    * identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|PI)
+    * identifier.type.text = 'Patient internal identifier'
+    * identifier.system = 'http://www.australiangenomics.org.au/id/study-number'
+    * identifier.value = VALUE(stud_num)
+    * birthDate = VALUE(dem_dob, 'YEAR')
+}

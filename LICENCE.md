@@ -67,6 +67,3 @@ The third party components referenced in the links below are distributed with th
 Software. You agree to comply with the licence terms for these components as part 
 of accessing the Software. Other third party software may also be identified in
 separate files distributed with the Software.
-
- - [Backend components](server/DISCLAIMER.txt)
- - [Frontend components](ui/DISCLAIMER.md)

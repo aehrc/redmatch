@@ -1,0 +1,68 @@
+SCHEMA: 'RedmatchTutorial_DataDictionary_2021-09-14.csv' (REDCAP)
+
+SERVER: 'csiro'
+
+ALIASES: {
+    $HPO = 'http://purl.obolibrary.org/obo/hp.fhir'
+}
+
+RULES: {
+  TRUE {
+    Patient<p>:
+      * identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
+      * identifier.type.text = 'Medicare Number'
+      * identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number'
+      * identifier.value = VALUE(pat_medicare)
+  }
+
+  VALUE(pat_dead) = 1 {
+    NOTNULL(pat_dead_date) {
+      Patient<p>: * deceasedDateTime = VALUE(pat_dead_date)
+    } ELSE {
+      Patient<p>: * deceasedBoolean = TRUE
+    }
+  }
+
+  VALUE(pat_dead) = 0 {
+    Patient<p>: * deceasedBoolean = FALSE
+  }
+
+  NOTNULL(pat_sex) {
+    Observation<sex>:
+      * code = CONCEPT_LITERAL(http://snomed.info/sct|429019009)
+      * valueCodeableConcept = CONCEPT_SELECTED(pat_sex)
+      * subject = REF(Patient<p>)
+  }
+
+  VALUE(dx_num) > 0 {
+    REPEAT(1..2: x)
+    NOTNULL(dx_${x}) {
+      VALUE(dx_${x}) = '_NRF_' {
+        Condition<c${x}>:
+          * code.text = VALUE(dx_text_${x})
+          * subject = REF(Patient<p>)
+      } ELSE {
+        Condition<c${x}>:
+          * code = CONCEPT(dx_${x})
+          * subject = REF(Patient<p>)
+      }
+    }
+  }
+
+  REPEAT(1..4: x)
+  NOTNULL(phenotype___${x}) {
+    Observation<obs${x}>:
+      * status = CODE(final)
+      * code = CONCEPT(phenotype___${x})
+      * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+  }
+}
+
+MAPPINGS: {
+    pat_sex___1   -> $SCT|248153007|'Male';
+    pat_sex___2   -> $SCT|248152002|'Female';
+    phenotype___1 -> $HPO|HP:0000602|'Ophthalmoplegia';
+    phenotype___2 -> $HPO|HP:0000602|'Ophthalmoplegia';
+    phenotype___3 -> $HPO|HP:0000602|'Ophthalmoplegia';
+    phenotype___4 -> $HPO|HP:0000602|'Ophthalmoplegia';
+}

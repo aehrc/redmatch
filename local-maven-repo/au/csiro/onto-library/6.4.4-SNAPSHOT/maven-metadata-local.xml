@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata modelVersion="1.1.0">
+  <groupId>au.csiro</groupId>
+  <artifactId>onto-library</artifactId>
+  <version>6.4.4-SNAPSHOT</version>
+  <versioning>
+    <snapshot>
+      <localCopy>true</localCopy>
+    </snapshot>
+    <lastUpdated>20210813054915</lastUpdated>
+    <snapshotVersions>
+      <snapshotVersion>
+        <extension>jar</extension>
+        <value>6.4.4-SNAPSHOT</value>
+        <updated>20210813054915</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>pom</extension>
+        <value>6.4.4-SNAPSHOT</value>
+        <updated>20210813054915</updated>
+      </snapshotVersion>
+    </snapshotVersions>
+  </versioning>
+</metadata>

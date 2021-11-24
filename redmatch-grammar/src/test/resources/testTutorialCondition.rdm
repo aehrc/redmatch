@@ -1,0 +1,26 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    Patient<p>:
+      *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
+      *identifier.type.text = 'Medicare Number'
+      *identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number'
+      *identifier.value = VALUE(pat_medicare)
+  }
+
+  VALUE(dx_num) > 0 {
+    REPEAT(1..2: x)
+    VALUE(dx_${x}) = 'NOT_FOUND' {
+      // No code was found so we use the free text
+      Condition<c${x}>:
+        * code.text = VALUE(dx_text_${x})
+        * subject = REF(Patient<p>)
+    } ELSE {
+      // We use the code selected using the terminology server
+      Condition<c${x}>:
+        * code = CONCEPT(dx_${x})
+        * subject = REF(Patient<p>)
+    }
+  }
+}

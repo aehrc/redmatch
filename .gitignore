@@ -1,6 +1,5 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 /docker-compose.yml
-ui/.idea/
 
 target/
 .checkstyle
@@ -13,12 +12,9 @@ target/
 bin/
 
 # IDEs and editors
-/.idea
-.project
-.classpath
+**/.idea
 .c9/
 *.launch
-.settings/
 *.sublime-workspace
 *.iml
 
@@ -37,3 +33,9 @@ Icon?
 ehthumbs.db
 Thumbs.db
 generated
+
+# Other
+*.tokens
+/redmatch-grammar/gen/
+/redmatch-grammar/src/main/resources/redmatch-fhir-complex-types.json
+/redmatch-grammar/src/main/resources/redmatch-fhir-resources.json

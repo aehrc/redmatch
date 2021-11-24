@@ -1,26 +1,50 @@
-# Redmatch Configuration
+# Configuration
 
-This document describes the Redmatch configuration options available for the backend and the frontend. A tutorial that shows how to run Redmatch and transform a REDCap form into FHIR resources is available [here](tutorial.md).
+## Project Structure
 
-## Backend
+Redmatch projects have the following structure:
 
-The following properties can be set in the backend component: 
+```
+redmatch-project
+├── schema.csv
+├── file1.rdm
+├── file2.rdm
+├── file3.rdm
+└── redmatch-config.yaml
+```
 
-| Property                                              | Default Value                       | Description                                                                                                                                          |
-| ----------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| redmatch.targetFolder                                 | ${user.home}/redmatch               | Folder where the FHIR resources are generated.                                                                                                       |
-| ontoserver.url                                        | https://r4.ontoserver.csiro.au/fhir | The URL of a FHIR terminology server. Required for validation.                                                                                       |
-| redmatch.security.enabled                             | false                               | Indicates if security in the Redmatch backend is turned on or off.                                                                                   |
-| spring.security.oauth2.resourceserver.jwt.issuer-uri  | none                                | The URL of an OpenID Connect Provider's configuration endpoint or an authorisation server's metadata endpoint.                                        |
-| spring.security.oauth2.resourceserver.jwt.jwk-set-uri | none                                | The URL of the authorisation server endpoint were the JSON Web Key (JWK) Set can be obtained to verify the JSON Web Signature (JWS) of the ID token. |
+At a minimum a project should have a schema file (`schema.csv` in this example), one or more Redmatch transformation rules documents (`file1..3.rd` in this example) and a configuration file (`redmatch-config.yml` in this example).
 
-## Frontend
+## REDCap Schema Files
 
-The following properties can be set in the fronend component: 
+Redmatch requires a local copy of the REDCap schema file to access the metadata of the fields. Both `csv` and `json` versions are supported. The local schema should match the schema of the remote server where the data will be retrieved.
 
-| Property                                              | Default Value                       | Description                                                             |
-| ----------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
-| REACT_APP_TERMINOLOGY_URL                             | https://r4.ontoserver.csiro.au/fhir | The URL of a FHIR terminology server. Required to find concepts to map. |
-| REACT_APP_KEYCLOAK_URL                                | http://localhost:10001/auth         | The Keycloak authorisation endpoint.                                    |
-| REACT_APP_KEYCLOAK_REALM                              | Aehrc                               | The Keycloak realm.                                                     |
-| REACT_APP_KEYCLOAK_CLIENT_ID                          | redmatch                            | The Keycloak client id for Redmatch.                                    |
+### Redmatch Transformation Rules
+
+Redmatch transformation rules are text files with an `.rdm` extension. The format is described in detail in the [reference page](./reference.md).
+
+## REDCap Servers Configuration
+
+The __redmatch-config.yaml__ file can be used to configure REDCap servers that can be referenced in the transformation rules. Once the transformation rules are defined, these servers can be used to access the REDCap API, retrieve data and transform it to FHIR. The following is an example that defines two REDCap servers:
+
+```
+servers:
+- name: test
+  type: redcap
+  url: http://myserver.org/redcap/api/
+  token: xxx
+- name: local
+  type: redcap
+  url: http://localhost:8888/redcap/api/
+  token: yyy
+```
+
+Each server needs the following:
+ - a `name`, which can be used to reference the server in the transformation rules
+ - a `type` which at the moment will always be `redcap` (Redmatch will support other sources in future releases so this property will indicate the type of server)
+ - the `url` of the REDCap API endpoint
+ - the `token` that is required to access the REDCap API
+
+[Home](./index.html)
+
+

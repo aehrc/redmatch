@@ -1,0 +1,40 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    Observation<obs>:
+      * status = CODE(final)
+      * code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0001558)
+      * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|A)
+      * interpretation = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|IE)
+  }
+
+  TRUE {
+    Observation<obs2>:
+      * status = CODE(final)
+      * code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0001270)
+      * interpretation[4] = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|CAR)
+      * interpretation[2] = CONCEPT_LITERAL(http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation|POS)
+      * derivedFrom[3] = REF(Observation<obs>)
+  }
+
+  TRUE {
+    Observation<obs3>:
+      * status = CODE(final)
+      * code = CONCEPT_LITERAL(http://purl.obolibrary.org/obo/hp.owl|HP:0031910)
+      * derivedFrom = REF(Observation<obs>)
+  }
+
+  TRUE {
+    ValueSet<vs>:
+      * compose.include.filter[0].property = CODE(parent)
+      * compose.include.filter[0].op = CODE(is-a)
+      * compose.include.filter[0].value = 'True or false.'
+      * compose.include.filter[1].property = CODE(deprecated)
+      * compose.include.filter[1].op = CODE(=)
+      * compose.include.filter[1].value = 'True or false.'
+      * compose.include.filter[2].property = CODE(root)
+      * compose.include.filter[2].op = CODE(=)
+      * compose.include.filter[2].value = 'True or false.'
+  }
+}

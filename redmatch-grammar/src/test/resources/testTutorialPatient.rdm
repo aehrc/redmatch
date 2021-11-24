@@ -1,0 +1,11 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    Patient<p>:
+      *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
+      *identifier.type.text = 'Medicare Number'
+      *identifier.system = 'http://ns.electronichealth.net.au/id/medicare-number'
+      *identifier.value = VALUE(pat_medicare)
+  }
+}

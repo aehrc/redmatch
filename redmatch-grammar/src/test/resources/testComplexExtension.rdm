@@ -1,0 +1,8 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    ResearchStudy<rstud> :
+      * extension.valueQuantity.extension.valueQuantity.extension.valueQuantity.system = 'http://mysystem.com'
+  }
+}

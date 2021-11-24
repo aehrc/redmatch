@@ -1,0 +1,6 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  VALUE(pat_sex) = 1 { Patient<p>: *gender = CODE(male) }
+  VALUE(pat_sex) = 2 { Patient<p>: *gender = CODE(female) }
+}

@@ -1,0 +1,5 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  VALUE(facial) = 1 & VALUE(ptosis) = 1 | VALUE(oph) = 2 { Patient<p>: *identifier[0].value = VALUE(record_id) }
+}

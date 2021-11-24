@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>au.csiro</groupId>
+  <artifactId>onto-library</artifactId>
+  <version>6.4.4-SNAPSHOT</version>
+  <description>POM was created from install:install-file</description>
+  <url>https://ontoserver.csiro.au</url>
+  <licenses>
+    <license>
+      <name>CSIRO Binary Software Licence</name>
+      <url>https://data.csiro.au/dap/ws/v2/licences/1081</url>
+      <distribution>repo</distribution>
+      <comments>A licence to use binary software.</comments>
+    </license>
+  </licenses>
+</project>

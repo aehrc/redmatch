@@ -1,0 +1,13 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    Patient<p-1>:
+      * identifier[0].value = VALUE(record_id)
+  }
+
+  BALUE(pat_sex) = 1 {
+    Patient<p>:
+      *gender = CODE(male)
+  }
+}

@@ -1,0 +1,6 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  // Might lose some detail here if other is specified - should migrate to Ontoserver plugin
+  VALUE(m_weak) = 1 { Observation<mito_cd_atax>: *status = CODE(final) }
+}

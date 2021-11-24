@@ -1,4 +1,4 @@
-# Redmatch <img src="ui/src/components/redmatch_logo.png?raw=true">
+# Redmatch <img src="docs/img/redmatch_logo.png?raw=true">
 > Redmatch is a tool designed to transform REDCap forms into FHIR resources.
 
 ## Table of contents
@@ -17,20 +17,19 @@ In recent years, clinical trials and studies have increasingly started using ele
 This tool is targeted at domain experts that know about FHIR but don't necessarily have programming language skills. The rules engine implements a domain specific language that allows defining the transformation rules without the need to write any code.
 
 ## Screenshots
-[![Redmatch Projects](docs/img/redmatch_projects_th.png?raw=true)](docs/img/redmatch_projects.png)
-[![Redmatch rules](docs/img/redmatch_rules_th.png?raw=true)](docs/img/redmatch_rules.png)
-[![Redmatch mappings](docs/img/redmatch_mappings_th.png?raw=true)](docs/img/redmatch_mappings.png)
+
+[![Redmatch Visual Studio Code Plugin](docs/img/redmatch_vscode_th.png?raw=true)](docs/img/redmatch_vscode.png)
+[![Redmatch Graph](docs/img/redmatch_graph_th.png?raw=true)](docs/img/redmatch_graph.png)
 
 ## Technologies
 * Spring Boot
 * HAPI FHIR
 * ANTLR
-* Apache POI
-* React
+* Visual Studio Code
 
 ## Usage
 
-Please check the [tutorial](docs/tutorial.md).
+The documentation can be accessed [here](https://aehrc.github.io/redmatch/index.html).
 
 **Redmatch is experimental software. Use it at your own risk!** Take a look at the
 full description of the current set of [known issues](https://github.com/aehrc/redmatch/issues).

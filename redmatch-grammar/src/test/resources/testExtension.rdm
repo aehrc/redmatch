@@ -1,0 +1,15 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    ResearchStudy<rstud> :
+      * identifier.type = CONCEPT_LITERAL(http://genomics.ontoserver.csiro.au/clipi/CodeSystem/IdentifierType|RSI|'Research study identifier')
+      * identifier.system = 'http://www.australiangenomics.org.au/id/research-study'
+      * identifier.value = 'mito'
+  }
+  TRUE {
+    Encounter<enc> :
+      * extension[0].url = 'http://hl7.org/fhir/StructureDefinition/workflow-researchStudy'
+      * extension[0].valueReference = REF(ResearchStudy<rstud>)
+  }
+}

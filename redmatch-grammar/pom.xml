@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>au.csiro</groupId>
+    <artifactId>redmatch</artifactId>
+    <version>2.0.0</version>
+  </parent>
+
+  <artifactId>redmatch-grammar</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Redmatch Grammar</name>
+
+  <properties>
+    <antlr.version>4.8-1</antlr.version>
+    <antlr4.visitor>true</antlr4.visitor>
+    <antlr4.listener>true</antlr4.listener>
+    <lucene.version>8.3.1</lucene.version>
+    <joda-time.version>2.10.10</joda-time.version>
+  </properties>
+
+  <dependencies>
+    <!-- Used to import the basic Spring Boot functionality. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <!-- Used to build the compilers for the rules language. -->
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr4-runtime</artifactId>
+      <version>${antlr.version}</version>
+    </dependency>
+    <!-- Used to access diagnostic objects to report compilation problems. -->
+    <dependency>
+      <groupId>org.eclipse.lsp4j</groupId>
+      <artifactId>org.eclipse.lsp4j</artifactId>
+      <version>${lsp4j.version}</version>
+    </dependency>
+    <!-- Used to support FHIR. -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-base</artifactId>
+      <version>${hapi.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-structures-r4</artifactId>
+      <version>${hapi.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-client</artifactId>
+      <version>${hapi.version}</version>
+    </dependency>
+    <!-- Used to do internal operations with graphs. -->
+    <dependency>
+      <groupId>org.jgrapht</groupId>
+      <artifactId>jgrapht-core</artifactId>
+      <version>1.5.0</version>
+    </dependency>
+    <!-- Used to read CSV files. -->
+    <dependency>
+      <groupId>com.opencsv</groupId>
+      <artifactId>opencsv</artifactId>
+      <version>5.4</version>
+    </dependency>
+    <!-- Used to validate FHIR attribute expressions using Ontoserver. -->
+    <dependency>
+      <groupId>au.csiro</groupId>
+      <artifactId>onto-library</artifactId>
+      <version>6.4.4-SNAPSHOT</version>
+    </dependency>
+    <!-- Required by Ontoserver. -->
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-core</artifactId>
+      <version>${lucene.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
+      <version>${lucene.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>${joda-time.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <!-- Used to import Ontoserver's binary jar. -->
+  <repositories>
+    <repository>
+      <id>local-maven-repo</id>
+      <url>file:///${project.basedir}/../local-maven-repo</url>
+    </repository>
+  </repositories>
+
+  <build>
+    <plugins>
+      <!-- Used to compile the ANTLR grammar and generate the parser files. -->
+      <plugin>
+        <groupId>org.antlr</groupId>
+        <artifactId>antlr4-maven-plugin</artifactId>
+        <version>${antlr.version}</version>
+        <executions>
+          <!-- Used to create the Java files. -->
+          <execution>
+            <id>antlr-java</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>antlr4</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/generated-sources/antlr4/java</outputDirectory>
+              <arguments>
+                <argument>-Dlanguage=Java</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <sourceDirectory>${basedir}/src/main/antlr4</sourceDirectory>
+          <libDirectory>${basedir}/src/main/antlr4/au/csiro/redmatch/grammar</libDirectory>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

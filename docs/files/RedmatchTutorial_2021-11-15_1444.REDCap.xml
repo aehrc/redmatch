@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:redcap="https://projectredcap.org" xsi:schemaLocation="http://www.cdisc.org/ns/odm/v1.3 schema/odm/ODM1-3-1.xsd" ODMVersion="1.3.1" FileOID="000-00-0000" FileType="Snapshot" Description="Redmatch tutorial" AsOfDateTime="2021-11-15T14:44:54" CreationDateTime="2021-11-15T14:44:54" SourceSystem="REDCap" SourceSystemVersion="10.0.15">
+<Study OID="Project.RedmatchTutorial">
+<GlobalVariables>
+	<StudyName>Redmatch tutorial</StudyName>
+	<StudyDescription>This file contains the metadata, events, and data for REDCap project "Redmatch tutorial".</StudyDescription>
+	<ProtocolName>Redmatch tutorial</ProtocolName>
+	<redcap:RecordAutonumberingEnabled>1</redcap:RecordAutonumberingEnabled>
+	<redcap:CustomRecordLabel></redcap:CustomRecordLabel>
+	<redcap:SecondaryUniqueField></redcap:SecondaryUniqueField>
+	<redcap:SchedulingEnabled>0</redcap:SchedulingEnabled>
+	<redcap:SurveysEnabled>0</redcap:SurveysEnabled>
+	<redcap:SurveyInvitationEmailField></redcap:SurveyInvitationEmailField>
+	<redcap:Purpose>0</redcap:Purpose>
+	<redcap:PurposeOther></redcap:PurposeOther>
+	<redcap:ProjectNotes></redcap:ProjectNotes>
+	<redcap:MissingDataCodes></redcap:MissingDataCodes>
+</GlobalVariables>
+<MetaDataVersion OID="Metadata.RedmatchTutorial_2021-11-15_1444" Name="Redmatch tutorial" redcap:RecordIdField="record_id">
+	<FormDef OID="Form.patient_information" Name="Patient Information" Repeating="No" redcap:FormName="patient_information">
+		<ItemGroupRef ItemGroupOID="patient_information.record_id" Mandatory="No"/>
+		<ItemGroupRef ItemGroupOID="patient_information.left_bicep" Mandatory="No"/>
+		<ItemGroupRef ItemGroupOID="patient_information.right_bicep" Mandatory="No"/>
+		<ItemGroupRef ItemGroupOID="patient_information.patient_information_complete" Mandatory="No"/>
+	</FormDef>
+	<ItemGroupDef OID="patient_information.record_id" Name="Patient Information" Repeating="No">
+		<ItemRef ItemOID="record_id" Mandatory="No" redcap:Variable="record_id"/>
+		<ItemRef ItemOID="pat_medicare" Mandatory="No" redcap:Variable="pat_medicare"/>
+		<ItemRef ItemOID="pat_first_name" Mandatory="No" redcap:Variable="pat_first_name"/>
+		<ItemRef ItemOID="pat_last_name" Mandatory="No" redcap:Variable="pat_last_name"/>
+		<ItemRef ItemOID="pat_dob" Mandatory="No" redcap:Variable="pat_dob"/>
+		<ItemRef ItemOID="cons_date" Mandatory="No" redcap:Variable="cons_date"/>
+		<ItemRef ItemOID="pat_dead" Mandatory="No" redcap:Variable="pat_dead"/>
+		<ItemRef ItemOID="pat_dead_date" Mandatory="No" redcap:Variable="pat_dead_date"/>
+		<ItemRef ItemOID="pat_sex" Mandatory="No" redcap:Variable="pat_sex"/>
+		<ItemRef ItemOID="weight" Mandatory="No" redcap:Variable="weight"/>
+		<ItemRef ItemOID="height" Mandatory="No" redcap:Variable="height"/>
+		<ItemRef ItemOID="bmi" Mandatory="No" redcap:Variable="bmi"/>
+		<ItemRef ItemOID="dx_num" Mandatory="No" redcap:Variable="dx_num"/>
+		<ItemRef ItemOID="dx_1" Mandatory="No" redcap:Variable="dx_1"/>
+		<ItemRef ItemOID="dx_text_1" Mandatory="No" redcap:Variable="dx_text_1"/>
+		<ItemRef ItemOID="dx_sv_1" Mandatory="No" redcap:Variable="dx_sv_1"/>
+		<ItemRef ItemOID="dx_sv_text_1" Mandatory="No" redcap:Variable="dx_sv_text_1"/>
+		<ItemRef ItemOID="dx_2" Mandatory="No" redcap:Variable="dx_2"/>
+		<ItemRef ItemOID="dx_text_2" Mandatory="No" redcap:Variable="dx_text_2"/>
+		<ItemRef ItemOID="dx_sv_2" Mandatory="No" redcap:Variable="dx_sv_2"/>
+		<ItemRef ItemOID="dx_sv_text_2" Mandatory="No" redcap:Variable="dx_sv_text_2"/>
+		<ItemRef ItemOID="phenotype___1" Mandatory="No" redcap:Variable="phenotype"/>
+		<ItemRef ItemOID="phenotype___2" Mandatory="No" redcap:Variable="phenotype"/>
+		<ItemRef ItemOID="phenotype___3" Mandatory="No" redcap:Variable="phenotype"/>
+		<ItemRef ItemOID="phenotype___4" Mandatory="No" redcap:Variable="phenotype"/>
+		<ItemRef ItemOID="m_weak" Mandatory="No" redcap:Variable="m_weak"/>
+		<ItemRef ItemOID="facial" Mandatory="No" redcap:Variable="facial"/>
+		<ItemRef ItemOID="ptosis" Mandatory="No" redcap:Variable="ptosis"/>
+		<ItemRef ItemOID="oph" Mandatory="No" redcap:Variable="oph"/>
+	</ItemGroupDef>
+	<ItemGroupDef OID="patient_information.left_bicep" Name="Deep tendon reflexes" Repeating="No">
+		<ItemRef ItemOID="left_bicep" Mandatory="No" redcap:Variable="left_bicep"/>
+	</ItemGroupDef>
+	<ItemGroupDef OID="patient_information.right_bicep" Name="Patient Information" Repeating="No">
+		<ItemRef ItemOID="right_bicep" Mandatory="No" redcap:Variable="right_bicep"/>
+		<ItemRef ItemOID="left_tricep" Mandatory="No" redcap:Variable="left_tricep"/>
+		<ItemRef ItemOID="right_tricep" Mandatory="No" redcap:Variable="right_tricep"/>
+	</ItemGroupDef>
+	<ItemGroupDef OID="patient_information.patient_information_complete" Name="Form Status" Repeating="No">
+		<ItemRef ItemOID="patient_information_complete" Mandatory="No" redcap:Variable="patient_information_complete"/>
+	</ItemGroupDef>
+	<ItemDef OID="record_id" Name="record_id" DataType="text" Length="999" redcap:Variable="record_id" redcap:FieldType="text">
+		<Question><TranslatedText>Record ID</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="pat_medicare" Name="pat_medicare" DataType="float" Length="999" SignificantDigits="1" redcap:Variable="pat_medicare" redcap:FieldType="text" redcap:TextValidationType="float">
+		<Question><TranslatedText>Medicare card number:</TranslatedText></Question>
+		<RangeCheck Comparator="LE" SoftHard="Soft">
+			<CheckValue>99999999999</CheckValue>
+			<ErrorMessage><TranslatedText>The value you provided is outside the suggested range. (no limit - 99999999999). This value is admissible, but you may wish to double check it.</TranslatedText></ErrorMessage>
+		</RangeCheck>
+	</ItemDef>
+	<ItemDef OID="pat_first_name" Name="pat_first_name" DataType="text" Length="999" redcap:Variable="pat_first_name" redcap:FieldType="text">
+		<Question><TranslatedText>First name:</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="pat_last_name" Name="pat_last_name" DataType="text" Length="999" redcap:Variable="pat_last_name" redcap:FieldType="text">
+		<Question><TranslatedText>Last name:</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="pat_dob" Name="pat_dob" DataType="date" Length="999" redcap:Variable="pat_dob" redcap:FieldType="text" redcap:TextValidationType="date_dmy">
+		<Question><TranslatedText>Date of birth:</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="cons_date" Name="cons_date" DataType="datetime" Length="999" redcap:Variable="cons_date" redcap:FieldType="text" redcap:TextValidationType="datetime_seconds_dmy">
+		<Question><TranslatedText>Consultation date:</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="pat_dead" Name="pat_dead" DataType="boolean" Length="1" redcap:Variable="pat_dead" redcap:FieldType="truefalse">
+		<Question><TranslatedText>Deceased</TranslatedText></Question>
+		<CodeListRef CodeListOID="pat_dead.choices"/>
+	</ItemDef>
+	<ItemDef OID="pat_dead_date" Name="pat_dead_date" DataType="date" Length="999" redcap:Variable="pat_dead_date" redcap:FieldType="text" redcap:TextValidationType="date_dmy" redcap:BranchingLogic="[pat_dead] = &#039;1&#039;">
+		<Question><TranslatedText>Deceased date:</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="pat_sex" Name="pat_sex" DataType="text" Length="1" redcap:Variable="pat_sex" redcap:FieldType="radio">
+		<Question><TranslatedText>Sex</TranslatedText></Question>
+		<CodeListRef CodeListOID="pat_sex.choices"/>
+	</ItemDef>
+	<ItemDef OID="weight" Name="weight" DataType="integer" Length="999" redcap:Variable="weight" redcap:FieldType="text" redcap:TextValidationType="int" redcap:CustomAlignment="RH">
+		<Question><TranslatedText>Weight (in kilograms):</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="height" Name="height" DataType="integer" Length="999" redcap:Variable="height" redcap:FieldType="text" redcap:TextValidationType="int" redcap:CustomAlignment="RH">
+		<Question><TranslatedText>Height (in centimeters):</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="bmi" Name="bmi" DataType="float" Length="999" redcap:Variable="bmi" redcap:FieldType="calc" redcap:Calculation="[weight]*10000/([height]*[height])" redcap:CustomAlignment="RH">
+		<Question><TranslatedText>BMI</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_num" Name="dx_num" DataType="text" Length="1" redcap:Variable="dx_num" redcap:FieldType="select">
+		<Question><TranslatedText>Number of diagnoses:</TranslatedText></Question>
+		<CodeListRef CodeListOID="dx_num.choices"/>
+	</ItemDef>
+	<ItemDef OID="dx_1" Name="dx_1" DataType="text" Length="999" redcap:Variable="dx_1" redcap:FieldType="text" redcap:FieldNote="SNOMED CT term - select &#039;NOT FOUND&#039; if not on the list" redcap:OntologySearch="FHIR:http://snomed.info/sct?fhir_vs=isa/404684003" redcap:BranchingLogic="[dx_num] &gt; 0">
+		<Question><TranslatedText>First diagnosis</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_text_1" Name="dx_text_1" DataType="text" Length="999" redcap:Variable="dx_text_1" redcap:FieldType="text" redcap:BranchingLogic="[dx_1] = &#039;_NRF_&#039;">
+		<Question><TranslatedText>First diagnosis description (if code not found)</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_sv_1" Name="dx_sv_1" DataType="text" Length="999" redcap:Variable="dx_sv_1" redcap:FieldType="text" redcap:FieldNote="SNOMED CT term - select &#039;NOT FOUND&#039; if not on the list" redcap:OntologySearch="FHIR:http://snomed.info/sct?fhir_vs=isa/272141005" redcap:BranchingLogic="[dx_num] &gt; 0">
+		<Question><TranslatedText>First diagnosis severity</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_sv_text_1" Name="dx_sv_text_1" DataType="text" Length="999" redcap:Variable="dx_sv_text_1" redcap:FieldType="text" redcap:BranchingLogic="[dx_sv_1] = &#039;NOT_FOUND&#039;">
+		<Question><TranslatedText>First diagnosis severity description (if code not found)</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_2" Name="dx_2" DataType="text" Length="999" redcap:Variable="dx_2" redcap:FieldType="text" redcap:FieldNote="SNOMED CT term - select &#039;NOT FOUND&#039; if not on the list" redcap:OntologySearch="FHIR:http://snomed.info/sct?fhir_vs=isa/404684003" redcap:BranchingLogic="[dx_num] &gt; 1">
+		<Question><TranslatedText>Second diagnosis</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_text_2" Name="dx_text_2" DataType="text" Length="999" redcap:Variable="dx_text_2" redcap:FieldType="text" redcap:BranchingLogic="[dx_2] = &#039;_NRF_&#039;">
+		<Question><TranslatedText>Second diagnosis description (if code not found)</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_sv_2" Name="dx_sv_2" DataType="text" Length="999" redcap:Variable="dx_sv_2" redcap:FieldType="text" redcap:FieldNote="SNOMED CT term - select &#039;NOT FOUND&#039; if not on the list" redcap:OntologySearch="FHIR:http://snomed.info/sct?fhir_vs=isa/272141005" redcap:BranchingLogic="[dx_num] &gt; 1">
+		<Question><TranslatedText>Second diagnosis severity</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="dx_sv_text_2" Name="dx_sv_text_2" DataType="text" Length="999" redcap:Variable="dx_sv_text_2" redcap:FieldType="text" redcap:BranchingLogic="[dx_sv_2] = &#039;NOT_FOUND&#039;">
+		<Question><TranslatedText>Second diagnosis severity description (if code not found)</TranslatedText></Question>
+	</ItemDef>
+	<ItemDef OID="phenotype___1" Name="phenotype___1" DataType="boolean" Length="1" redcap:Variable="phenotype" redcap:FieldType="checkbox">
+		<Question><TranslatedText>Phenotype</TranslatedText></Question>
+		<CodeListRef CodeListOID="phenotype___1.choices"/>
+	</ItemDef>
+	<ItemDef OID="phenotype___2" Name="phenotype___2" DataType="boolean" Length="1" redcap:Variable="phenotype" redcap:FieldType="checkbox">
+		<Question><TranslatedText>Phenotype</TranslatedText></Question>
+		<CodeListRef CodeListOID="phenotype___2.choices"/>
+	</ItemDef>
+	<ItemDef OID="phenotype___3" Name="phenotype___3" DataType="boolean" Length="1" redcap:Variable="phenotype" redcap:FieldType="checkbox">
+		<Question><TranslatedText>Phenotype</TranslatedText></Question>
+		<CodeListRef CodeListOID="phenotype___3.choices"/>
+	</ItemDef>
+	<ItemDef OID="phenotype___4" Name="phenotype___4" DataType="boolean" Length="1" redcap:Variable="phenotype" redcap:FieldType="checkbox">
+		<Question><TranslatedText>Phenotype</TranslatedText></Question>
+		<CodeListRef CodeListOID="phenotype___4.choices"/>
+	</ItemDef>
+	<ItemDef OID="m_weak" Name="m_weak" DataType="boolean" Length="1" redcap:Variable="m_weak" redcap:FieldType="yesno" redcap:CustomAlignment="RH">
+		<Question><TranslatedText>Muscle weakness:</TranslatedText></Question>
+		<CodeListRef CodeListOID="m_weak.choices"/>
+	</ItemDef>
+	<ItemDef OID="facial" Name="facial" DataType="text" Length="1" redcap:Variable="facial" redcap:FieldType="radio" redcap:BranchingLogic="[m_weak] = &#039;1&#039;" redcap:MatrixGroupName="weakness">
+		<Question><TranslatedText>Facial</TranslatedText></Question>
+		<CodeListRef CodeListOID="facial.choices"/>
+	</ItemDef>
+	<ItemDef OID="ptosis" Name="ptosis" DataType="text" Length="1" redcap:Variable="ptosis" redcap:FieldType="radio" redcap:BranchingLogic="[m_weak] = &#039;1&#039;" redcap:MatrixGroupName="weakness">
+		<Question><TranslatedText>Ptosis</TranslatedText></Question>
+		<CodeListRef CodeListOID="ptosis.choices"/>
+	</ItemDef>
+	<ItemDef OID="oph" Name="oph" DataType="text" Length="1" redcap:Variable="oph" redcap:FieldType="radio" redcap:BranchingLogic="[m_weak] = &#039;1&#039;" redcap:MatrixGroupName="weakness">
+		<Question><TranslatedText>Ophthalmoplegia</TranslatedText></Question>
+		<CodeListRef CodeListOID="oph.choices"/>
+	</ItemDef>
+	<ItemDef OID="left_bicep" Name="left_bicep" DataType="text" Length="1" redcap:Variable="left_bicep" redcap:FieldType="radio" redcap:SectionHeader="Deep tendon reflexes" redcap:MatrixGroupName="tendon">
+		<Question><TranslatedText>Left bicep</TranslatedText></Question>
+		<CodeListRef CodeListOID="left_bicep.choices"/>
+	</ItemDef>
+	<ItemDef OID="right_bicep" Name="right_bicep" DataType="text" Length="1" redcap:Variable="right_bicep" redcap:FieldType="radio" redcap:MatrixGroupName="tendon">
+		<Question><TranslatedText>Right bicep</TranslatedText></Question>
+		<CodeListRef CodeListOID="right_bicep.choices"/>
+	</ItemDef>
+	<ItemDef OID="left_tricep" Name="left_tricep" DataType="text" Length="1" redcap:Variable="left_tricep" redcap:FieldType="radio" redcap:MatrixGroupName="tendon">
+		<Question><TranslatedText>Left tricep</TranslatedText></Question>
+		<CodeListRef CodeListOID="left_tricep.choices"/>
+	</ItemDef>
+	<ItemDef OID="right_tricep" Name="right_tricep" DataType="text" Length="1" redcap:Variable="right_tricep" redcap:FieldType="radio" redcap:MatrixGroupName="tendon">
+		<Question><TranslatedText>Right tricep</TranslatedText></Question>
+		<CodeListRef CodeListOID="right_tricep.choices"/>
+	</ItemDef>
+	<ItemDef OID="patient_information_complete" Name="patient_information_complete" DataType="text" Length="1" redcap:Variable="patient_information_complete" redcap:FieldType="select" redcap:SectionHeader="Form Status">
+		<Question><TranslatedText>Complete?</TranslatedText></Question>
+		<CodeListRef CodeListOID="patient_information_complete.choices"/>
+	</ItemDef>
+	<CodeList OID="pat_dead.choices" Name="pat_dead" DataType="boolean" redcap:Variable="pat_dead">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>True</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>False</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="pat_sex.choices" Name="pat_sex" DataType="text" redcap:Variable="pat_sex">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Male</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Female</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="dx_num.choices" Name="dx_num" DataType="text" redcap:Variable="dx_num">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>1</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>2</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="phenotype___1.choices" Name="phenotype___1" DataType="boolean" redcap:Variable="phenotype" redcap:CheckboxChoices="1, Decreased fetal movement|2, Motor delay|3, Abnormal cranial nerve physiology|4, Macroscopic hematuria">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Checked</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>Unchecked</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="phenotype___2.choices" Name="phenotype___2" DataType="boolean" redcap:Variable="phenotype" redcap:CheckboxChoices="1, Decreased fetal movement|2, Motor delay|3, Abnormal cranial nerve physiology|4, Macroscopic hematuria">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Checked</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>Unchecked</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="phenotype___3.choices" Name="phenotype___3" DataType="boolean" redcap:Variable="phenotype" redcap:CheckboxChoices="1, Decreased fetal movement|2, Motor delay|3, Abnormal cranial nerve physiology|4, Macroscopic hematuria">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Checked</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>Unchecked</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="phenotype___4.choices" Name="phenotype___4" DataType="boolean" redcap:Variable="phenotype" redcap:CheckboxChoices="1, Decreased fetal movement|2, Motor delay|3, Abnormal cranial nerve physiology|4, Macroscopic hematuria">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Checked</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>Unchecked</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="m_weak.choices" Name="m_weak" DataType="boolean" redcap:Variable="m_weak">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Yes</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>No</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="facial.choices" Name="facial" DataType="text" redcap:Variable="facial">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Yes</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>No</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="ptosis.choices" Name="ptosis" DataType="text" redcap:Variable="ptosis">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Yes</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>No</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="oph.choices" Name="oph" DataType="text" redcap:Variable="oph">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Yes</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>No</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="left_bicep.choices" Name="left_bicep" DataType="text" redcap:Variable="left_bicep">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Hypo</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Normal</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="3"><Decode><TranslatedText>Hyper</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="4"><Decode><TranslatedText>Not elicited</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="right_bicep.choices" Name="right_bicep" DataType="text" redcap:Variable="right_bicep">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Hypo</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Normal</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="3"><Decode><TranslatedText>Hyper</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="4"><Decode><TranslatedText>Not elicited</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="left_tricep.choices" Name="left_tricep" DataType="text" redcap:Variable="left_tricep">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Hypo</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Normal</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="3"><Decode><TranslatedText>Hyper</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="4"><Decode><TranslatedText>Not elicited</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="right_tricep.choices" Name="right_tricep" DataType="text" redcap:Variable="right_tricep">
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Hypo</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Normal</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="3"><Decode><TranslatedText>Hyper</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="4"><Decode><TranslatedText>Not elicited</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+	<CodeList OID="patient_information_complete.choices" Name="patient_information_complete" DataType="text" redcap:Variable="patient_information_complete">
+		<CodeListItem CodedValue="0"><Decode><TranslatedText>Incomplete</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="1"><Decode><TranslatedText>Unverified</TranslatedText></Decode></CodeListItem>
+		<CodeListItem CodedValue="2"><Decode><TranslatedText>Complete</TranslatedText></Decode></CodeListItem>
+	</CodeList>
+</MetaDataVersion>
+</Study>
+<ClinicalData StudyOID="Project.RedmatchTutorial" MetaDataVersionOID="Metadata.RedmatchTutorial_2021-11-15_1444">
+	<SubjectData SubjectKey="1" redcap:RecordIdField="record_id">
+			<FormData FormOID="Form.patient_information" FormRepeatKey="1">
+				<ItemGroupData ItemGroupOID="patient_information.record_id" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="record_id" Value="1"/>
+					<ItemData ItemOID="pat_medicare" Value="123456"/>
+					<ItemData ItemOID="pat_first_name" Value="John"/>
+					<ItemData ItemOID="pat_last_name" Value="Doe"/>
+					<ItemData ItemOID="pat_dob" Value="1983-11-16"/>
+					<ItemData ItemOID="cons_date" Value="2021-11-11T08:33:52"/>
+					<ItemData ItemOID="pat_dead" Value="0"/>
+					<ItemData ItemOID="pat_sex" Value="1"/>
+					<ItemData ItemOID="weight" Value="89"/>
+					<ItemData ItemOID="height" Value="182"/>
+					<ItemData ItemOID="bmi" Value="26.868735659944452"/>
+					<ItemData ItemOID="dx_num" Value="2"/>
+					<ItemData ItemOID="dx_1" Value="95458005|Cerebellar artery occlusion|http://snomed.info/sct"/>
+					<ItemData ItemOID="dx_sv_1" Value="371923003|Mild to moderate|http://snomed.info/sct"/>
+					<ItemData ItemOID="dx_2" Value="_NRF_"/>
+					<ItemData ItemOID="dx_text_2" Value="CAKUT"/>
+					<ItemData ItemOID="phenotype___1" Value="0"/>
+					<ItemData ItemOID="phenotype___2" Value="0"/>
+					<ItemData ItemOID="phenotype___3" Value="0"/>
+					<ItemData ItemOID="phenotype___4" Value="0"/>
+					<ItemData ItemOID="m_weak" Value="1"/>
+					<ItemData ItemOID="facial" Value="1"/>
+					<ItemData ItemOID="ptosis" Value="1"/>
+					<ItemData ItemOID="oph" Value="2"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.left_bicep" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="left_bicep" Value="1"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.right_bicep" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="right_bicep" Value="2"/>
+					<ItemData ItemOID="left_tricep" Value="2"/>
+					<ItemData ItemOID="right_tricep" Value="2"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.patient_information_complete" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="patient_information_complete" Value="2"/>
+				</ItemGroupData>
+			</FormData>
+	</SubjectData>
+	<SubjectData SubjectKey="2" redcap:RecordIdField="record_id">
+			<FormData FormOID="Form.patient_information" FormRepeatKey="1">
+				<ItemGroupData ItemGroupOID="patient_information.record_id" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="record_id" Value="2"/>
+					<ItemData ItemOID="pat_medicare" Value="56789"/>
+					<ItemData ItemOID="pat_first_name" Value="Jane"/>
+					<ItemData ItemOID="pat_last_name" Value="Doe"/>
+					<ItemData ItemOID="pat_dob" Value="1961-04-11"/>
+					<ItemData ItemOID="cons_date" Value="2021-11-01T08:42:00"/>
+					<ItemData ItemOID="pat_dead" Value="0"/>
+					<ItemData ItemOID="pat_sex" Value="2"/>
+					<ItemData ItemOID="weight" Value="65"/>
+					<ItemData ItemOID="height" Value="167"/>
+					<ItemData ItemOID="bmi" Value="23.306680053068"/>
+					<ItemData ItemOID="dx_num" Value="2"/>
+					<ItemData ItemOID="dx_1" Value="16851005|Mitochondrial myopathy|http://snomed.info/sct"/>
+					<ItemData ItemOID="dx_2" Value="39925003|MELAS - Mitochondrial myopathy, encephalopathy, lactic acidosis and stroke-like episodes|http://snomed.info/sct"/>
+					<ItemData ItemOID="dx_sv_2" Value="371924009|Moderate to severe|http://snomed.info/sct"/>
+					<ItemData ItemOID="phenotype___1" Value="1"/>
+					<ItemData ItemOID="phenotype___2" Value="0"/>
+					<ItemData ItemOID="phenotype___3" Value="1"/>
+					<ItemData ItemOID="phenotype___4" Value="0"/>
+					<ItemData ItemOID="m_weak" Value="1"/>
+					<ItemData ItemOID="facial" Value="2"/>
+					<ItemData ItemOID="ptosis" Value="2"/>
+					<ItemData ItemOID="oph" Value="1"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.left_bicep" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="left_bicep" Value="2"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.right_bicep" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="right_bicep" Value="2"/>
+					<ItemData ItemOID="left_tricep" Value="2"/>
+					<ItemData ItemOID="right_tricep" Value="2"/>
+				</ItemGroupData>
+				<ItemGroupData ItemGroupOID="patient_information.patient_information_complete" ItemGroupRepeatKey="1">
+					<ItemData ItemOID="patient_information_complete" Value="2"/>
+				</ItemGroupData>
+			</FormData>
+	</SubjectData>
+</ClinicalData>
+</ODM>
