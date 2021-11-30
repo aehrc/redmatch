@@ -82,6 +82,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     ServerCapabilities capabilities = new ServerCapabilities();
     capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
     capabilities.setSemanticTokensProvider(getSemanticTokensProvider());
+    capabilities.setCodeActionProvider(true);
     return capabilities;
   }
 

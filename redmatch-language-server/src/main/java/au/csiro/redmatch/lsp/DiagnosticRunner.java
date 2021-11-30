@@ -67,7 +67,7 @@ public class DiagnosticRunner {
 
   public void computeDiagnostics(String text, TextDocumentItem documentItem) {
     String uri = documentItem.getUri();
-    log.info("Computing diagnostics for document " + uri + "[" + text + "]");
+    log.info("Computing diagnostics for document " + uri);
     CompletableFuture.runAsync(() -> {
       List<Diagnostic> diagnostics = api.compile(text).getDiagnostics();
       log.info("Compilation produced " + diagnostics.size() + " diagnostic messages.");

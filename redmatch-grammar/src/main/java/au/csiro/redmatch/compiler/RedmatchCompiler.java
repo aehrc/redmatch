@@ -11,12 +11,16 @@ import java.net.URL;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import au.csiro.redmatch.importer.RedcapCsvImporter;
 import au.csiro.redmatch.importer.RedcapJsonImporter;
 import au.csiro.redmatch.importer.SchemaImporter;
 import au.csiro.redmatch.model.Field;
+import au.csiro.redmatch.model.ReplacementSuggestion;
+import au.csiro.redmatch.model.LabeledField;
 import au.csiro.redmatch.util.GraphUtils;
+import au.csiro.redmatch.util.StringUtils;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.ValidationResult;
 import com.google.gson.Gson;
@@ -59,6 +63,8 @@ import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
 import au.csiro.redmatch.grammar.RedmatchLexer;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import static au.csiro.redmatch.compiler.ErrorCodes.*;
+
 /**
  * The compiler for the Redmatch rules language.
  * 
@@ -73,10 +79,11 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   /**
    * Constants that indicate the source of a diagnostic message.
    */
-  private static final String SRC_LEXER = "lexer";
-  private static final String SRC_PARSER = "parser";
-  private static final String SRC_COMPILER = "compiler";
-  
+  private static final String SRC_LEXER = "src_lexer";
+  private static final String SRC_PARSER = "src_parser";
+  private static final String SRC_COMPILER = "src_compiler";
+
+
   /**
    * Url for a FHIR resource. Used to identify "any" references.
    */
@@ -86,6 +93,11 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * Pattern to validate FHIR ids.
    */
   private final Pattern fhirIdPattern = Pattern.compile("[A-Za-z0-9\\-.]{1,64}");
+
+  /**
+   * Pattern used to generate valid FHIR ids.
+   */
+  private final Pattern partialFhirIdPattern = Pattern.compile("[A-Za-z0-9-.]+");
   
   /**
    * Pattern to validate REDCap form ids.
@@ -171,7 +183,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       @Override
       public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line,
                               int charPositionInLine, String msg, RecognitionException e) {
-        addError(offendingSymbol != null ? offendingSymbol.toString() : "", line, charPositionInLine, msg, SRC_LEXER);
+        addError(offendingSymbol != null ? offendingSymbol.toString() : "", line, charPositionInLine, msg, SRC_LEXER,
+          CODE_LEXER.toString());
       }
     });
 
@@ -180,7 +193,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       @Override
       public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line,
                               int charPositionInLine, String msg, RecognitionException e) {
-        addError(offendingSymbol != null ? offendingSymbol.toString() : "", line, charPositionInLine, msg, SRC_PARSER);
+        addError(offendingSymbol != null ? offendingSymbol.toString() : "", line, charPositionInLine, msg, SRC_PARSER,
+          CODE_PARSER.toString());
       }
     });
 
@@ -190,7 +204,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     final Token finalToken = lexer.getToken();
     if (finalToken.getType() != Token.EOF) {
       addError(finalToken.getText(), finalToken.getLine(), finalToken.getCharPositionInLine(),
-        "Unexpected token '" + finalToken.getText() + "'.", SRC_COMPILER);
+        "Unexpected token '" + finalToken.getText() + "'.", SRC_COMPILER, CODE_PARSER.toString());
     }
 
     String tree = docCtx.toStringTree(parser);
@@ -241,18 +255,20 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     // Load schema
     Schema sc = (Schema) visitSchemaInternal(ctx.schema());
     if (sc == null) {
-      this.diagnostics.add(getDiagnosticFromContext(ctx, "Invalid schema definition", DiagnosticSeverity.Error));
+      this.diagnostics.add(getDiagnosticFromContext(ctx, "Invalid schema definition", DiagnosticSeverity.Error,
+        CODE_INVALID_SCHEMA.toString()));
       return res;
     } else if (!sc.isValid()) {
       this.diagnostics.add(getDiagnosticFromContext(ctx, "Schema could not be loaded from " + sc.getSchemaLocation(),
-        DiagnosticSeverity.Error));
+        DiagnosticSeverity.Error, CODE_UNABLE_TO_LOAD_SCHEMA.toString()));
       return res;
     }
 
     if (sc.getSchemaType().equals("REDCAP")) {
       au.csiro.redmatch.model.Schema s = loadRedcapSchema(sc.getSchema());
       if (s == null) {
-        this.diagnostics.add(getDiagnosticFromContext(ctx, "Unknown REDCap schema type.", DiagnosticSeverity.Error));
+        this.diagnostics.add(getDiagnosticFromContext(ctx, "Unknown REDCap schema type.", DiagnosticSeverity.Error,
+          CODE_UNKNOWN_REDCAP_SCHEMA_TYPE.toString()));
         return res;
       }
       this.schema = s;
@@ -307,7 +323,9 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             getDiagnosticFromContext(
               mappingCtx,
               "Mapped field " + fieldId + " does not exist.",
-              DiagnosticSeverity.Error
+              DiagnosticSeverity.Error,
+              CODE_MAPPED_FIELD_DOES_NOT_EXIST.toString(),
+              fieldId
             )
           );
           continue;
@@ -316,13 +334,16 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         // Validate description matches field
         if (mappingCtx.STRING() != null) {
           String fieldLabel = removeEnds(mappingCtx.STRING().getText());
+          LabeledField labeledField = new LabeledField(f);
           if(!fieldLabel.equals(f.getLabel())) {
             this.diagnostics.add(
               getDiagnosticFromContext(
                 mappingCtx,
                 "Label of mapped field " + fieldId + " in rules does not match schema (label in rules: '" + fieldLabel
                   + "', label in schema: '" + f.getLabel() + "')",
-                DiagnosticSeverity.Warning
+                DiagnosticSeverity.Warning,
+                CODE_MAPPED_FIELD_LABEL_MISMATCH.toString(),
+                labeledField
               )
             );
           }
@@ -336,7 +357,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             getDiagnosticFromContext(
               mappingCtx,
               "Mapping for field " + fieldId + " is not needed.",
-              DiagnosticSeverity.Warning
+              DiagnosticSeverity.Warning,
+              CODE_MAPPING_NOT_NEEDED.toString()
             )
           );
         }
@@ -344,13 +366,28 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
 
     for (String fieldId : fieldsThatNeedMapping) {
-      this.diagnostics.add(
-        getDiagnosticFromContext(
-          mappingsCtx != null ? mappingsCtx : ctx,
-          "Mapping for field " + fieldId + " is required but was not found.",
-          DiagnosticSeverity.Error
-        )
-      );
+      LabeledField labeledField = new LabeledField(schema.getField(fieldId));
+      if (mappingsCtx != null) {
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            mappingsCtx,
+            "Mapping for field " + fieldId + " is required but was not found.",
+            DiagnosticSeverity.Error,
+            CODE_MAPPING_MISSING.toString(),
+            fieldId
+          )
+        );
+      } else {
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            ctx,
+            "Mapping for field " + fieldId + " is required but was not found.",
+            DiagnosticSeverity.Error,
+            CODE_MAPPING_AND_SECTION_MISSING.toString(),
+            labeledField
+          )
+        );
+      }
     }
 
     return res;
@@ -416,7 +453,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       return new Schema(this.baseFolder, schemaLocation, schemaType);
     } else {
       this.diagnostics.add(
-        getDiagnosticFromContext(ctx, "Invalid schema type: " + schemaType, DiagnosticSeverity.Error)
+        getDiagnosticFromContext(ctx, "Unsupported schema type: " + schemaType, DiagnosticSeverity.Error,
+          CODE_UNSUPPORTED_SCHEMA.toString())
       );
       return null;
     }
@@ -467,14 +505,16 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       res.setCondition(c);
     } else {
       this.diagnostics.add(
-        getDiagnosticFromContext(ctx, "Expected a condition but it was null.", DiagnosticSeverity.Error)
+        getDiagnosticFromContext(ctx, "Expected a condition but it was null.", DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString())
       );
     }
     if (ctx.fcBody().size() > 0) {
       res.setBody(visitFcBodyInternal(ctx.fcBody(0), var));
     } else {
       this.diagnostics.add(
-        getDiagnosticFromContext(ctx,"Expected at least one body but found none.", DiagnosticSeverity.Error)
+        getDiagnosticFromContext(ctx,"Expected at least one body but found none.", DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString())
       );
     }
     if (ctx.fcBody().size() > 1) {
@@ -531,7 +571,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       try {
         val = var.getValue(v);
       } catch (UnknownVariableException e) {
-        this.diagnostics.add(getDiagnosticFromTerminalNode(tn, e.getLocalizedMessage(), DiagnosticSeverity.Error));
+        this.diagnostics.add(getDiagnosticFromTerminalNode(tn, e.getLocalizedMessage(), DiagnosticSeverity.Error,
+          CODE_UNKNOWN_VARIABLE.toString()));
       }
       sb.append(val);
       start = m.end();
@@ -546,13 +587,25 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private String processRedcapId(TerminalNode tn, Token t, Variables var) {
     String text = processFhirOrRedcapId(tn, t, var);
     if (!redcapIdPattern.matcher(text).matches()) {
-      this.diagnostics.add(getDiagnosticFromTerminalNode(tn, "Invalid REDCap id '" + text + "': must match"
-          + " this regex: [a-z][A-Za-z0-9_]*", DiagnosticSeverity.Error));
+      this.diagnostics.add(
+        getDiagnosticFromTerminalNode(
+          tn,
+          "Invalid REDCap id '" + text + "': must match this regex: [a-z][A-Za-z0-9_]*",
+          DiagnosticSeverity.Error,
+          CODE_INVALID_REDCAP_ID.toString(),
+          new ReplacementSuggestion(text, getClosestRedcapId(text))
+        )
+      );
     }
 
     if (!this.schema.hasField(text)) {
       this.diagnostics.add(
-        getDiagnosticFromTerminalNode(tn, "Field " + text + " does not exist in REDCap schema.", DiagnosticSeverity.Error)
+        getDiagnosticFromTerminalNode(tn,
+          "Field " + text + " does not exist in REDCap schema.",
+          DiagnosticSeverity.Error,
+          CODE_UNKNOWN_REDCAP_FIELD.toString(),
+          new ReplacementSuggestion(text, getClosestRedcapId(text))
+        )
       );
     }
     return text;
@@ -561,8 +614,15 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private String processFhirId(TerminalNode tn, Token t, Variables var) {
     String text = processFhirOrRedcapId(tn, t, var);
     if (!fhirIdPattern.matcher(text).matches()) {
-      this.diagnostics.add(getDiagnosticFromTerminalNode(tn, "Invalid FHIR id '" + text + "': must match"
-          + " this regex: [A-Za-z0-9\\-\\.]{1,64}", DiagnosticSeverity.Error));
+      this.diagnostics.add(
+        getDiagnosticFromTerminalNode(
+          tn,
+          "Invalid FHIR id '" + text + "': must match this regex: [A-Za-z0-9\\-\\.]{1,64}",
+          DiagnosticSeverity.Error,
+          CODE_INVALID_FHIR_ID.toString(),
+          new ReplacementSuggestion(text, fhiriseId(text))
+        )
+      );
     }
     return text;
   }
@@ -593,7 +653,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             getDiagnosticFromContext(
               ctx,
               "Expected at least 6 children but found " + ctx.getChildCount(),
-              DiagnosticSeverity.Error
+              DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString()
             )
           );
           return null;
@@ -603,7 +664,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         String ops = ctx.getChild(4).getText();
         ConditionExpression.ConditionExpressionOperator op = getOp(ops);
         if (op == null) {
-          this.diagnostics.add(getDiagnosticFromContext(ctx, "Unexpected operator " + ops, DiagnosticSeverity.Error));
+          this.diagnostics.add(getDiagnosticFromContext(ctx, "Unexpected operator " + ops, DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString()));
         } else if (ctx.STRING() != null) {
           return new ConditionExpression(id, op, removeEnds(ctx.STRING().getText()));
         } else if (ctx.NUMBER() != null) {
@@ -618,12 +680,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         return visitConditionInternal(ctx.condition(0), var);
       } else {
         this.diagnostics.add(getDiagnosticFromContext(ctx,
-            "Expected TRUE, FALSE, NULL, NOTNULL, VALUE or ( but found  " + text, DiagnosticSeverity.Error));
+            "Expected TRUE, FALSE, NULL, NOTNULL, VALUE or ( but found  " + text, DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString()));
       }
     } else {
       if (ctx.getChildCount() < 2) {
         this.diagnostics.add(getDiagnosticFromContext(ctx,
-            "Expected at least two children but found " + ctx.getChildCount(), DiagnosticSeverity.Error));
+            "Expected at least two children but found " + ctx.getChildCount(), DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString()));
       }
       ParseTree second = ctx.getChild(1);
       if (second instanceof TerminalNode) {
@@ -639,12 +703,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
               (Condition) visitConditionInternal(ctx.condition(1), var));
         } else {
           this.diagnostics.add(
-            getDiagnosticFromContext(ctx, "Expected & or | but found " + text, DiagnosticSeverity.Error)
+            getDiagnosticFromContext(ctx, "Expected & or | but found " + text, DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString())
           );
         }
       } else {
         this.diagnostics.add(
-          getDiagnosticFromContext(ctx, "Expected a terminal node but found " + second, DiagnosticSeverity.Error)
+          getDiagnosticFromContext(ctx, "Expected a terminal node but found " + second, DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString())
         );
       }
     }
@@ -712,7 +778,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       ValidationResult vr = validator.validateAttributePath(path);
       if (!vr.getResult()) {
         for (String msg : vr.getMessages()) {
-          this.diagnostics.add(getDiagnosticFromContext(ctx, msg, DiagnosticSeverity.Error));
+          this.diagnostics.add(getDiagnosticFromContext(ctx, msg, DiagnosticSeverity.Error,
+            CODE_INVALID_FHIR_ATTRIBUTE_PATH.toString()));
         }
         break;
       } else {
@@ -728,12 +795,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           int maxInt = Integer.parseInt(max);
           if (maxInt == 0) {
             this.diagnostics.add(getDiagnosticFromContext(ctx, "Unable to set attribute "
-                + path + " with max cardinality of 0.", DiagnosticSeverity.Error));
+                + path + " with max cardinality of 0.", DiagnosticSeverity.Error,
+              CODE_FHIR_ATTRIBUTE_NOT_ALLOWED.toString()));
             break;
           } else if (att.hasAttributeIndex() && att.getAttributeIndex() >= maxInt) {
             // e.g. myAttr[1] would be illegal if maxInt = 1
             this.diagnostics.add(getDiagnosticFromContext(ctx, "Attribute " + att +
-              " is setting an invalid index (max = " + maxInt + ").", DiagnosticSeverity.Error));
+              " is setting an invalid index (max = " + maxInt + ").", DiagnosticSeverity.Error,
+              CODE_INVALID_FHIR_ATTRIBUTE_INDEX.toString()));
             break;
           }
         }
@@ -748,7 +817,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     final String errorMsg = "%s cannot be assigned to attribute of type %s";
     if(lastInfo == null) {
       this.diagnostics.add(
-        getDiagnosticFromContext(ctx, "No path information for leaf node", DiagnosticSeverity.Error)
+        getDiagnosticFromContext(ctx, "No path information for leaf node", DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString())
       );
       return null;
     }
@@ -758,7 +828,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     if (ctx.TRUE() != null) {
       if (!type.equals("boolean")) {
         this.diagnostics.add(
-          getDiagnosticFromContext(ctx, String.format(errorMsg, "Boolean value", type), DiagnosticSeverity.Error)
+          getDiagnosticFromContext(ctx, String.format(errorMsg, "Boolean value", type), DiagnosticSeverity.Error,
+            CODE_INCOMPATIBLE_TYPE.toString())
         );
       }
       return new BooleanValue(true);
@@ -770,7 +841,13 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       // Validate REDCap field exists
       if (!this.schema.hasField(fieldId)) {
         this.diagnostics.add(
-          getDiagnosticFromContext(ctx, "Field " + fieldId + " does not exist in REDCap.", DiagnosticSeverity.Error)
+          getDiagnosticFromTerminalNode(
+            ctx.ID(),
+            "Field " + fieldId + " does not exist in REDCap.",
+            DiagnosticSeverity.Error,
+            CODE_UNKNOWN_REDCAP_FIELD.toString(),
+            new ReplacementSuggestion(fieldId, getClosestRedcapId(fieldId))
+          )
         );
       }
 
@@ -787,7 +864,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           val = new FieldValue(fieldId, FieldValue.DatePrecision.DAY);
         } else {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "Invalid value " + str
-            + ". Valid values are YEAR, MONTH and DAY.", DiagnosticSeverity.Error));
+            + ". Valid values are YEAR, MONTH and DAY.", DiagnosticSeverity.Error,
+            CODE_INVALID_DATE_PRECISION.toString()));
         }
       }
       if (val == null) {
@@ -799,33 +877,40 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           || type.equals("uri") || type.equals("oid") || type.equals("uuid") 
           || type.equals("canonical") || type.equals("url"))) {
         this.diagnostics.add(getDiagnosticFromContext(ctx, String.format(errorMsg, "String literal",
-            type), DiagnosticSeverity.Error));
+            type), DiagnosticSeverity.Error, CODE_INCOMPATIBLE_TYPE.toString()));
       }
       
       String str = removeEnds(ctx.STRING().getText());
       if (type.equals("id") && !fhirIdPattern.matcher(str).matches()) {
-        this.diagnostics.add(getDiagnosticFromContext(ctx, "FHIR id " + str + " is invalid (it should "
-            + "match this regex: [A-Za-z0-9\\-\\.]{1,64})", DiagnosticSeverity.Error));
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            ctx,
+            "FHIR id " + str + " is invalid (it should match this regex: [A-Za-z0-9\\-\\.]{1,64})",
+            DiagnosticSeverity.Error,
+            CODE_INVALID_FHIR_ID.toString(),
+            new ReplacementSuggestion(str, fhiriseId(str))
+          )
+        );
       } else if (type.equals("uri")) {
         try {
           log.debug("Checking URI: " + URI.create(str));
         } catch (IllegalArgumentException e) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "URI " + str + " is invalid: "
-              + e.getLocalizedMessage(), DiagnosticSeverity.Error));
+              + e.getLocalizedMessage(), DiagnosticSeverity.Error, CODE_INVALID_URI.toString()));
         }
       } else if (type.equals("oid")) {
         try {
           new Oid(str);
         } catch (GSSException e) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "OID " + str + " is invalid: "
-              + e.getLocalizedMessage(), DiagnosticSeverity.Error));
+              + e.getLocalizedMessage(), DiagnosticSeverity.Error, CODE_INVALID_OID.toString()));
         }
       } else if (type.equals("uuid")) {
         try {
           log.debug("Checking UUID: " + UUID.fromString(str));
         } catch (IllegalArgumentException e) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "UUID " + str + " is invalid: "
-              + e.getLocalizedMessage(), DiagnosticSeverity.Error));
+              + e.getLocalizedMessage(), DiagnosticSeverity.Error, CODE_INVALID_UUID.toString()));
         }
       } else if (type.equals("canonical")) {
         // Can have a version using |
@@ -834,7 +919,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           String[] parts = str.split("[|]");
           if (parts.length != 2) {
             this.diagnostics.add(
-              getDiagnosticFromContext(ctx, "Canonical " + str + " is invalid", DiagnosticSeverity.Error)
+              getDiagnosticFromContext(ctx, "Canonical " + str + " is invalid", DiagnosticSeverity.Error,
+                CODE_INVALID_CANONICAL.toString())
             );
             uri = str; // to continue with validation
           } else {
@@ -847,7 +933,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           log.debug("Checking URI: " + URI.create(uri));
         } catch (IllegalArgumentException e) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "Canonical " + str + " is invalid: "
-              + e.getLocalizedMessage(), DiagnosticSeverity.Error));
+              + e.getLocalizedMessage(), DiagnosticSeverity.Error, CODE_INVALID_CANONICAL.toString()));
         }
         
       } else if (type.equals("url")) {
@@ -855,7 +941,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           new URL(str);
         } catch (MalformedURLException e) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, "URL " + str + " is invalid: "
-              + e.getLocalizedMessage(), DiagnosticSeverity.Error));
+              + e.getLocalizedMessage(), DiagnosticSeverity.Error, CODE_INVALID_URL.toString()));
         }
       }
       
@@ -867,7 +953,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else {
         if (!type.equals("integer")) {
           this.diagnostics.add(getDiagnosticFromContext(ctx, String.format(errorMsg, "Integer literal",
-              type), DiagnosticSeverity.Error));
+              type), DiagnosticSeverity.Error, CODE_INCOMPATIBLE_TYPE.toString()));
         }
         return new IntegerValue(Integer.parseInt(num));
       }
@@ -876,14 +962,16 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       // TODO: this checks the type is not primitive but complex types can still slip through
       if (!type.isEmpty() && !Character.isUpperCase(type.charAt(0))) {
         this.diagnostics.add(
-          getDiagnosticFromContext(ctx, String.format(errorMsg, "Reference", type), DiagnosticSeverity.Error)
+          getDiagnosticFromContext(ctx, String.format(errorMsg, "Reference", type), DiagnosticSeverity.Error,
+            CODE_INCOMPATIBLE_TYPE.toString())
         );
       }
       return visitReferenceInternal(ctx.reference(), var);
     } else if (ctx.CONCEPT_LITERAL() != null) {
       if (!type.equals("Coding") && !type.equals("CodeableConcept")) {
         this.diagnostics.add(
-          getDiagnosticFromContext(ctx, String.format(errorMsg, "Concept literal", type), DiagnosticSeverity.Error)
+          getDiagnosticFromContext(ctx, String.format(errorMsg, "Concept literal", type), DiagnosticSeverity.Error,
+            CODE_INCOMPATIBLE_TYPE.toString())
         );
       }
 
@@ -932,7 +1020,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     } else if (ctx.CODE() != null) {
       return new CodeLiteralValue(ctx.C_ID().getSymbol().getText());
     } else {
-      this.diagnostics.add(getDiagnosticFromContext(ctx, "Unexpected value context: " + ctx, DiagnosticSeverity.Error));
+      this.diagnostics.add(getDiagnosticFromContext(ctx, "Unexpected value context: " + ctx, DiagnosticSeverity.Error,
+        CODE_COMPILER_ERROR.toString()));
       return null;
     }
   }
@@ -940,7 +1029,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private void validateField(String fieldId, FieldBasedValue val, ParserRuleContext ctx) {
     List<String> msgs = new ArrayList<>();
     if (!this.schema.getField(fieldId).isCompatibleWith(val, msgs)) {
-      msgs.forEach(m -> this.diagnostics.add(getDiagnosticFromContext(ctx, m, DiagnosticSeverity.Error)));
+      msgs.forEach(m -> this.diagnostics.add(getDiagnosticFromContext(ctx, m, DiagnosticSeverity.Error,
+        CODE_INCOMPATIBLE_EXPRESSION.toString())));
     }
   }
 
@@ -980,8 +1070,15 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       if (replacement != null) {
         return replacement;
       } else {
-        Token t = tn.getSymbol();
-        addError(t.getText(), t.getLine(), t.getCharPositionInLine(), "Invalid alias found: " + s, SRC_COMPILER);
+        this.diagnostics.add(
+          getDiagnosticFromTerminalNode(
+            tn,
+            "Invalid alias found: " + s,
+            DiagnosticSeverity.Error,
+            CODE_INVALID_ALIAS.toString(),
+            new ReplacementSuggestion(s, StringUtils.getClosest(s, aliases.keySet()))
+          )
+        );
         return s;
       }
     } else {
@@ -1017,7 +1114,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       if (!foundCompatible) {
         this.diagnostics.add(getDiagnosticFromContext(ctx, "Attribute " + lastInfo.getPath()
             + " is of type reference but the resource type " + resType + " is incompatible. Valid "
-            + "values are: " + String.join(",", lastInfo.getTargetProfiles()), DiagnosticSeverity.Error));
+            + "values are: " + String.join(",", lastInfo.getTargetProfiles()), DiagnosticSeverity.Error,
+            CODE_INVALID_REFERENCE_TYPE.toString()));
       }
     }
     
@@ -1029,13 +1127,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return res;
   }
 
-  private void addError(String token, int line, int charPositionInLine, String msg, String source) {
+  private void addError(String token, int line, int charPositionInLine, String msg, String source, String code) {
     this.diagnostics.add(
       new Diagnostic(
         toRange(line, charPositionInLine, token),
         msg,
         DiagnosticSeverity.Error,
-        source
+        source,
+        code
       )
     );
   }
@@ -1061,33 +1160,55 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return new Range(start, end);
   }
 
-  private Diagnostic getDiagnosticFromTerminalNode(TerminalNode tn, String  msg, DiagnosticSeverity severity) {
+  private Diagnostic getDiagnosticFromTerminalNode(TerminalNode tn, String  msg, DiagnosticSeverity severity,
+                                                   String code) {
+    return getDiagnosticFromTerminalNode(tn, msg, severity, code, null);
+  }
+
+  private Diagnostic getDiagnosticFromTerminalNode(TerminalNode tn, String  msg, DiagnosticSeverity severity,
+                                                   String code, Object data) {
     final Token token = tn.getSymbol();
     int startRow = token.getLine();
     int startCol = token.getCharPositionInLine();
     int endRow = token.getLine();
     int endCol = token.getCharPositionInLine() + token.getText().length();
 
-    return new Diagnostic(
+    Diagnostic diagnostic =  new Diagnostic(
       // Account for VSCode's 1-based indexing
       new Range(new Position(startRow - 1, startCol), new Position(endRow - 1, endCol)),
       msg,
       severity,
-      SRC_COMPILER
+      SRC_COMPILER,
+      code
     );
+    if (data != null) {
+      diagnostic.setData(data);
+    }
+    return diagnostic;
   }
-  
-  private Diagnostic getDiagnosticFromContext(ParserRuleContext ctx, String  msg, DiagnosticSeverity severity) {
+
+  private Diagnostic getDiagnosticFromContext(ParserRuleContext ctx, String  msg, DiagnosticSeverity severity,
+                                              String code) {
+    return getDiagnosticFromContext(ctx, msg, severity, code, null);
+  }
+
+  private Diagnostic getDiagnosticFromContext(ParserRuleContext ctx, String  msg, DiagnosticSeverity severity,
+                                              String code, Object data) {
     final Token start = ctx.getStart();
     final Token stop = ctx.getStop();
     if (start == null || stop == null) {
-      return new Diagnostic(
+      Diagnostic diagnostic = new Diagnostic(
         // Account for VSCode's 1-based indexing
         new Range(new Position(1, 1), new Position(1, 1)),
         msg,
         severity,
-        SRC_COMPILER
+        SRC_COMPILER,
+        code
       );
+      if (data != null) {
+        diagnostic.setData(data);
+      }
+      return diagnostic;
     }
     
     int startRow = start.getLine();
@@ -1095,13 +1216,18 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     int endRow = stop.getLine();
     int endCol = stop.getCharPositionInLine() + (stop.getText() != null ? stop.getText().length() : 1);
 
-    return new Diagnostic(
+    Diagnostic diagnostic = new Diagnostic(
       // Account for VSCode's 1-based indexing
       new Range(new Position(startRow - 1, startCol), new Position(endRow - 1, endCol)),
       msg,
       severity,
-      SRC_COMPILER
+      SRC_COMPILER,
+      code
     );
+    if (data != null) {
+      diagnostic.setData(data);
+    }
+    return diagnostic;
   }
 
   private void clear() {
@@ -1110,6 +1236,40 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     schema = null;
     diagnostics.clear();
     baseFolder = null;
+  }
+
+  /**
+   * Returns the closest Redcap id in the schema.
+   *
+   * @param id The actual id that is either invalid or does not exist.
+   * @return The closest id in the schema.
+   */
+  private String getClosestRedcapId(String id) {
+    List<String> candidates = schema.getFields().stream().map(Field::getFieldId).collect(Collectors.toList());
+    return StringUtils.getClosest(id, candidates);
+  }
+
+  /**
+   * Transforms an invalid FHIR id into a valid one.
+   *
+   * @param id The invalid FHIR id.
+   * @return A valid FHIR id.
+   */
+  private String fhiriseId(String id) {
+    if (id.isEmpty()) {
+      return "id";
+    }
+    StringBuilder sb = new StringBuilder();
+    Matcher matcher = partialFhirIdPattern.matcher(id);
+    while (matcher.find()) {
+      sb.append(matcher.group());
+    }
+    String res = sb.toString();
+    if (res.length() > 64) {
+      return res.substring(0, 64);
+    } else {
+      return res;
+    }
   }
   
   private static void printPrettyLispTree(String tree) {

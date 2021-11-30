@@ -3,6 +3,8 @@ package au.csiro.redmatch.lsp;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.CompletableFutures;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
 import java.util.HashMap;
@@ -73,4 +75,13 @@ public class RedmatchTextDocumentService implements TextDocumentService {
     return openedDocuments.get(uri);
   }
 
+  @Override
+  public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+    return CompletableFutures.computeAsync(cancelToken -> {
+      cancelToken.checkCanceled();
+      TextDocumentItem document = openedDocuments.get(params.getTextDocument().getUri());
+      assert(document != null);
+      return QuickFixGenerator.computeCodeActions(params, cancelToken, document);
+    });
+  }
 }
