@@ -9,6 +9,8 @@ import au.csiro.redmatch.compiler.Resource;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.util.FitbitUrlValidator;
 import au.csiro.redmatch.util.GraphUtils;
+import au.csiro.redmatch.util.Progress;
+import au.csiro.redmatch.util.ProgressReporter;
 import ca.uhn.fhir.model.api.annotation.Child;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -92,9 +94,10 @@ public class FhirExporter {
   /**
    * Creates FHIR resources based on data from the source. Returns a map, indexed by resource id.
    *
+   * @param progressReporter Used to report progress.
    * @return The map of created resources, indexed by resource id.
    */
-  public Map<String, DomainResource> transform() {
+  public Map<String, DomainResource> transform(ProgressReporter progressReporter) throws TransformationException {
     final String uniqueField = doc.getSchema().getFields().get(0).getFieldId();
     log.debug("Transforming Redmatch project using unique field " + uniqueField);
 
@@ -132,38 +135,57 @@ public class FhirExporter {
       }
     }
 
-    // Now create the resource that depend on the data
-    for (Row row : rows) {
-      final Map<String, String> data = row.getData();
-      String recordId = data.get(uniqueField);
-      if (recordId == null) {
-        throw new RuntimeException(
-          "Expected '" + uniqueField + "' to be a field in the data. Found fields " + data.keySet()
-            + ". This should not happen!");
+    try {
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportStart("Transforming into FHIR"));
       }
 
-      for (GraphUtils.ResourceNode rn : res.getSortedNodes()) {
-        if (rn.getReferenceData().equals(GrammarObject.DataReference.YES)) {
-          for (Rule rule : getReferencingRules(rn, doc)) {
-            RedcapVisitor visitor = new RedcapVisitor(doc.getSchema(), row);
-            visitor.visit(rule);
-            for (Resource r : visitor.getResources()) {
-              // Only create this resource - rules might create more than one resource
-              if (rn.equalsResource(r)) {
-                createResource(r, data, recordId);
+      int totalRows = rows.size();
+      double div = totalRows / 100.0;
+      // Now create the resource that depend on the data
+      for (int i = 0; i < rows.size(); i++) {
+        Row row = rows.get(i);
+        final Map<String, String> data = row.getData();
+        String recordId = data.get(uniqueField);
+        if (recordId == null) {
+          throw new RuntimeException(
+            "Expected '" + uniqueField + "' to be a field in the data. Found fields " + data.keySet()
+              + ". This should not happen!");
+        }
+        for (GraphUtils.ResourceNode rn : res.getSortedNodes()) {
+          if (rn.getReferenceData().equals(GrammarObject.DataReference.YES)) {
+            for (Rule rule : getReferencingRules(rn, doc)) {
+              RedcapVisitor visitor = new RedcapVisitor(doc.getSchema(), row);
+              visitor.visit(rule);
+              for (Resource r : visitor.getResources()) {
+                // Only create this resource - rules might create more than one resource
+                if (rn.equalsResource(r)) {
+                  createResource(r, data, recordId);
+                }
               }
             }
           }
         }
+        if (progressReporter != null) {
+          progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
+        }
+      }
+
+      // Prune resources to get rid of empty values in lists
+      for (DomainResource c : fhirResourceMap.values()) {
+        prune(c);
+      }
+
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportProgress(100));
+      }
+
+      return fhirResourceMap;
+    } finally {
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportEnd());
       }
     }
-
-    // Prune resources to get rid of empty values in lists
-    for (DomainResource c : fhirResourceMap.values()) {
-      prune(c);
-    }
-
-    return fhirResourceMap;
   }
 
 
@@ -637,6 +659,7 @@ public class FhirExporter {
     if (e instanceof NoSuchMethodException) {
       throw new TransformationException("A method could not be found: " + e.getLocalizedMessage(), e);
     } else if (e instanceof NoSuchFieldException) {
+      log.error(e);
       throw new TransformationException("A field could not be found: " + e.getLocalizedMessage(), e);
     } else if (e instanceof ClassNotFoundException) {
       throw new TransformationException("A class could not be found: " + e.getLocalizedMessage(), e);

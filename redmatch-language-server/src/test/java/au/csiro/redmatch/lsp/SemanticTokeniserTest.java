@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.grammar.RedmatchLexer;
@@ -12,6 +16,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Unit tests for the {@link SemanticTokeniser} class.
+ */
 public class SemanticTokeniserTest {
   @Test
   public void testTokenise() {

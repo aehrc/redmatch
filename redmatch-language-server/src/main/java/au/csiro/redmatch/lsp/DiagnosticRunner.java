@@ -1,12 +1,9 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
-import au.csiro.redmatch.RedmatchApi;
-import au.csiro.redmatch.compiler.RedmatchCompiler;
-import au.csiro.redmatch.exporter.GraphExporterService;
-import au.csiro.redmatch.exporter.HapiReflectionHelper;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
-import ca.uhn.fhir.context.FhirContext;
-import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
@@ -30,8 +27,6 @@ public class DiagnosticRunner {
    */
   private final RedmatchLanguageServer languageServer;
 
-  private final RedmatchApi api;
-
   /**
    * Constructor.
    *
@@ -39,13 +34,6 @@ public class DiagnosticRunner {
    */
   public DiagnosticRunner(RedmatchLanguageServer languageServer) {
     this.languageServer = languageServer;
-    FhirContext ctx = FhirContext.forR4();
-    Gson gson = new Gson();
-    RedmatchGrammarValidator validator = new RedmatchGrammarValidator(gson, ctx);
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
-    HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx);
-    GraphExporterService graphExporterService = new GraphExporterService();
-    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService);
   }
 
   public void compute(DidOpenTextDocumentParams params) {
@@ -69,7 +57,7 @@ public class DiagnosticRunner {
     String uri = documentItem.getUri();
     log.info("Computing diagnostics for document " + uri);
     CompletableFuture.runAsync(() -> {
-      List<Diagnostic> diagnostics = api.compile(text).getDiagnostics();
+      List<Diagnostic> diagnostics = languageServer.getApi().compile(text, uri, null).getDiagnostics();
       log.info("Compilation produced " + diagnostics.size() + " diagnostic messages.");
       languageServer.getClient().publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
     });

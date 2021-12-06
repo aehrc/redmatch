@@ -1,7 +1,6 @@
 package au.csiro.redmatch;
 
 import au.csiro.redmatch.compiler.Document;
-import au.csiro.redmatch.model.Server;
 import org.apache.commons.cli.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -9,18 +8,14 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -87,102 +82,32 @@ public class CommandLineInterface {
       boolean transform = line.hasOption("t");
 
       printInfo("Initialising compiler");
-      if (generateGraph || transform) {
-        // Run the transformation process
-        Map<String, Server> serverMap = loadAllServerMaps(baseFolder);
-        printInfo("Checking output folder");
-        File outputFolder = null;
-        try {
-          outputFolder = Files.createDirectories(new File(baseFolder, "output").toPath()).toFile();
-        } catch (IOException e) {
-          printError("Unable to create output folder: " + e.getLocalizedMessage());
-          System.exit(-1);
-        }
-        Map<String, List<Diagnostic>> diagnostics =  api.transform(serverMap, baseFolder, outputFolder, generateGraph,
-          rdmFiles.toArray(new File[0]));
-        printDiagnostics(diagnostics);
-        if (hasErrors(diagnostics)) {
-          printError("TRANSFORMATION FAILURE");
-        } else {
-          printInfo("TRANSFORMATION SUCCESS");
-        }
+      List<Diagnostic> diagnostics;
+      if (generateGraph && transform) {
+        diagnostics = api.runAll(Operation.BOTH, baseFolder, null);
+      } else if (transform) {
+        diagnostics = api.runAll(Operation.EXPORT, baseFolder, null);
+      } else if (generateGraph) {
+        diagnostics = api.runAll(Operation.GENERATE_GRAPH, baseFolder, null);
       } else {
         // Run the compilation process
-        File[] files = rdmFiles.toArray(new File[0]);
-        List<Document> docs = api.compile(baseFolder, files);
-        Map<String, List<Diagnostic>> diagnostics = new HashMap<>();
-        int index = 0;
-        boolean hasErrors = false;
+        List<Document> docs = api.compile(baseFolder, null);
+        diagnostics = new ArrayList<>();
         for(Document doc : docs) {
-          diagnostics.put(files[index].getName(), doc.getDiagnostics());
-          if (doc.getDiagnostics().stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
-            hasErrors = true;
-          }
-          index++;
+          diagnostics.addAll(doc.getDiagnostics());
         }
-        printDiagnostics(diagnostics);
-        if (hasErrors) {
-          printError("BUILD FAILURE");
-        } else {
-          printInfo("BUILD SUCCESS");
-        }
+      }
+      printDiagnostics(diagnostics);
+      if (hasErrors(diagnostics)) {
+        printError("TRANSFORMATION FAILURE");
+      } else {
+        printInfo("TRANSFORMATION SUCCESS");
       }
     } catch (ParseException exp) {
       printError(exp.getMessage());
       printUsage(options);
     }
-
     exit(0);
-  }
-
-  private Map<String, Server> loadServerMap(File configFile) {
-    log.info("Loading server configuration from " + configFile.getAbsolutePath());
-    Map<String, Server> res = new HashMap<>();
-    // Read configuration file
-    Yaml yaml = new Yaml(new Constructor(Configuration.class));
-    try (FileReader fr = new FileReader(configFile)) {
-      Configuration conf = yaml.load(fr);
-      for (au.csiro.redmatch.Server s : conf.getServers()) {
-        res.put(s.getName(), new Server(s.getName(), s.getUrl(), s.getToken()));
-      }
-    } catch (IOException e) {
-      printError("There was a problem reading the configuration file redmatch-config.yaml");
-      System.exit(-1);
-    }
-    return res;
-  }
-
-  private Map<String, Server> loadAllServerMaps(File baseFolder) {
-    printInfo("Loading server information");
-    Map<String, Server> res = new HashMap<>();
-    boolean configExists = false;
-
-    Map<String, Server> localMap = new HashMap<>();
-    File configFile = new File(baseFolder, "redmatch-config.yaml");
-    if (configFile.exists() && configFile.canRead()) {
-      localMap = loadServerMap(configFile);
-      configExists = true;
-    }
-
-    Map<String, Server> userMap = new HashMap<>();
-    File userHome = new File(System.getProperty("user.home"));
-    File userFolder = new File(userHome, ".redmatch");
-    File userConfigFile = new File(userFolder, "redmatch-config.yaml");
-    if (userConfigFile.exists() && userConfigFile.canRead()) {
-      userMap = loadServerMap(userConfigFile);
-      configExists = true;
-    }
-
-    if (!configExists) {
-      printError("Configuration file redmatch-config.yaml does not exist or could not be read");
-      System.exit(-1);
-    }
-
-    // Local server definitions have precedence over user definitions
-    res.putAll(userMap);
-    res.putAll(localMap);
-
-    return res;
   }
 
   private void printDiagnostic(Diagnostic diagnostic) {
@@ -220,23 +145,15 @@ public class CommandLineInterface {
     writer.flush();
   }
 
-  private boolean hasErrors(Map<String, List<Diagnostic>> diagnostics) {
-    for (String key: diagnostics.keySet()) {
-      if (diagnostics.get(key).stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
-        return true;
-      }
-    }
-    return false;
+  private boolean hasErrors(List<Diagnostic> diagnostics) {
+    return diagnostics.stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error));
   }
 
-  private void printDiagnostics(Map<String, List<Diagnostic>> diagnosticsMap) {
-    for (String key : diagnosticsMap.keySet()) {
-      List<Diagnostic> diagnostics = diagnosticsMap.get(key);
-      if (!diagnostics.isEmpty()) {
-        printInfo("There were problems with file " + key + ":");
-        for (Diagnostic diagnostic : diagnostics) {
-          printDiagnostic(diagnostic);
-        }
+  private void printDiagnostics(List<Diagnostic> diagnostics) {
+    if (!diagnostics.isEmpty()) {
+      printInfo("There were problems:");
+      for (Diagnostic diagnostic : diagnostics) {
+        printDiagnostic(diagnostic);
       }
     }
   }

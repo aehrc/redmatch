@@ -29,6 +29,8 @@ public class RedcapField implements Field {
     DATETIME_SECONDS_MDY, DATETIME_SECONDS_DMY, PHONE, EMAIL, NUMBER, INTEGER, ZIPCODE, FHIR_TERMINOLOGY
   }
 
+  private final SimpleDateFormat dateYyyyFormat = new SimpleDateFormat("yyyy");
+
   private final SimpleDateFormat dateYmdFormat = new SimpleDateFormat("yyyy-MM-dd");
 
   private final SimpleDateFormat dateTimeYmdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -174,7 +176,7 @@ public class RedcapField implements Field {
             case EMAIL:
               return getString(val, fhirType, "EMAIL");
             case INTEGER:
-              return getInteger(val, fhirType);
+              return getInteger(val, fhirType, pr);
             case NONE:
               return getString(val, fhirType, "TEXT");
             case NUMBER:
@@ -255,7 +257,7 @@ public class RedcapField implements Field {
     } else if (fhirType.isAssignableFrom(DateType.class)) {
       return new DateType(d);
     } else {
-      throw new RuntimeException("Tried to assign REDCap DATE TIME field to FHIR "
+      throw new CompilationException("Tried to assign REDCap DATE TIME field to FHIR "
         + "type " + fhirType.getCanonicalName() + ". Only Instant, DateTime and Date are "
         + "supported.");
     }
@@ -274,7 +276,7 @@ public class RedcapField implements Field {
     try {
       date = sdf.parse(stringVal);
     } catch (ParseException e) {
-      throw new RuntimeException("Could not parse date: " + stringVal);
+      throw new CompilationException("Could not parse date: " + stringVal);
     }
     return date;
   }
@@ -283,7 +285,7 @@ public class RedcapField implements Field {
     if (fhirType.isAssignableFrom(StringType.class)) {
       return new StringType(val);
     } else {
-      throw new RuntimeException("Tried to assign REDCap " + redcapFieldType + " field "
+      throw new CompilationException("Tried to assign REDCap " + redcapFieldType + " field "
         + "to FHIR type " + fhirType.getCanonicalName() + ". Only String is supported.");
     }
   }
@@ -295,12 +297,12 @@ public class RedcapField implements Field {
       // We allow assigning to a string field
       return new StringType(val);
     } else {
-      throw new RuntimeException("Tried to assign REDCap NUMBER field to FHIR type " +
+      throw new CompilationException("Tried to assign REDCap NUMBER field to FHIR type " +
         fhirType.getCanonicalName() + ". Only Decimal and String are supported.");
     }
   }
 
-  private Base getInteger(String val, Class<?> fhirType) {
+  private Base getInteger(String val, Class<?> fhirType, FieldValue.DatePrecision pr) {
     if (fhirType.isAssignableFrom(IntegerType.class)) {
       return new IntegerType(val);
     } else if (fhirType.isAssignableFrom(StringType.class)) {
@@ -309,8 +311,10 @@ public class RedcapField implements Field {
     } else if (fhirType.isAssignableFrom(DecimalType.class)) {
       // We allow assigning to a decimal field
       return new DecimalType(val);
+    } else if (fhirType.isAssignableFrom(DateType.class) && pr != null && pr.equals(FieldValue.DatePrecision.YEAR)) {
+      return new DateType(processDate(dateYyyyFormat, val));
     } else {
-      throw new RuntimeException("Tried to assign REDCap INTEGER field to FHIR type " +
+      throw new CompilationException("Tried to assign REDCap INTEGER field to FHIR type " +
         fhirType.getCanonicalName() + ". Only Integer, Decimal and String are supported.");
     }
   }

@@ -14,11 +14,55 @@
 	],
 	"main": "./out/extension",
 	"contributes": {
-		"languages": [{
-			"id": "redmatch",
-			"extensions": [ ".rdm" ],
-			"aliases": [ "Redmatch", "redmatch" ]
-		}]
+		"languages": [
+			{
+			    "id": "redmatch",
+			    "extensions": [ ".rdm" ],
+			    "aliases": [ "Redmatch", "redmatch" ]
+		    }
+		],
+		"commands": [
+			{
+			    "command": "au.csiro.redmatch.transform.all",
+			    "title": "Transform all files in project"
+			},
+			{
+				"command": "au.csiro.redmatch.transform.this",
+				"title": "Transform this file"
+			},
+			{
+			    "command": "au.csiro.redmatch.graph.all",
+			    "title": "Generate graph for all files in project"
+			},
+			{
+				"command": "au.csiro.redmatch.graph.this",
+				"title": "Generate graph for this file"
+			}
+		],
+		"menus": {
+			"editor/context": [
+			    {
+				    "command": "au.csiro.redmatch.transform.this",
+				    "when": "editorLangId == redmatch",
+					"group": "z_commands"
+			    },
+				{
+					"command": "au.csiro.redmatch.transform.all",
+					"when": "editorLangId == redmatch",
+					"group": "z_commands"
+				},
+				{
+				    "command": "au.csiro.redmatch.graph.this",
+				    "when": "editorLangId == redmatch",
+					"group": "z_commands"
+			    },
+				{
+					"command": "au.csiro.redmatch.graph.all",
+					"when": "editorLangId == redmatch",
+					"group": "z_commands"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

@@ -56,10 +56,8 @@ public class RedcapVisitor implements GrammarObjectVisitor {
     Body elseBody = r.getElseBody();
 
     if (evaluate(c)) {
-      // TODO: add resources from body - look at Rule in previous implementation
       visit(body);
     } else if (elseBody != null) {
-      // TODO: add resources from elseBody
       visit(elseBody);
     }
   }
@@ -125,7 +123,7 @@ public class RedcapVisitor implements GrammarObjectVisitor {
             }
           } else {
             // Otherwise the value is in fact missing
-            log.warn("There was no value for field " + fieldId + " [" + this.toString() + "]");
+            log.debug("There was no value for field " + fieldId + " [" + this.toString() + "]");
             return false;
           }
         }

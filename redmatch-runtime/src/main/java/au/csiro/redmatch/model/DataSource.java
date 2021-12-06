@@ -9,14 +9,14 @@ package au.csiro.redmatch.model;
  *
  * @author Alejandro Metke
  */
-public class Server {
+public class DataSource {
   public enum ServerType { REDCAP, CSV_OAUTH2 }
-  private String name;
-  private ServerType type;
-  private String url;
-  private String token;
+  private final String name;
+  private final ServerType type;
+  private final String url;
+  private final String token;
 
-  public Server (String name, String url, String token) {
+  public DataSource(String name, String url, String token) {
     this.type = ServerType.REDCAP;
     this.name = name;
     this.url = url;

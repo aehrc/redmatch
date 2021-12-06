@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
 import org.apache.commons.logging.Log;
@@ -13,6 +17,11 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
+/**
+ * The Redmatch text document service.
+ *
+ * @author Alejandro Metke Jimenez
+ */
 public class RedmatchTextDocumentService implements TextDocumentService {
 
   private static final Log log = LogFactory.getLog(RedmatchTextDocumentService.class);
@@ -26,14 +35,12 @@ public class RedmatchTextDocumentService implements TextDocumentService {
   @Override
   public void didOpen(DidOpenTextDocumentParams params) {
     TextDocumentItem textDocument = params.getTextDocument();
-    log.info("didOpen: " + textDocument);
     openedDocuments.put(textDocument.getUri(), textDocument);
     new DiagnosticRunner(languageServer).compute(params);
   }
 
   @Override
   public void didChange(DidChangeTextDocumentParams params) {
-    log.info("didChange: " + params.getTextDocument());
     List<TextDocumentContentChangeEvent> contentChanges = params.getContentChanges();
     TextDocumentItem textDocumentItem = openedDocuments.get(params.getTextDocument().getUri());
     if (!contentChanges.isEmpty()) {

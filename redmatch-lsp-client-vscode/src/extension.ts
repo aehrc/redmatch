@@ -12,10 +12,7 @@ import {
 let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
-
 	const serverPath = context.asAbsolutePath(path.join('jars','server.jar'));
-    console.log(serverPath);
-
     const requirementsData = await computeRequirementsData(context);
 
     const serverOptions: Executable = {

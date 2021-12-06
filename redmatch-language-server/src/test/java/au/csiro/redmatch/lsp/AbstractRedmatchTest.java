@@ -1,15 +1,21 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
-import org.eclipse.lsp4j.MessageActionItem;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.LanguageClient;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Base class for tests.
+ *
+ * @author Alejandro Metke Jimenez
+ */
 public class AbstractRedmatchTest {
 
   /**
@@ -54,6 +60,16 @@ public class AbstractRedmatchTest {
 
     public boolean isPublishedDiagnostics() {
       return publishedDiagnostics;
+    }
+
+    @Override
+    public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
+      return null;
+    }
+
+    @Override
+    public void notifyProgress(ProgressParams params) {
+
     }
   }
 }

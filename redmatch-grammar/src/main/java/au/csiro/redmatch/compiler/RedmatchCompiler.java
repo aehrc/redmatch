@@ -303,8 +303,12 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         RuleList rl = (RuleList) go;
         res.getRules().addAll(rl.getRules());
       } else {
-        throw new RuntimeException("Unexpected type " + go.getClass().getCanonicalName() 
-            + ". Expected Rule or RuleList. This should never happen!");
+        getDiagnosticFromContext(
+          ctx,
+          "Unexpected type " + go.getClass().getCanonicalName() + ". Expected Rule or RuleList.",
+          DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString()
+        );
       }
     }
 
@@ -410,7 +414,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             String fieldId = fbv.getFieldId();
             Field f = schema.getField(fieldId);
             if (f == null) {
-              throw new RuntimeException("Could not find field " + fieldId + ". This should not happen!");
+              continue;
             }
             for (Field opt : f.getOptions()) {
               fields.add(opt.getFieldId());
@@ -420,7 +424,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             String fieldId = fbv.getFieldId();
             Field f = schema.getField(fieldId);
             if (f == null) {
-              throw new RuntimeException("Could not find field " + fieldId + ". This should not happen!");
+              continue;
             }
             if (f.needsMapping(fbv)) {
               fields.add(fieldId);
@@ -981,16 +985,23 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       List<TerminalNode> parts = ctx.CL_PART();
       if (ctx.CL_ALIAS() != null) {
         system =  resolveAlias(ctx.CL_ALIAS(), ctx.CL_ALIAS().getText());
-        if (parts.isEmpty()) {
-          throw new RuntimeException("Expected at least one CL_PART. This should not happen!");
+        if (!parts.isEmpty()) {
+          code = parts.get(0).getText();
+        } else {
+          getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString());
+          code = "";
         }
-        code = parts.get(0).getText();
       } else  {
-        if (parts.size() < 2) {
-          throw new RuntimeException("Expected at least two CL_PARTs. This should not happen!");
+        if (parts.size() >= 2) {
+          system = parts.get(0).getText();
+          code = parts.get(1).getText();
+        } else {
+          getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString());
+          system = "";
+          code = "";
         }
-        system = parts.get(0).getText();
-        code = parts.get(1).getText();
       }
 
       if (ctx.STRING() != null) {
@@ -1013,7 +1024,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else if (ctx.CODE_SELECTED() != null) {
         val = new CodeSelectedValue(fieldId);
       } else {
-        throw new RuntimeException("Invalid expression. This should not happen!");
+        getDiagnosticFromContext(ctx, "Invalid expression", DiagnosticSeverity.Error, CODE_COMPILER_ERROR.toString());
+        return null;
       }
       validateField(fieldId, val, ctx);
       return val;
@@ -1028,9 +1040,12 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
 
   private void validateField(String fieldId, FieldBasedValue val, ParserRuleContext ctx) {
     List<String> msgs = new ArrayList<>();
-    if (!this.schema.getField(fieldId).isCompatibleWith(val, msgs)) {
-      msgs.forEach(m -> this.diagnostics.add(getDiagnosticFromContext(ctx, m, DiagnosticSeverity.Error,
-        CODE_INCOMPATIBLE_EXPRESSION.toString())));
+    Field field = this.schema.getField(fieldId);
+    if (field != null) {
+      if (!field.isCompatibleWith(val, msgs)) {
+        msgs.forEach(m -> this.diagnostics.add(getDiagnosticFromContext(ctx, m, DiagnosticSeverity.Error,
+          CODE_INCOMPATIBLE_EXPRESSION.toString())));
+      }
     }
   }
 
@@ -1040,17 +1055,24 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     String display = null;
     List<TerminalNode> parts = ctx.CL_PART();
     if (ctx.CL_ALIAS() != null) {
-      system =  resolveAlias(ctx.CL_ALIAS(), ctx.CL_ALIAS().getText());
-      if (parts.isEmpty()) {
-        throw new RuntimeException("Expected at least one CL_PART. This should not happen!");
+      system = resolveAlias(ctx.CL_ALIAS(), ctx.CL_ALIAS().getText());
+      if (!parts.isEmpty()) {
+        code = parts.get(0).getText();
+      } else {
+        getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString());
+        code = "";
       }
-      code = parts.get(0).getText();
     } else  {
-      if (parts.size() < 2) {
-        throw new RuntimeException("Expected at least two CL_PARTs. This should not happen!");
+      if (parts.size() >= 2) {
+        system = parts.get(0).getText();
+        code = parts.get(1).getText();
+      } else {
+        getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
+          CODE_COMPILER_ERROR.toString());
+        system = "";
+        code = "";
       }
-      system = parts.get(0).getText();
-      code = parts.get(1).getText();
     }
 
     if (ctx.CL_STRING() != null) {

@@ -1,5 +1,16 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
+import au.csiro.redmatch.RedmatchApi;
+import au.csiro.redmatch.compiler.RedmatchCompiler;
+import au.csiro.redmatch.exporter.GraphExporterService;
+import au.csiro.redmatch.exporter.HapiReflectionHelper;
+import au.csiro.redmatch.validation.RedmatchGrammarValidator;
+import ca.uhn.fhir.context.FhirContext;
+import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
@@ -20,13 +31,24 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
   private static final Log log = LogFactory.getLog(RedmatchLanguageServer.class);
 
   private final RedmatchTextDocumentService textDocumentService;
+  private final RedmatchWorkspaceService workspaceService;
   private LanguageClient client;
+  private final RedmatchApi api;
 
   /**
    * Constructor.
    */
   public RedmatchLanguageServer() {
+    FhirContext ctx = FhirContext.forR4();
+    Gson gson = new Gson();
+    RedmatchGrammarValidator validator = new RedmatchGrammarValidator(gson, ctx);
+    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx);
+    reflectionHelper.init();
+    GraphExporterService graphExporterService = new GraphExporterService();
+    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService);
     textDocumentService = new RedmatchTextDocumentService(this);
+    workspaceService = new RedmatchWorkspaceService(this);
   }
 
   @Override
@@ -61,7 +83,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
 
   @Override
   public WorkspaceService getWorkspaceService() {
-    return null;
+    return workspaceService;
   }
 
   @Override
@@ -78,11 +100,26 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     return client;
   }
 
+  public RedmatchApi getApi() {
+    return api;
+  }
+
   private ServerCapabilities createServerCapabilities() {
     ServerCapabilities capabilities = new ServerCapabilities();
     capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
     capabilities.setSemanticTokensProvider(getSemanticTokensProvider());
     capabilities.setCodeActionProvider(true);
+    ExecuteCommandOptions executeCommandOptions = new ExecuteCommandOptions(
+      List.of(
+        "au.csiro.redmatch.transform.this",
+        "au.csiro.redmatch.transform.all",
+        "au.csiro.redmatch.graph.this",
+        "au.csiro.redmatch.graph.all"
+      )
+    );
+    executeCommandOptions.setWorkDoneProgress(true);
+    log.info("Setting execute command capabilities: " + executeCommandOptions);
+    capabilities.setExecuteCommandProvider(executeCommandOptions);
     return capabilities;
   }
 

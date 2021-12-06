@@ -14,35 +14,13 @@ If you haven't installed Redmatch have a look at the [installation instructions]
 
 A REDCap server is required to run the tutorial. Instructions to install REDCap and create the sample project are available [here](./redcap.html).
 
-## Step 5: Download the Tutorial Files
+## Step 4: Download the Tutorial Files
 
-To help you get started please download the [tutorial starter](./files/tutorial_starter.zip) and unzip it in a directory of your choice.
+To help you get started please download the [tutorial starter](./files/tutorial_starter.zip) and unzip it in a folder of your choice.
 
-## Step 6: Run Redmatch
+## Step 5: Run the Redmatch Visual Studio Code Plugin
 
-Open a terminal in the directory where you unzipped the tutorial files and run Redmatch:
-
-```
-java -jar redmatch.jar .
-```
-
-The output should be similar to this:
-
-```
-[INFO] Initialising validator 
-[INFO] Done initialising validator in: 0.122 s 
-[INFO] Initialising compiler 
-[INFO] Compiling 1 files 
-[INFO] Compiling file tutorial.rdm 
-[INFO] Compilation finished in: 0.82 s 
-[INFO] There were problems with file tutorial.rdm: 
-[ERROR] Field patient_dead does not exist in REDCap schema. [13,8] 
-[ERROR] BUILD FAILURE 
-```
-
-## Step 6: Run the Redmatch Visual Studio Code Plugin
-
-Open the `tutorial.rdm` file in Visual Studio Code. The plugin runs the validation in the background and displays the results as annotations in the editor.
+Open the tutorial folder in Visual Studio Code. Then, open the `tutorial.rdm` file. The plugin runs the validation in the background and displays the results as annotations in the editor.
 
 The compiler checks that the rules are syntactically correct and also that the REDCap fields that are referenced in the rules exist. In this case, the field _patient\_dead_ does not exist in the REDCap form and therefore the compiler generates an error. Change the field name to _pat\_dead_ and now the rules should compile with no errors.
 
@@ -68,7 +46,7 @@ The lines after the colon are attributes of the resource. In this case the _dece
 
 There are several expressions that can be used to assign values to the attributes. In this example, two different expressions are used: a boolean literal and values form the form. A boolean literal is just a static boolean value (TRUE or FALSE). If the date when the patient died is set in the REDCap form then the expression `VALUE(pat_dead_date)` will extract the date from the REDCap field. Redmatch will try to transform the values in the forms to the data type of the target FHIR attribute, unless the types are not compatible, in which case a compiler error will be generated.
 
-## Step 7: Add Rules To Transform Patient Diagnoses
+## Step 6: Add Rules To Transform Patient Diagnoses
 
 We will now write additional rules to transform patient diagnoses. An example of the REDCap form is shown here:
 
@@ -102,7 +80,7 @@ The condition `VALUE(dx_${x}) = '_NRF_'` looks for a predefined value used by th
 The final thing worth pointing out is the use of references. The diagnoses that are generated should be linked back to the patient. This is achieved using the `REF(Patient<p>)` expression.
 
 
-## Step 8: Add Rules to Transform Patient Phenotype
+## Step 7: Add Rules to Transform Patient Phenotype
 
 The final set of rules in this tutorial will transform a section of the form that uses checkboxes to capture a patient's phenotype into FHIR observations. An example of the REDCap form is shown here:
 
@@ -125,7 +103,7 @@ In this case a repeat expression is used to test if each checkbox is checked or 
 
 The `code` attribute is populated using the `CONCEPT` expression which tells Redmatch that this value should be coded. Because the checkboxes are just Redcap local codes, the platform creates a mapping that the user will need to complete before being able to export the data into FHIR. The `status` attribute is always the same regardless of the values in the REDCap form and there it is populated using the `CODE(final)` expression. This is also the case with the `interpretation` attribute, except that the data type in this case is `CodeableConcept` and therefore a `CONCEPT_LITERAL` expression is used.
 
-## Step 9: Add the Missing Mappings
+## Step 8: Add the Missing Mappings
 
 The phenotype is captured using checkboxes and therefore these codes are not standardised and need mapping. The Redmatch plugin will show which mappings are missing. Add the following mappings to the mappings section:
 
@@ -140,69 +118,15 @@ The rules should compile with no issues.
 
 For more details and a list of all the expressions available in the language please check the [reference documentation](./reference.html).
 
-## Step 10: Visualise the Generated FHIR Resources
+## Step 9: Visualise the Generated FHIR Resources
 
-In order to visualise how the generated FHIR resources are related to each other, Redmatch allows exporting a graph view of the transformation results. This can also be done using the command line interface. Make sure you are in the tutorial folder and run the following command:
-
-```
-java -jar redmatch.jar -g .
-```
-
-The output should be similar to this:
-
-```
-[INFO] Initialising validator 
-[INFO] Done initialising validator in: 0.116 s 
-[INFO] Initialising compiler 
-[INFO] Loading server information 
-[INFO] Loading server configuration from /Users/met045/Downloads/redmatch-tutorial-local/./redmatch-config.yaml 
-[INFO] Loading server configuration from /Users/met045/.redmatch/redmatch-config.yaml 
-[INFO] Checking output folder 
-[INFO] Compiling 1 files 
-[INFO] Compiling file tutorial_complete.rdm 
-[INFO] Compilation finished in: 0.125 s 
-[INFO] Transforming 1 documents 
-[INFO] Transforming document tutorial_complete.rdm 
-[INFO] Getting data from server: http://localhost/api/ 
-[INFO] Got 2 rows 
-[INFO] Transformation finished in: 0.650 s 
-[INFO] Generating graph 
-[INFO] Creating graph representation for visualisation. 
-[INFO] TRANSFORMATION SUCCESS 
-```
-
-This will generate a file called `graph.html` in the `output` folder. You can open this file with your browser. The visualisation should look similar to this:
+In order to visualise how the generated FHIR resources are related to each other, Redmatch allows exporting a graph view of the transformation results. Right-click on the `tutorial.rdm` file and select the `Generate graph for this file` command. This will generate a file called `graph.html` in the `output` folder. You can open this file with your browser. The visualisation should look similar to this:
 
 ![](img/redmatch_graph.png)
 
-## Step 11: Export to FHIR
+## Step 10: Export to FHIR
 
-If you are happy with the resulting FHIR resources you can run the transformation to produce FHIR resources. This can also be done using the command line interface. Make sure you are in the tutorial folder and run the following command:
-
-```
-java -jar redmatch.jar -t .
-```
-
-The output should be similar to this:
-
-```
-[INFO] Initialising validator 
-[INFO] Done initialising validator in: 0.119 s 
-[INFO] Initialising compiler 
-[INFO] Loading server information 
-[INFO] Loading server configuration from /Users/met045/Downloads/redmatch-tutorial/./redmatch-config.yaml 
-[INFO] Loading server configuration from /Users/met045/.redmatch/redmatch-config.yaml 
-[INFO] Checking output folder 
-[INFO] Compiling 1 files 
-[INFO] Compiling file tutorial_complete.rdm 
-[INFO] Compilation finished in: 0.123 s 
-[INFO] Transforming 1 documents 
-[INFO] Transforming document tutorial_complete.rdm 
-[INFO] Getting data from server: http://localhost/api/ 
-[INFO] Got 2 rows 
-[INFO] Transformation finished in: 0.545 s 
-[INFO] TRANSFORMATION SUCCESS 
-```
+If you are happy with the resulting FHIR resources you can run the transformation to produce FHIR resources. This can be done by right-clicking on the `tutorial.rdm` file and selecting the `Transform this file` command. 
 
 This will generate a collection of files in [NDJSON](http://ndjson.org/) format in the `output` folder. Each resource type is saved in a separate file. In this case, three files are generated: `Condition.ndjson`, `Observation.ndjson` and `Patient.ndjson`. This formats allows directly importing this data into the [Pathling FHIR Analytics Platform](https://pathling.csiro.au/docs/import.html).
 

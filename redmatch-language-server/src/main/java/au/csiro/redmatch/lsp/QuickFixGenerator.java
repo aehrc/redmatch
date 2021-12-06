@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.compiler.ErrorCodes;
@@ -11,6 +15,11 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Generates quick fixes using the language server protocol.
+ *
+ * @author Alejandro Metke Jimenez
+ */
 public class QuickFixGenerator {
   static final Pattern newLine = Pattern.compile("\\R");
 
@@ -56,90 +65,122 @@ public class QuickFixGenerator {
   }
 
   static CodeAction getActionForInvalidAlias(Diagnostic diagnostic, String documentUri) {
-    JsonObject suggestion = (JsonObject) diagnostic.getData();
-    String actual = suggestion.get("actual").getAsString();
-    String suggested = suggestion.get("suggested").getAsString();
-    String actionLabel = "Replace invalid alias " + actual + " with " + suggested;
-    return createCodeAction(diagnostic, suggested, documentUri, actionLabel);
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject suggestion = (JsonObject) diagnostic.getData();
+      String actual = suggestion.get("actual").getAsString();
+      String suggested = suggestion.get("suggested").getAsString();
+      String actionLabel = "Replace invalid alias " + actual + " with " + suggested;
+      return createCodeAction(diagnostic, suggested, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForInvalidFhirId(Diagnostic diagnostic, String documentUri) {
-    JsonObject idSuggestion = (JsonObject) diagnostic.getData();
-    String id = idSuggestion.get("actual").getAsString();
-    String suggestedId = idSuggestion.get("suggested").getAsString();
-    String actionLabel = "Replace invalid FHIR id " + id + " with " + suggestedId;
-    return createCodeAction(diagnostic, suggestedId, documentUri, actionLabel);
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject idSuggestion = (JsonObject) diagnostic.getData();
+      String id = idSuggestion.get("actual").getAsString();
+      String suggestedId = idSuggestion.get("suggested").getAsString();
+      String actionLabel = "Replace invalid FHIR id " + id + " with " + suggestedId;
+      return createCodeAction(diagnostic, suggestedId, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForInvalidRedcapId(Diagnostic diagnostic, String documentUri) {
-    JsonObject idSuggestion = (JsonObject) diagnostic.getData();
-    String id = idSuggestion.get("actual").getAsString();
-    String suggestedId = idSuggestion.get("suggested").getAsString();
-    String actionLabel = "Replace unknown / invalid field id " + id + " with " + suggestedId;
-    return createCodeAction(diagnostic, suggestedId, documentUri, actionLabel);
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject idSuggestion = (JsonObject) diagnostic.getData();
+      String id = idSuggestion.get("actual").getAsString();
+      String suggestedId = idSuggestion.get("suggested").getAsString();
+      String actionLabel = "Replace unknown / invalid field id " + id + " with " + suggestedId;
+      return createCodeAction(diagnostic, suggestedId, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForMissingMappingAndSection(Diagnostic diagnostic, String documentUri,
                                                          TextDocumentItem document) {
-    JsonObject labeledField = (JsonObject) diagnostic.getData();
-    String fieldId = labeledField.get("id").getAsString();
-    String label = labeledField.get("label").getAsString();
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject labeledField = (JsonObject) diagnostic.getData();
+      String fieldId = labeledField.get("id").getAsString();
+      String label = labeledField.get("label").getAsString();
 
-    String actionLabel = "Add missing mapping for field " + fieldId;
-    // In this we have the document context, so we can just append the mapping section to the end of the document
-    String newValue = document.getText() + "\nMAPPINGS: {\n" + generateDefaultMapping(fieldId, label) + "}" ;
-    return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+      String actionLabel = "Add missing mapping for field " + fieldId;
+      // In this we have the document context, so we can just append the mapping section to the end of the document
+      String newValue = document.getText() + "\nMAPPINGS: {\n" + generateDefaultMapping(fieldId, label) + "}";
+      return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForMappingNotNeeded(Diagnostic diagnostic, String documentUri) {
-    String fieldId = ((JsonPrimitive) diagnostic.getData()).getAsString();
-    String actionLabel = "Remove unnecessary mapping for field " + fieldId;
-    return createCodeAction(diagnostic, "", documentUri, actionLabel);
+    Object data = diagnostic.getData();
+    if (data instanceof JsonPrimitive) {
+      String fieldId = ((JsonPrimitive) diagnostic.getData()).getAsString();
+      String actionLabel = "Remove unnecessary mapping for field " + fieldId;
+      return createCodeAction(diagnostic, "", documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForMissingMapping(Diagnostic diagnostic, String documentUri, TextDocumentItem document) {
-    JsonObject labeledField = (JsonObject) diagnostic.getData();
-    String fieldId = labeledField.get("id").getAsString();
-    String label = labeledField.get("label").getAsString();
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject labeledField = (JsonObject) diagnostic.getData();
+      String fieldId = labeledField.get("id").getAsString();
+      String label = labeledField.get("label").getAsString();
 
-    String actionLabel = "Add missing mapping for field " + fieldId;
-    String newValue = getNewValueForMissingMapping(document.getText(), diagnostic.getRange(), fieldId, label);
-    return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+      String actionLabel = "Add missing mapping for field " + fieldId;
+      String newValue = getNewValueForMissingMapping(document.getText(), diagnostic.getRange(), fieldId, label);
+      return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForMappedFieldDoesNotExist(Diagnostic diagnostic, String documentUri) {
-    String fieldId = ((JsonPrimitive) diagnostic.getData()).getAsString();
-    String actionLabel = "Remove mapping for non-existent field " + fieldId;
-    return createCodeAction(diagnostic, "", documentUri, actionLabel);
+    Object data = diagnostic.getData();
+    if (data instanceof JsonPrimitive) {
+      String fieldId = ((JsonPrimitive) diagnostic.getData()).getAsString();
+      String actionLabel = "Remove mapping for non-existent field " + fieldId;
+      return createCodeAction(diagnostic, "", documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction getActionForFieldLabelMismatch(Diagnostic diagnostic, String documentUri,
                                                    TextDocumentItem document) {
-    JsonObject labeledField = (JsonObject) diagnostic.getData();
-    String fieldId = labeledField.get("id").getAsString();
-    String label = labeledField.get("label").getAsString();
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject labeledField = (JsonObject) diagnostic.getData();
+      String fieldId = labeledField.get("id").getAsString();
+      String label = labeledField.get("label").getAsString();
 
-    String actionLabel = "Replace label for field " + fieldId;
-    String mappingText = calculateSnippet(document.getText(), diagnostic.getRange());
-    int pipeIndex = mappingText.indexOf("|");
-    if (pipeIndex == -1) {
-      throw new RuntimeException("Expected a pipe in " + mappingText + ". This should not happen!");
-    }
-    int firstQuoteIndex = mappingText.indexOf("'", pipeIndex);
-    if (firstQuoteIndex == -1) {
-      throw new RuntimeException("Expected a single quote in " + mappingText + ". This should not happen!");
-    }
-    int secondQuoteIndex = mappingText.indexOf("'", firstQuoteIndex + 1);
-    if (secondQuoteIndex == -1) {
-      throw new RuntimeException("Expected two single quotes in " + mappingText + ". This should not happen!");
-    }
+      String actionLabel = "Replace label for field " + fieldId;
+      String mappingText = calculateSnippet(document.getText(), diagnostic.getRange());
+      int pipeIndex = mappingText.indexOf("|");
+      if (pipeIndex == -1) {
+        throw new RuntimeException("Expected a pipe in " + mappingText + ". This should not happen!");
+      }
+      int firstQuoteIndex = mappingText.indexOf("'", pipeIndex);
+      if (firstQuoteIndex == -1) {
+        throw new RuntimeException("Expected a single quote in " + mappingText + ". This should not happen!");
+      }
+      int secondQuoteIndex = mappingText.indexOf("'", firstQuoteIndex + 1);
+      if (secondQuoteIndex == -1) {
+        throw new RuntimeException("Expected two single quotes in " + mappingText + ". This should not happen!");
+      }
 
-    String newValue =
-      mappingText.substring(0, firstQuoteIndex + 1)
-      + label
-      + mappingText.substring(secondQuoteIndex);
+      String newValue =
+        mappingText.substring(0, firstQuoteIndex + 1)
+          + label
+          + mappingText.substring(secondQuoteIndex);
 
-    return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+      return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+    }
+    return null;
   }
 
   static CodeAction createCodeAction(Diagnostic diagnostic, String newValue, String documentUri, String actionLabel) {
