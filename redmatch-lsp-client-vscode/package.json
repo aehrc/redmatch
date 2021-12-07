@@ -3,7 +3,7 @@
 	"description": "VSCode part of the Redmatch language server",
 	"author": "CSIRO",
 	"license": "MIT",
-	"version": "1.0.0",
+	"version": "2.2.0",
 	"publisher": "csiro",
 	"categories": [],
 	"engines": {
