@@ -69,15 +69,14 @@ public class DiagnosticRunnerTest extends AbstractRedmatchTest {
   }
 
   private List<PublishDiagnosticsParams> getDiagnostics(String uri, String text) {
-    MockClient client = new MockClient();
     RedmatchLanguageServer server = new RedmatchLanguageServer();
-    server.connect(client);
+    server.connect(mockClient);
     DiagnosticRunner diagnosticRunner = new DiagnosticRunner(server);
 
     TextDocumentItem docItem = new TextDocumentItem(uri, "rdm", 1, text);
     diagnosticRunner.computeDiagnostics(text, docItem);
 
-    while(!client.isPublishedDiagnostics()) {
+    while(!mockClient.isPublishedDiagnostics()) {
       try {
         Thread.sleep(100);
       } catch (InterruptedException e) {
@@ -85,6 +84,6 @@ public class DiagnosticRunnerTest extends AbstractRedmatchTest {
       }
     }
 
-    return client.getDiagnostics();
+    return mockClient.getDiagnostics();
   }
 }

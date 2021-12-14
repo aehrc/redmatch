@@ -4,13 +4,16 @@
  */
 package au.csiro.redmatch.lsp;
 
+import au.csiro.redmatch.compiler.Document;
+import au.csiro.redmatch.model.Schema;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 
 /**
  * Runs diagnostics on Redmatch documents.
@@ -26,6 +29,8 @@ public class DiagnosticRunner {
    * Used to send diagnostic messages to the client.
    */
   private final RedmatchLanguageServer languageServer;
+
+  private FutureTask<Void> task;
 
   /**
    * Constructor.
@@ -53,22 +58,45 @@ public class DiagnosticRunner {
       languageServer.getTextDocumentService().getOpenedDocument(params.getTextDocument().getUri()));
   }
 
-  public void computeDiagnostics(String text, TextDocumentItem documentItem) {
+  public synchronized void computeDiagnostics(String text, TextDocumentItem documentItem) {
     String uri = documentItem.getUri();
     log.info("Computing diagnostics for document " + uri);
-    CompletableFuture.runAsync(() -> {
-      List<Diagnostic> diagnostics = languageServer.getApi().compile(text, uri, null).getDiagnostics();
-      log.info("Compilation produced " + diagnostics.size() + " diagnostic messages.");
-      languageServer.getClient().publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+    log.debug("Task is done: " + ((task != null) ? task.isDone() : "NA"));
+
+    if (task != null && !task.isDone()) {
+      log.info("Found existing task so cancelling it");
+      task.cancel(true);
+    }
+
+    task = new FutureTask<>(() -> {
+      log.debug("Creating new diagnostic runner");
+      Document doc = languageServer.getApi().compile(text, uri, null);
+      if (doc == null) {
+        // To handle cancellations inside compilation method
+        return null;
+      }
+      List<Diagnostic> diagnostics = doc.getDiagnostics();
+      log.info("Compilation produced " + diagnostics.size() + " diagnostic messages");
+      if (Thread.interrupted()) {
+        log.debug("Interrupting compilation");
+        return null;
+      }
+      languageServer.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+      Schema schema = doc.getSchema();
+      if (schema != null) {
+        languageServer.getTextDocumentService().setSchema(uri, schema);
+      }
+      return null;
     });
+    Executors.newCachedThreadPool().submit(task);
   }
 
   private String retrieveFullText(DidSaveTextDocumentParams params) {
-    String camelText = params.getText();
-    if (camelText == null) {
-      camelText = languageServer.getTextDocumentService().getOpenedDocument(params.getTextDocument().getUri()).getText();
+    String text = params.getText();
+    if (text == null) {
+      text = languageServer.getTextDocumentService().getOpenedDocument(params.getTextDocument().getUri()).getText();
     }
-    return camelText;
+    return text;
   }
 
   /**
@@ -77,6 +105,7 @@ public class DiagnosticRunner {
    * @param uri The document's URI.
    */
   public void clear(String uri) {
-    languageServer.getClient().publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
+    languageServer.publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
   }
+
 }

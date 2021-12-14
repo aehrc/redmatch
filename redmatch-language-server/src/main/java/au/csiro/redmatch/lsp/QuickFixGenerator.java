@@ -5,6 +5,7 @@
 package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.compiler.ErrorCodes;
+import au.csiro.redmatch.util.DocumentUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.eclipse.lsp4j.*;
@@ -21,7 +22,6 @@ import java.util.regex.Pattern;
  * @author Alejandro Metke Jimenez
  */
 public class QuickFixGenerator {
-  static final Pattern newLine = Pattern.compile("\\R");
 
   public static List<Either<Command, CodeAction>> computeCodeActions(CodeActionParams params,
                                                                      CancelChecker cancelToken,
@@ -29,7 +29,9 @@ public class QuickFixGenerator {
     String docUri = params.getTextDocument().getUri();
     var codeActions = new ArrayList<Either<Command, CodeAction>>();
     for (var diagnostic: params.getContext().getDiagnostics()) {
-      cancelToken.checkCanceled();
+      if (cancelToken.isCanceled()) {
+        break;
+      }
       CodeAction codeAction = getCodeAction(ErrorCodes.valueOf(diagnostic.getCode().getLeft()), diagnostic, docUri,
         document);
       if (codeAction != null) {
@@ -159,7 +161,7 @@ public class QuickFixGenerator {
       String label = labeledField.get("label").getAsString();
 
       String actionLabel = "Replace label for field " + fieldId;
-      String mappingText = calculateSnippet(document.getText(), diagnostic.getRange());
+      String mappingText = DocumentUtils.calculateSnippet(document.getText(), diagnostic.getRange());
       int pipeIndex = mappingText.indexOf("|");
       if (pipeIndex == -1) {
         throw new RuntimeException("Expected a pipe in " + mappingText + ". This should not happen!");
@@ -196,7 +198,7 @@ public class QuickFixGenerator {
   }
 
   static String getNewValueForMissingMapping(String text, Range range, String fieldId, String label) {
-    String mappingsSnippet = calculateSnippet(text, range);
+    String mappingsSnippet = DocumentUtils.calculateSnippet(text, range);
 
     String newMapping = generateDefaultMapping(fieldId ,label);
     // Assuming the mappings section is well-formed, it will end with a '}'
@@ -206,23 +208,6 @@ public class QuickFixGenerator {
       // Otherwise, just add at the end
       return mappingsSnippet + newMapping;
     }
-  }
-
-  static String calculateSnippet(String text, Range range) {
-    Position start = range.getStart();
-    Position end = range.getEnd();
-    return text.substring(getPosition(start, text), getPosition(end, text));
-  }
-
-  static int getPosition(Position pos, String text) {
-    int lineNum = pos.getLine();
-    Matcher matcher = newLine.matcher(text);
-    for(int i = 0; i < lineNum; i++) {
-      if (!matcher.find()) {
-        throw new RuntimeException("Invalid text and position: " + text + ", " + pos);
-      }
-    }
-    return matcher.end() + pos.getCharacter();
   }
 
   static String generateDefaultMapping(String fieldId, String label) {

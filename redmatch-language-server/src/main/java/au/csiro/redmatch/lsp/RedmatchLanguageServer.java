@@ -16,9 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.*;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -100,6 +98,15 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     return client;
   }
 
+  /**
+   * Publishes diagnostics to the client.
+   *
+   * @param params The diagnostics.
+   */
+  public synchronized void publishDiagnostics(PublishDiagnosticsParams params) {
+    client.publishDiagnostics(params);
+  }
+
   public RedmatchApi getApi() {
     return api;
   }
@@ -120,6 +127,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     executeCommandOptions.setWorkDoneProgress(true);
     log.info("Setting execute command capabilities: " + executeCommandOptions);
     capabilities.setExecuteCommandProvider(executeCommandOptions);
+    capabilities.setCompletionProvider(new CompletionOptions(Boolean.TRUE, List.of( "(")));
     return capabilities;
   }
 

@@ -64,7 +64,7 @@ public class FhirExporterTest {
     List<Row> rows = parseData(json);
     FhirExporter exporter = new FhirExporter(doc, rows, helper);
 
-    Map<String, DomainResource> res = exporter.transform(null);
+    Map<String, DomainResource> res = exporter.transform(null, null);
     assertFalse(res.isEmpty());
   }
 
@@ -83,7 +83,7 @@ public class FhirExporterTest {
     List<Row> rows = parseData(json);
     FhirExporter exporter = new FhirExporter(doc, rows, helper);
 
-    Map<String, DomainResource> res = exporter.transform(null);
+    Map<String, DomainResource> res = exporter.transform(null, null);
     assertFalse(res.isEmpty());
 
     // Check that the resources that were created are the correct ones

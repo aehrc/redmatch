@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.eclipse.lsp4j.jsonrpc.CompletableFutures;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
@@ -47,8 +48,6 @@ public class RedmatchWorkspaceService implements WorkspaceService {
       + params.getWorkDoneToken());
 
     return CompletableFutures.computeAsync(cancelToken -> {
-      cancelToken.checkCanceled();
-
       if (command.startsWith("au.csiro.redmatch.transform.") || command.startsWith("au.csiro.redmatch.graph.")) {
         JsonObject arg = (JsonObject) args.get(0);
         String scheme = arg.get("scheme").getAsString();
@@ -66,16 +65,16 @@ public class RedmatchWorkspaceService implements WorkspaceService {
         if (flag.compareAndSet(false, true)) {
           switch (command) {
             case "au.csiro.redmatch.transform.all":
-              runAllCommand(parentFolder, Operation.EXPORT, flag);
+              runAllCommand(parentFolder, Operation.EXPORT, flag, cancelToken);
               break;
             case "au.csiro.redmatch.transform.this":
-              runThisCommand(filePath, Operation.EXPORT, flag);
+              runThisCommand(filePath, Operation.EXPORT, flag, cancelToken);
               break;
             case "au.csiro.redmatch.graph.all":
-              runAllCommand(parentFolder, Operation.GENERATE_GRAPH, flag);
+              runAllCommand(parentFolder, Operation.GENERATE_GRAPH, flag, cancelToken);
               break;
             case "au.csiro.redmatch.graph.this":
-              runThisCommand(filePath, Operation.GENERATE_GRAPH, flag);
+              runThisCommand(filePath, Operation.GENERATE_GRAPH, flag, cancelToken);
               break;
             default:
               log.error("Unexpected command " + command);
@@ -94,9 +93,9 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     });
   }
 
-  private void runThisCommand(Path filePath, Operation operation, AtomicBoolean flag) {
+  private void runThisCommand(Path filePath, Operation operation, AtomicBoolean flag, CancelChecker cancelToken) {
     try {
-      List<Diagnostic> diagnostics = run(filePath, operation);
+      List<Diagnostic> diagnostics = run(filePath, operation, cancelToken);
       for (Diagnostic diagnostic : diagnostics) {
         MessageType messageType = MessageType.Info;
         switch (diagnostic.getSeverity()) {
@@ -117,9 +116,9 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     }
   }
 
-  private void runAllCommand(File parentFolder, Operation operation, AtomicBoolean flag) {
+  private void runAllCommand(File parentFolder, Operation operation, AtomicBoolean flag, CancelChecker cancelToken) {
     try {
-      List<Diagnostic> diagnostics = runAll(parentFolder, operation);
+      List<Diagnostic> diagnostics = runAll(parentFolder, operation, cancelToken);
       for (Diagnostic diagnostic : diagnostics) {
         MessageType messageType = MessageType.Info;
         switch (diagnostic.getSeverity()) {
@@ -140,14 +139,15 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     }
   }
 
-  private List<Diagnostic> runAll(File baseFolder, Operation operation) {
+  private List<Diagnostic> runAll(File baseFolder, Operation operation, CancelChecker cancelToken) {
     log.info("Running operation " + operation + " in folder " + baseFolder);
-    return languageServer.getApi().runAll(operation, baseFolder, new LspProgressReporter(languageServer));
+    return languageServer.getApi().runAll(operation, baseFolder, new LspProgressReporter(languageServer), cancelToken);
   }
 
-  private List<Diagnostic> run(Path filePath, Operation operation) {
+  private List<Diagnostic> run(Path filePath, Operation operation, CancelChecker cancelToken) {
     log.info("Running operation" + operation + " on file " + filePath);
-    return languageServer.getApi().run(operation, filePath.toFile(), new LspProgressReporter(languageServer));
+    return languageServer.getApi().run(operation, filePath.toFile(), new LspProgressReporter(languageServer),
+      cancelToken);
   }
 
   @Override

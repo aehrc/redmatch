@@ -17,6 +17,7 @@ import org.apache.commons.logging.LogFactory;
 
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -97,7 +98,8 @@ public class FhirExporter {
    * @param progressReporter Used to report progress.
    * @return The map of created resources, indexed by resource id.
    */
-  public Map<String, DomainResource> transform(ProgressReporter progressReporter) throws TransformationException {
+  public Map<String, DomainResource> transform(ProgressReporter progressReporter, CancelChecker cancelToken)
+    throws TransformationException {
     final String uniqueField = doc.getSchema().getFields().get(0).getFieldId();
     log.debug("Transforming Redmatch project using unique field " + uniqueField);
 
@@ -168,6 +170,9 @@ public class FhirExporter {
         }
         if (progressReporter != null) {
           progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
+        }
+        if(cancelToken != null && cancelToken.isCanceled()) {
+          return fhirResourceMap;
         }
       }
 

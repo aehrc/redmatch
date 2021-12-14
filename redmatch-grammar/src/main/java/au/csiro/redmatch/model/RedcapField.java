@@ -43,7 +43,7 @@ public class RedcapField implements Field {
   private final String fieldId;
   private final String fieldLabel;
   private final FieldType fieldType;
-  private TextValidationType textValidationType;
+  private TextValidationType textValidationType = TextValidationType.NONE;
   private final List<Field> options = new ArrayList<>();
 
   /**
@@ -54,7 +54,9 @@ public class RedcapField implements Field {
    */
   public RedcapField(String fieldId, String fieldLabel, TextValidationType textValidationType) {
     this(fieldId, fieldLabel, FieldType.TEXT);
-    this.textValidationType = Objects.requireNonNullElse(textValidationType, TextValidationType.NONE);
+    if (textValidationType != null) {
+      this.textValidationType = textValidationType;
+    }
   }
 
   /**
@@ -317,5 +319,19 @@ public class RedcapField implements Field {
       throw new CompilationException("Tried to assign REDCap INTEGER field to FHIR type " +
         fhirType.getCanonicalName() + ". Only Integer, Decimal and String are supported.");
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    RedcapField that = (RedcapField) o;
+    return fieldId.equals(that.fieldId) && fieldLabel.equals(that.fieldLabel) && fieldType == that.fieldType
+      && textValidationType == that.textValidationType && options.equals(that.options);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(fieldId, fieldLabel, fieldType, textValidationType, options);
   }
 }

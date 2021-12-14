@@ -198,6 +198,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       }
     });
 
+    if (Thread.interrupted()) {
+      log.debug("Interrupting compilation");
+      return null;
+    }
     final DocumentContext docCtx = parser.document();
 
     // We need to check if the EOF token was matched. If not, then there is a problem.
@@ -213,11 +217,19 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
 
     try {
+      if (Thread.interrupted()) {
+        log.debug("Interrupting compilation");
+        return null;
+      }
       Document doc = (Document) docCtx.accept(this);
       doc.setDiagnostics(new ArrayList<>(this.diagnostics));
 
       // Validate the resulting FHIR graph if there are no errors
       if (this.diagnostics.stream().noneMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
+        if (Thread.interrupted()) {
+          log.debug("Interrupting compilation");
+          return null;
+        }
         GraphUtils.Results res = GraphUtils.buildGraph(doc);
         doc.getDiagnostics().addAll(res.getDiagnostics());
       }
@@ -235,7 +247,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * 
    * @return A Document object or null if there is an unrecoverable compilation problem.
    */
-  public Document compile(String document) {
+  public synchronized Document compile(String document) {
     return this.compile(null, document);
   }
   

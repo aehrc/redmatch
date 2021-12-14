@@ -18,12 +18,14 @@ import java.util.concurrent.CompletableFuture;
  */
 public class AbstractRedmatchTest {
 
+  protected MockClient mockClient = new MockClient();
+
   /**
    * Mock client used in tests.
    *
    * @author Alejandro Metke Jimenez
    */
-  protected static final class MockClient implements LanguageClient {
+  public static final class MockClient implements LanguageClient {
 
     private final List<PublishDiagnosticsParams> diagnostics = new ArrayList<>();
     private boolean publishedDiagnostics = false;

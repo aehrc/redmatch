@@ -84,11 +84,11 @@ public class CommandLineInterface {
       printInfo("Initialising compiler");
       List<Diagnostic> diagnostics;
       if (generateGraph && transform) {
-        diagnostics = api.runAll(Operation.BOTH, baseFolder, null);
+        diagnostics = api.runAll(Operation.BOTH, baseFolder, null, null);
       } else if (transform) {
-        diagnostics = api.runAll(Operation.EXPORT, baseFolder, null);
+        diagnostics = api.runAll(Operation.EXPORT, baseFolder, null, null);
       } else if (generateGraph) {
-        diagnostics = api.runAll(Operation.GENERATE_GRAPH, baseFolder, null);
+        diagnostics = api.runAll(Operation.GENERATE_GRAPH, baseFolder, null, null);
       } else {
         // Run the compilation process
         List<Document> docs = api.compile(baseFolder, null);

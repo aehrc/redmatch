@@ -23,6 +23,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.beans.factory.ObjectProvider;
@@ -86,7 +87,7 @@ public class RedmatchApi {
    * @param name The name of the document.
    * @return The compiled document.
    */
-  public Document compile(@NotNull String doc, @NotNull String name, ProgressReporter progressReporter) {
+  public synchronized Document compile(@NotNull String doc, @NotNull String name, ProgressReporter progressReporter) {
     try {
       log.info("Compiling rules document");
       if (progressReporter != null) {
@@ -153,7 +154,7 @@ public class RedmatchApi {
    * @return List of diagnostic messages.
    */
   public List<Diagnostic> run(@NotNull Operation operation, @NotNull File redmatchRulesFile,
-                                    ProgressReporter progressReporter) {
+                                    ProgressReporter progressReporter, CancelChecker cancelToken) {
     try {
       File baseFolder = redmatchRulesFile.toPath().getParent().toFile();
 
@@ -162,6 +163,10 @@ public class RedmatchApi {
       String name = redmatchRulesFile.getName();
       Document document = compile(doc, name, progressReporter);
       if (document.getDiagnostics().stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
+        return document.getDiagnostics();
+      }
+
+      if (cancelToken != null && cancelToken.isCanceled()) {
         return document.getDiagnostics();
       }
 
@@ -198,6 +203,10 @@ public class RedmatchApi {
         }
       }
 
+      if (cancelToken != null && cancelToken.isCanceled()) {
+        return document.getDiagnostics();
+      }
+
       log.info("Transforming into FHIR resources");
       FhirExporter exp;
       if (fhirExporterProvider == null) {
@@ -205,7 +214,7 @@ public class RedmatchApi {
       } else {
         exp = fhirExporterProvider.getObject(document, rows);
       }
-      Map<String, DomainResource> resourceMap = exp.transform(progressReporter);
+      Map<String, DomainResource> resourceMap = exp.transform(progressReporter, null);
 
       // Group resources by type
       final Map<String, List<DomainResource>> grouped = new HashMap<>();
@@ -220,14 +229,14 @@ public class RedmatchApi {
       Path outputFolder = createOutputFolder(baseFolder).toPath();
       switch (operation) {
         case EXPORT:
-          save(grouped, outputFolder, progressReporter);
+          save(grouped, outputFolder, progressReporter, cancelToken);
           break;
         case GENERATE_GRAPH:
-          generateGraph(resourceMap, outputFolder, progressReporter);
+          generateGraph(resourceMap, outputFolder, progressReporter, cancelToken);
           break;
         case BOTH:
-          save(grouped, outputFolder, progressReporter);
-          generateGraph(resourceMap, outputFolder, progressReporter);
+          save(grouped, outputFolder, progressReporter, cancelToken);
+          generateGraph(resourceMap, outputFolder, progressReporter, cancelToken);
           break;
       }
 
@@ -251,7 +260,7 @@ public class RedmatchApi {
    * @return Map of diagnostic messages. Key is file where error happened.
    */
   public List<Diagnostic> runAll(@NotNull Operation operation, @NotNull File baseFolder,
-                                              ProgressReporter progressReporter) {
+                                 ProgressReporter progressReporter, CancelChecker cancelToken) {
     if (!baseFolder.canRead() || !baseFolder.canWrite()) {
       return List.of(new Diagnostic(zeroZero, "Unable to read or write on the base folder.", DiagnosticSeverity.Error,
         "API"));
@@ -271,7 +280,7 @@ public class RedmatchApi {
 
     List<Diagnostic> diagnostics = new ArrayList<>();
     for (File rdmFile : rdmFiles) {
-      diagnostics.addAll(run(operation, rdmFile, progressReporter));
+      diagnostics.addAll(run(operation, rdmFile, progressReporter, cancelToken));
     }
     return diagnostics;
   }
@@ -280,9 +289,12 @@ public class RedmatchApi {
    * Exports a graph representation of the generated resources.
    *
    * @param resources A collection of FHIR resources.
+   * @param progressReporter An object used to report progress.
+   * @param cancelToken A token to check if the operation has been cancelled.
    * @return A graph representation of the FHIR resources.
    */
-  public Graph generateGraph(Collection<DomainResource> resources, ProgressReporter progressReporter) {
+  public Graph generateGraph(Collection<DomainResource> resources, ProgressReporter progressReporter,
+                             CancelChecker cancelToken) {
     try {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportStart("Generating graph"));
@@ -291,15 +303,25 @@ public class RedmatchApi {
 
       Graph graph = new Graph();
 
+      if (cancelToken!= null && cancelToken.isCanceled()) {
+        return graph;
+      }
+
       // Add vertices
       for (Resource res : resources) {
         graph.addNode(new Node(generateId(res)));
+        if (cancelToken != null && cancelToken.isCanceled()) {
+          return graph;
+        }
       }
 
       // Add edges
       for (Resource src : resources) {
         for (FhirUtils.Target tgt : FhirUtils.getReferencedResources(src)) {
           graph.addLink(new Link(generateId(src), tgt.getResourceId(), tgt.getAttributeName()));
+          if (cancelToken != null && cancelToken.isCanceled()) {
+            return graph;
+          }
         }
       }
       return graph;
@@ -370,7 +392,8 @@ public class RedmatchApi {
     return res;
   }
 
-  private void save(Map<String, List<DomainResource>> grouped, Path tgtDir, ProgressReporter progressReporter)
+  private void save(Map<String, List<DomainResource>> grouped, Path tgtDir, ProgressReporter progressReporter,
+                    CancelChecker cancelToken)
     throws IOException {
     try {
       log.info("Saving to output folder " + tgtDir);
@@ -392,6 +415,9 @@ public class RedmatchApi {
         if (progressReporter != null) {
           progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
         }
+        if (cancelToken != null && cancelToken.isCanceled()) {
+          return;
+        }
       }
     } finally {
       if (progressReporter != null) {
@@ -400,11 +426,14 @@ public class RedmatchApi {
     }
   }
 
-  private void generateGraph(Map<String, DomainResource> res, Path tgtDir, ProgressReporter progressReporter)
+  private void generateGraph(Map<String, DomainResource> res, Path tgtDir, ProgressReporter progressReporter,
+                             CancelChecker cancelToken)
     throws IOException {
     log.info("Generating graph in output folder");
-    Graph graph = generateGraph(res.values(), progressReporter);
-    graphExporterService.exportGraph(graph, tgtDir.toFile(), progressReporter);
+    Graph graph = generateGraph(res.values(), progressReporter, cancelToken);
+    if (!cancelToken.isCanceled()) {
+      graphExporterService.exportGraph(graph, tgtDir.toFile(), progressReporter);
+    }
   }
 
   private String generateId(Resource res) {

@@ -4,6 +4,7 @@
  */
 package au.csiro.redmatch.lsp;
 
+import au.csiro.redmatch.util.DocumentUtils;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ public class QuickFixGeneratorTest {
   public void testGetPosition() {
     String text = "Line zero\nline one\n\nline three\nline four\nlast line, for sure";
     Position pos = new Position(3, 5);
-    assertEquals(25, QuickFixGenerator.getPosition(pos, text));
+    assertEquals(25, DocumentUtils.getPosition(pos, text));
   }
 
   @Test
@@ -70,7 +71,7 @@ public class QuickFixGeneratorTest {
       "}";
 
     Range range = new Range(new Position(33, 0), new Position(36, 1));
-    String mappings = QuickFixGenerator.calculateSnippet(text, range);
+    String mappings = DocumentUtils.calculateSnippet(text, range);
     assertEquals(expectedMappings, mappings);
   }
 
