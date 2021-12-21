@@ -5,13 +5,12 @@ import au.csiro.redmatch.compiler.ConditionNode.ConditionNodeOperator;
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.RedcapField;
 import au.csiro.redmatch.model.Row;
+import com.google.gson.JsonObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Visitor implementation for a REDCap data source. Visits {@link Rule}s and retrieves the resources that need to be
@@ -25,10 +24,10 @@ public class RedcapVisitor implements GrammarObjectVisitor {
   private static final Log log = LogFactory.getLog(RedcapVisitor.class);
 
   private final au.csiro.redmatch.model.Schema schema;
-  private final Row data;
+  private final JsonObject data;
   private final List<Resource> resources = new ArrayList<>();
 
-  public RedcapVisitor(au.csiro.redmatch.model.Schema schema, Row data) {
+  public RedcapVisitor(au.csiro.redmatch.model.Schema schema, JsonObject data) {
     this.schema = schema;
     this.data = data;
   }
@@ -89,12 +88,6 @@ public class RedcapVisitor implements GrammarObjectVisitor {
   }
 
   private boolean doEvaluate(ConditionExpression ce) {
-    Map<String, String> data;
-    if (this.data != null) {
-      data = this.data.getData();
-    } else {
-      data = Collections.emptyMap();
-    }
     String fieldId = ce.getFieldId();
     Integer intValue = ce.getIntValue();
     Double numericValue = ce.getNumericValue();
@@ -104,28 +97,30 @@ public class RedcapVisitor implements GrammarObjectVisitor {
     switch (ce.getConditionType()) {
       case EXPRESSION:
         if (intValue == null && numericValue == null && stringValue == null) {
-          throw new TransformationException("No value has been specified for this expression. ["
-            + this.toString() + "]");
+          throw new TransformationException("No value has been specified for this expression. [" + this + "]");
         }
 
-        String actualStringValue = data.get(fieldId);
-        if (actualStringValue == null || actualStringValue.isEmpty()) {
-
+        String actualStringValue = null;
+        if (!data.has(fieldId)) {
           // See if this is an option and extract the value from the name
           if (fieldId.contains("___")) {
             String[] parts = fieldId.split("___");
-            String chosenVal = data.get(parts[0]);
-
-            if (chosenVal != null && chosenVal.equals(parts[1])) {
-              actualStringValue = "1";
-            } else {
-              actualStringValue = "0";
+            if (data.has(parts[0])) {
+              String chosenVal = data.get(parts[0]).getAsString();
+              if (chosenVal != null && chosenVal.equals(parts[1])) {
+                actualStringValue = "1";
+              } else {
+                actualStringValue = "0";
+              }
             }
-          } else {
-            // Otherwise the value is in fact missing
-            log.debug("There was no value for field " + fieldId + " [" + this.toString() + "]");
-            return false;
           }
+        } else {
+          actualStringValue = data.get(fieldId).getAsString();
+        }
+
+        if (actualStringValue == null) {
+          log.debug("There was no value for field " + fieldId + " [" + this + "]");
+          return false;
         }
 
         // Get data type from schema
@@ -139,46 +134,46 @@ public class RedcapVisitor implements GrammarObjectVisitor {
             final double fieldValue = Double.parseDouble(actualStringValue);
             switch (operator) {
               case EQ:
-                return (double) fieldValue == numericValue;
+                return fieldValue == numericValue;
               case GT:
-                return (double) fieldValue > numericValue;
+                return fieldValue > numericValue;
               case GTE:
-                return (double) fieldValue >= numericValue;
+                return fieldValue >= numericValue;
               case LT:
-                return (double) fieldValue < numericValue;
+                return fieldValue < numericValue;
               case LTE:
-                return (double) fieldValue <= numericValue;
+                return fieldValue <= numericValue;
               case NEQ:
-                return (double) fieldValue != numericValue;
+                return fieldValue != numericValue;
               default:
                 throw new RuntimeException("Unexpected operator. This should never happen!");
             }
           } catch (NumberFormatException e) {
             throw new TransformationException("Could not parse value of field " + fieldId
-              + " into a number (" + data.get(fieldId) + ") [" + this.toString() + "]");
+              + " into a number (" + data.get(fieldId) + ") [" + this + "]");
           }
         } else if (intValue != null) {
           try {
             final int fieldValue = Integer.parseInt(actualStringValue);
             switch (operator) {
               case EQ:
-                return (int) fieldValue == intValue;
+                return fieldValue == intValue;
               case GT:
-                return (int) fieldValue > intValue;
+                return fieldValue > intValue;
               case GTE:
-                return (int) fieldValue >= intValue;
+                return fieldValue >= intValue;
               case LT:
-                return (int) fieldValue < intValue;
+                return fieldValue < intValue;
               case LTE:
-                return (int) fieldValue <= intValue;
+                return fieldValue <= intValue;
               case NEQ:
-                return (int) fieldValue != intValue;
+                return fieldValue != intValue;
               default:
                 throw new RuntimeException("Unexpected operator. This should never happen!");
             }
           } catch (NumberFormatException e) {
-            throw new TransformationException("Could not parse value of field " + fieldId
-              + " into an integer (" + data.get(fieldId) + ") [" + this.toString() + "]");
+            throw new TransformationException("Could not parse value of field " + fieldId + " into an integer (" +
+              data.get(fieldId) + ") [" + this + "]");
           }
         } else {
           // A string value
@@ -225,16 +220,14 @@ public class RedcapVisitor implements GrammarObjectVisitor {
         for (Field f : schema.getFields()) {
           // The checkbox entry fields start with the name of the checkbox field
           if (f.getFieldId().startsWith(fieldId) && !f.getFieldId().equals(fieldId)) {
-            String value = data.getData().get(f.getFieldId());
-            if (value != null && !value.equals("0")) {
+            if (data.has(f.getFieldId()) || !"0".equals(data.get(f.getFieldId()).getAsString())) {
               return true;
             }
           }
         }
         return false;
       } else {
-        String value = data.getData().get(fieldId);
-        return value != null && !value.isEmpty();
+        return (data.has(fieldId) && !data.get(fieldId).getAsString().isEmpty());
       }
     } else {
       throw new UnsupportedOperationException("Only REDCap is supported at the moment.");

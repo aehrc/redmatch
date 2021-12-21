@@ -293,38 +293,38 @@ public class RedmatchApi {
    * @param cancelToken A token to check if the operation has been cancelled.
    * @return A graph representation of the FHIR resources.
    */
-  public Graph generateGraph(Collection<DomainResource> resources, ProgressReporter progressReporter,
-                             CancelChecker cancelToken) {
+  public D3Graph generateGraph(Collection<DomainResource> resources, ProgressReporter progressReporter,
+                               CancelChecker cancelToken) {
     try {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportStart("Generating graph"));
       }
       log.info("Creating graph representation for visualisation.");
 
-      Graph graph = new Graph();
+      D3Graph d3Graph = new D3Graph();
 
       if (cancelToken!= null && cancelToken.isCanceled()) {
-        return graph;
+        return d3Graph;
       }
 
       // Add vertices
       for (Resource res : resources) {
-        graph.addNode(new Node(generateId(res)));
+        d3Graph.addNode(new D3Node(generateId(res)));
         if (cancelToken != null && cancelToken.isCanceled()) {
-          return graph;
+          return d3Graph;
         }
       }
 
       // Add edges
       for (Resource src : resources) {
         for (FhirUtils.Target tgt : FhirUtils.getReferencedResources(src)) {
-          graph.addLink(new Link(generateId(src), tgt.getResourceId(), tgt.getAttributeName()));
+          d3Graph.addLink(new D3Link(generateId(src), tgt.getResourceId(), tgt.getAttributeName()));
           if (cancelToken != null && cancelToken.isCanceled()) {
-            return graph;
+            return d3Graph;
           }
         }
       }
-      return graph;
+      return d3Graph;
     } finally {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportEnd());
@@ -430,9 +430,9 @@ public class RedmatchApi {
                              CancelChecker cancelToken)
     throws IOException {
     log.info("Generating graph in output folder");
-    Graph graph = generateGraph(res.values(), progressReporter, cancelToken);
+    D3Graph d3Graph = generateGraph(res.values(), progressReporter, cancelToken);
     if (!cancelToken.isCanceled()) {
-      graphExporterService.exportGraph(graph, tgtDir.toFile(), progressReporter);
+      graphExporterService.exportGraph(d3Graph, tgtDir.toFile(), progressReporter);
     }
   }
 

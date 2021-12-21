@@ -4,6 +4,7 @@
  */
 package au.csiro.redmatch.exporter;
 
+import au.csiro.redmatch.client.RedcapClient;
 import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Row;
@@ -11,7 +12,6 @@ import au.csiro.redmatch.util.FileUtils;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.Diagnostic;
@@ -19,7 +19,6 @@ import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Type;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,6 +46,25 @@ public class FhirExporterTest {
     validator = new RedmatchGrammarValidator(gson, ctx);
     helper = new HapiReflectionHelper(ctx);
     helper.init();
+  }
+
+  @Test
+  public void testRepeatableInstruments() {
+    log.info("Running testRepeatableInstruments");
+    String document = FileUtils.loadTextFileFromClassPath("testRepeatableInstruments.rdm");
+
+    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+
+    String json = FileUtils.loadTextFileFromClassPath("dataRepeatableInstruments.json");
+    List<Row> rows = parseData(json);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper);
+
+    Map<String, DomainResource> res = exporter.transform(null, null);
+    assertFalse(res.isEmpty());
   }
 
   @Test
@@ -171,17 +189,7 @@ public class FhirExporterTest {
   }
 
   private List<Row> parseData(String data) {
-    Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
-    final List<Map<String, String>> rows = gson.fromJson(data, listType);
-
-    final List<Row> res = new ArrayList<>();
-
-    for (Map<String, String> row : rows) {
-      Row entry = new Row();
-      entry.setData(row);
-      res.add(entry);
-    }
-    return res;
+    return new RedcapClient(gson).parseData(data);
   }
 
   protected void printErrors(List<Diagnostic> errors) {

@@ -15,7 +15,7 @@ import java.util.Optional;
  */
 public class Schema {
 
-  public enum SchemaType { REDCAP, DB };
+  public enum SchemaType { REDCAP, FHIR };
 
   private final List<Field> fields = new ArrayList<>();
 
@@ -47,5 +47,16 @@ public class Schema {
 
   public SchemaType getSchemaType() {
     return schemaType;
+  }
+
+  public String getUniqueFieldId() {
+    switch (schemaType) {
+      case REDCAP:
+        return getFields().get(0).getFieldId();
+      case FHIR:
+        throw new UnsupportedOperationException("FHIR is not currently supported as a source.");
+      default:
+        return null;
+    }
   }
 }

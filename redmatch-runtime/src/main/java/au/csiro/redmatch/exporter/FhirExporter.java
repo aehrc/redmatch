@@ -6,12 +6,16 @@ package au.csiro.redmatch.exporter;
 
 import au.csiro.redmatch.compiler.*;
 import au.csiro.redmatch.compiler.Resource;
+import au.csiro.redmatch.model.LabeledDirectedMultigraph;
+import au.csiro.redmatch.model.LabeledEdge;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.util.FitbitUrlValidator;
 import au.csiro.redmatch.util.GraphUtils;
 import au.csiro.redmatch.util.Progress;
 import au.csiro.redmatch.util.ProgressReporter;
 import ca.uhn.fhir.model.api.annotation.Child;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -19,6 +23,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.*;
+import org.jgrapht.Graph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -100,9 +105,10 @@ public class FhirExporter {
    */
   public Map<String, DomainResource> transform(ProgressReporter progressReporter, CancelChecker cancelToken)
     throws TransformationException {
-    final String uniqueField = doc.getSchema().getFields().get(0).getFieldId();
+    final String uniqueField = doc.getSchema().getUniqueFieldId();
     log.debug("Transforming Redmatch project using unique field " + uniqueField);
 
+    // Builds a graph to determine which resources are created by patient and which are not
     GraphUtils.Results res = GraphUtils.buildGraph(doc);
     if (!res.getDiagnostics().isEmpty()) {
       boolean hasErrors = false;
@@ -147,22 +153,28 @@ public class FhirExporter {
       // Now create the resource that depend on the data
       for (int i = 0; i < rows.size(); i++) {
         Row row = rows.get(i);
-        final Map<String, String> data = row.getData();
-        String recordId = data.get(uniqueField);
-        if (recordId == null) {
-          throw new RuntimeException(
-            "Expected '" + uniqueField + "' to be a field in the data. Found fields " + data.keySet()
-              + ". This should not happen!");
+        Graph<JsonElement, LabeledEdge> data = row.getData();
+        // Find patient vertex
+        JsonObject patientVertex = findPatientVertex(data);
+        if (patientVertex == null) {
+          throw new RuntimeException("Could not find patient vertex in row " + data);
         }
+        String recordId = patientVertex.get(uniqueField).getAsString();
         for (GraphUtils.ResourceNode rn : res.getSortedNodes()) {
           if (rn.getReferenceData().equals(GrammarObject.DataReference.YES)) {
             for (Rule rule : getReferencingRules(rn, doc)) {
-              RedcapVisitor visitor = new RedcapVisitor(doc.getSchema(), row);
-              visitor.visit(rule);
-              for (Resource r : visitor.getResources()) {
-                // Only create this resource - rules might create more than one resource
-                if (rn.equalsResource(r)) {
-                  createResource(r, data, recordId);
+
+              for (JsonElement jsonElement : data.vertexSet()) {
+                if (jsonElement.isJsonObject()) {
+                  JsonObject jsonObject = jsonElement.getAsJsonObject();
+                  RedcapVisitor visitor = new RedcapVisitor(doc.getSchema(), jsonObject);
+                  visitor.visit(rule);
+                  for (Resource r : visitor.getResources()) {
+                    // Only create this resource - rules might create more than one resource
+                    if (rn.equalsResource(r)) {
+                      createResource(r, jsonObject , recordId);
+                    }
+                  }
                 }
               }
             }
@@ -193,6 +205,18 @@ public class FhirExporter {
     }
   }
 
+  private JsonObject findPatientVertex(Graph<JsonElement, LabeledEdge> data) {
+    for (JsonElement jsonElement : data.vertexSet()) {
+      if (jsonElement.isJsonObject()) {
+        JsonObject vertex = jsonElement.getAsJsonObject();
+        String vertexType = vertex.get(LabeledDirectedMultigraph.VERTEX_TYPE_FIELD).getAsString();
+        if (vertexType.equals("Patient")) {
+          return vertex;
+        }
+      }
+    }
+    return null;
+  }
 
 
   /**
@@ -220,10 +244,10 @@ public class FhirExporter {
    * Creates a resource and populates its attributes.
    * 
    * @param resource The internal resource representation.
-   * @param data The row of REDCap data.
+   * @param vertex A vertex with patient data.
    * @param recordId The id of this record. Used to create the FHIR ids.
    */
-  private void createResource(Resource resource, Map<String, String> data, String recordId) {
+  private void createResource(Resource resource, JsonObject vertex, String recordId) {
     final String resourceId = resource.getResourceId();
     final String fhirId = resourceId + (recordId != null ? ("-" + recordId) : "");
 
@@ -243,7 +267,7 @@ public class FhirExporter {
       fhirResourceMap.put(fhirId, fhirResource);
     }
     for (AttributeValue attVal : resource.getResourceAttributeValues()) {
-      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), data, recordId);
+      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), vertex, recordId);
     }
   }
   
@@ -263,10 +287,10 @@ public class FhirExporter {
    * @param attributes A list of {@link Attribute}. This represents a single attribute that might be
    *        several levels down. The list represents the path to the attribute.
    * @param value The value to set.
-   * @param row The row of data to be used to set this value.
+   * @param vertex A vertex with patient data.
    * @param recordId The id of this record. Used to create the FHIR ids.
    */
-  private void setValue(DomainResource resource, List<Attribute> attributes, Value value, Map<String, String> row,
+  private void setValue(DomainResource resource, List<Attribute> attributes, Value value, JsonObject vertex,
                         String recordId) {
 
     // Get chain of attribute names
@@ -306,7 +330,7 @@ public class FhirExporter {
         }
       }
 
-      theValue = getValue(value, fhirType, row, recordId, enumFactory);
+      theValue = getValue(value, fhirType, vertex, recordId, enumFactory);
       if (theValue != null) {
         helper.invokeSetter(theElement, leafAttributeName, theValue, leafAttribute.isList(), index, isValueX);
       }
@@ -322,13 +346,12 @@ public class FhirExporter {
    *
    * @param value The value specified in the transformation rules.
    * @param fhirType The type of the FHIR attribute where this value will be set.
-   * @param row The row of data from REDCap.
+   * @param vertex A vertex with patient data.
    * @param recordId The id of this record. Used to create the references to FHIR ids.
    * @param enumFactory If the type is an enumeration, this is the factory to create an instance.
    * @return The value or null if the value cannot be determined. This can also be a list.
    */
-  private Base getValue(Value value, Class<?> fhirType, Map<String, String> row, String recordId,
-                        Class<?> enumFactory) {
+  private Base getValue(Value value, Class<?> fhirType, JsonObject vertex, String recordId, Class<?> enumFactory) {
     // If this is a field-based value then make sure that there is a value and if not return null
     if (value instanceof FieldBasedValue) {
       FieldBasedValue fbv = (FieldBasedValue) value;
@@ -346,15 +369,24 @@ public class FhirExporter {
       }
 
       boolean hasValue = false;
-      String rawValue = row.get(fieldId);
-      if (rawValue != null && !rawValue.isEmpty()) {
-        hasValue = true;
-      } else if (shortFieldId != null) {
-        rawValue = row.get(shortFieldId);
-        if (rawValue != null && !rawValue.isEmpty()) {
+      JsonElement jsonElement = vertex.get(fieldId);
+      if (jsonElement != null) {
+        String rawValue = jsonElement.getAsString();
+        if (!rawValue.isEmpty()) {
           hasValue = true;
         }
       }
+
+      if (!hasValue && shortFieldId != null) {
+        jsonElement = vertex.get(shortFieldId);
+        if (jsonElement != null) {
+          String rawValue = jsonElement.getAsString();
+          if (!rawValue.isEmpty()) {
+            hasValue = true;
+          }
+        }
+      }
+
       if (!hasValue) {
         return null;
       }
@@ -424,7 +456,7 @@ public class FhirExporter {
     } else if (value instanceof CodeSelectedValue) {
       CodeSelectedValue csv = (CodeSelectedValue) value;
       String fieldId = csv.getFieldId();
-      Mapping m = getSelectedMapping(fieldId, row);
+      Mapping m = getSelectedMapping(fieldId, vertex);
       if (m == null) {
         throw new TransformationException("Mapping for field " + fieldId + " is required but was not found.");
       }
@@ -432,7 +464,7 @@ public class FhirExporter {
     } else if (value instanceof ConceptSelectedValue) {
       ConceptSelectedValue csv = (ConceptSelectedValue) value;
       String fieldId = csv.getFieldId();
-      Mapping m = getSelectedMapping(fieldId, row);
+      Mapping m = getSelectedMapping(fieldId, vertex);
       if (m == null) {
         throw new TransformationException("Mapping for field " + fieldId + " is required but was not found.");
       }
@@ -462,7 +494,7 @@ public class FhirExporter {
         }
       } else {
         au.csiro.redmatch.model.Field field = doc.getSchema().getField(fieldId);
-        Coding c = field.getCoding(row);
+        Coding c = field.getCoding(vertex);
         if (c != null) {
           if(fhirType.isAssignableFrom(Coding.class)) {
             return c;
@@ -480,7 +512,7 @@ public class FhirExporter {
       String fieldId = fv.getFieldId();
       FieldValue.DatePrecision pr = fv.getDatePrecision();
       au.csiro.redmatch.model.Field field = doc.getSchema().getField(fieldId);
-      return field.getValue(row, fhirType, pr);
+      return field.getValue(vertex, fhirType, pr);
     } else {
       throw new TransformationException("Unable to get VALUE for " + value);
     }
@@ -638,12 +670,12 @@ public class FhirExporter {
    * and CHECKBOX_OPTIONs.
    * 
    * @param fieldId The REDCap field id.
-   * @param row A row of REDCap data.
+   * @param vertex A vertex with patient data.
    * @return The mapping.
    */
-  private Mapping getSelectedMapping(@NotNull String fieldId, @NotNull Map<String, String> row) {
+  private Mapping getSelectedMapping(@NotNull String fieldId, @NotNull JsonObject vertex) {
     au.csiro.redmatch.model.Field f = this.doc.getSchema().getField(fieldId);
-    return f.findSelectedMapping(doc.getMappings(), row);
+    return f.findSelectedMapping(doc.getMappings(), vertex);
   }
 
   private Mapping getMapping(@NotNull String fieldId) {

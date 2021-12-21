@@ -1,9 +1,9 @@
 package au.csiro.redmatch.exporter;
 
-import au.csiro.redmatch.model.Graph;
+import au.csiro.redmatch.model.D3Graph;
 
-import au.csiro.redmatch.model.Link;
-import au.csiro.redmatch.model.Node;
+import au.csiro.redmatch.model.D3Link;
+import au.csiro.redmatch.model.D3Node;
 import au.csiro.redmatch.util.Progress;
 import au.csiro.redmatch.util.ProgressReporter;
 import org.springframework.stereotype.Component;
@@ -17,7 +17,7 @@ import java.util.List;
 @Component
 public class GraphExporterService {
 
-  public void exportGraph(Graph graph, File outputFolder, ProgressReporter progressReporter) throws IOException {
+  public void exportGraph(D3Graph d3Graph, File outputFolder, ProgressReporter progressReporter) throws IOException {
     try (FileWriter fw = new FileWriter(new File(outputFolder, "graph.html"))) {
 
       if (progressReporter != null) {
@@ -47,16 +47,16 @@ public class GraphExporterService {
 
       // Add links
       sb.append("const links = [\n");
-      for (int i = 0; i < graph.getLinks().size(); i++) {
-        Link link = graph.getLinks().get(i);
+      for (int i = 0; i < d3Graph.getLinks().size(); i++) {
+        D3Link d3Link = d3Graph.getLinks().get(i);
         sb.append("{source: \"");
-        sb.append(link.getSource());
+        sb.append(d3Link.getSource());
         sb.append("\", target: \"");
-        sb.append(link.getTarget());
+        sb.append(d3Link.getTarget());
         sb.append("\", type: \"");
-        sb.append(link.getType());
+        sb.append(d3Link.getType());
         sb.append("\"}");
-        if (i < graph.getLinks().size() - 1) {
+        if (i < d3Graph.getLinks().size() - 1) {
           sb.append(",");
         }
         sb.append("\n");
@@ -65,7 +65,7 @@ public class GraphExporterService {
 
       // Add types
       sb.append("const types = [\n");
-      List<String> types = new ArrayList<>(graph.getTypes());
+      List<String> types = new ArrayList<>(d3Graph.getTypes());
       for (int i = 0; i < types.size(); i++) {
         String type = types.get(i);
         sb.append("\"");
@@ -79,12 +79,12 @@ public class GraphExporterService {
 
       // Add nodes
       sb.append("const nodes = [\n");
-      for (int i = 0; i < graph.getNodes().size(); i++) {
-        Node node = graph.getNodes().get(i);
+      for (int i = 0; i < d3Graph.getNodes().size(); i++) {
+        D3Node d3Node = d3Graph.getNodes().get(i);
         sb.append("{id: \"");
-        sb.append(node.getId());
+        sb.append(d3Node.getId());
         sb.append("\"}");
-        if (i < graph.getNodes().size() - 1) {
+        if (i < d3Graph.getNodes().size() - 1) {
           sb.append(",");
         }
         sb.append("\n");

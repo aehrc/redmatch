@@ -10,14 +10,14 @@ package au.csiro.redmatch.model;
  * @author Alejandro Metke Jimenez
  *
  */
-public class Node {
+public class D3Node {
   private String id;
 
-  public Node() {
+  public D3Node() {
 
   }
 
-  public Node(String id) {
+  public D3Node(String id) {
     this.id = id;
   }
 

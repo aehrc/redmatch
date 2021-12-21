@@ -6,11 +6,16 @@ package au.csiro.redmatch.model;
 
 import au.csiro.redmatch.compiler.*;
 import au.csiro.redmatch.util.DateUtils;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * A field in a REDCap schema.
@@ -18,6 +23,9 @@ import java.util.*;
  * @author Alejandro Metke-Jimenez
  */
 public class RedcapField implements Field {
+
+  /** Logger. */
+  private static final Log log = LogFactory.getLog(RedcapField.class);
 
   public enum FieldType {
     UNKNOWN, TEXT, NOTES, DROPDOWN, RADIO, CHECKBOX, FILE, CALC, SQL, DESCRIPTIVE, SLIDER, YESNO, TRUEFALSE,
@@ -45,6 +53,8 @@ public class RedcapField implements Field {
   private final FieldType fieldType;
   private TextValidationType textValidationType = TextValidationType.NONE;
   private final List<Field> options = new ArrayList<>();
+
+  private final Pattern idPattern = Pattern.compile("[A-Za-z0-9\\-.]{1,64}");
 
   /**
    * Creates a text REDCap field with an optional validation.
@@ -126,14 +136,16 @@ public class RedcapField implements Field {
   }
 
   @Override
-  public Mapping findSelectedMapping(Map<String, Mapping> mappings, Map<String, String> row) {
+  public Mapping findSelectedMapping(Map<String, Mapping> mappings, JsonObject vertex) {
     if (fieldType.equals(FieldType.RADIO) || fieldType.equals(FieldType.DROPDOWN)
       || fieldType.equals(FieldType.CHECKBOX_OPTION)) {
-      String val = row.get(fieldId);
-      return mappings.get(fieldId + "___" + val);
-    } else {
-      return null;
+      JsonElement jsonElement = vertex.get(fieldId);
+      if (jsonElement != null) {
+        String val = jsonElement.getAsString();
+        return mappings.get(fieldId + "___" + val);
+      }
     }
+    return null;
   }
 
   @Override
@@ -142,82 +154,88 @@ public class RedcapField implements Field {
   }
 
   @Override
-  public Coding getCoding(Map<String, String> row) {
-    String val = row.get(fieldId);
-    if (val != null && TextValidationType.FHIR_TERMINOLOGY.equals(textValidationType)) {
-      String[] parts = val.split("[|]");
-      if (parts.length == 3) {
-        return new Coding(parts[2].trim(), parts[0].trim(), parts[1].trim());
-      } else {
-        return UNKNOWN;
+  public Coding getCoding(JsonObject vertex) {
+    JsonElement jsonElement = vertex.get(fieldId);
+    if (jsonElement != null) {
+      String val = jsonElement.getAsString();
+      if (val != null && TextValidationType.FHIR_TERMINOLOGY.equals(textValidationType)) {
+        String[] parts = val.split("[|]");
+        if (parts.length == 3) {
+          return new Coding(parts[2].trim(), parts[0].trim(), parts[1].trim());
+        } else {
+          return UNKNOWN;
+        }
       }
     }
     return null;
   }
 
   @Override
-  public Base getValue(Map<String, String> row, Class<?> fhirType, FieldValue.DatePrecision pr) {
-    String val = row.get(fieldId);
-
-    switch (fieldType) {
-      case TEXT:
-        if (textValidationType != null) {
-          switch (textValidationType) {
-            case DATETIME_DMY:
-            case DATETIME_MDY:
-            case DATETIME_YMD:
-              return getDate(val, fhirType, dateTimeYmdFormat, pr);
-            case DATETIME_SECONDS_DMY:
-            case DATETIME_SECONDS_MDY:
-            case DATETIME_SECONDS_YMD:
-              return getDate(val, fhirType, dateTimeSecondsYmdFormat, pr);
-            case DATE_DMY:
-            case DATE_MDY:
-            case DATE_YMD:
-              return getDate(val, fhirType, dateYmdFormat, pr);
-            case EMAIL:
-              return getString(val, fhirType, "EMAIL");
-            case INTEGER:
-              return getInteger(val, fhirType, pr);
-            case NONE:
-              return getString(val, fhirType, "TEXT");
-            case NUMBER:
-              return getDecimal(val, fhirType);
-            case PHONE:
-              return getString(val, fhirType, "PHONE");
-            case TIME:
-              // The constructor takes a string of the form HH:mm:ss[.SSSS] and the REDCap field is
-              // HH:mm
-              return new TimeType(val + ":00");
-            case ZIPCODE:
-              return getString(val, fhirType, "ZIPCODE");
-            default:
-              throw new RuntimeException("Unknown text validation type " + textValidationType);
+  public Base getValue(JsonObject vertex, Class<?> fhirType, FieldValue.DatePrecision pr) {
+    JsonElement jsonElement = vertex.get(fieldId);
+    if (jsonElement != null) {
+      String val = jsonElement.getAsString();
+      switch (fieldType) {
+        case TEXT:
+          if (textValidationType != null) {
+            switch (textValidationType) {
+              case DATETIME_DMY:
+              case DATETIME_MDY:
+              case DATETIME_YMD:
+                return getDate(val, fhirType, dateTimeYmdFormat, pr);
+              case DATETIME_SECONDS_DMY:
+              case DATETIME_SECONDS_MDY:
+              case DATETIME_SECONDS_YMD:
+                return getDate(val, fhirType, dateTimeSecondsYmdFormat, pr);
+              case DATE_DMY:
+              case DATE_MDY:
+              case DATE_YMD:
+                return getDate(val, fhirType, dateYmdFormat, pr);
+              case EMAIL:
+                return getString(val, fhirType, "EMAIL");
+              case INTEGER:
+                return getInteger(val, fhirType, pr);
+              case NONE:
+                return getString(val, fhirType, "TEXT");
+              case NUMBER:
+                return getDecimal(val, fhirType);
+              case PHONE:
+                return getString(val, fhirType, "PHONE");
+              case TIME:
+                // The constructor takes a string of the form HH:mm:ss[.SSSS] and the REDCap field is
+                // HH:mm
+                return new TimeType(val + ":00");
+              case ZIPCODE:
+                return getString(val, fhirType, "ZIPCODE");
+              default:
+                throw new RuntimeException("Unknown text validation type " + textValidationType);
+            }
+          } else {
+            return getString(val, fhirType, "TEXT");
           }
-        } else {
-          return getString(val, fhirType, "TEXT");
-        }
-      case CALC:
-        // Calculations are always numbers
-        return getDecimal(val, fhirType);
-      case NOTES:
-        return getString(val, fhirType, "NOTES");
-      case RADIO:
-      case DROPDOWN:
-      case CHECKBOX:
-      case TRUEFALSE:
-      case YESNO:
-      case CHECKBOX_OPTION:
-      case DROPDOW_OR_RADIO_OPTION:
-      case SLIDER:
-      case DESCRIPTIVE:
-      case FILE:
-      case SQL:
-      case UNKNOWN:
-      default:
-        throw new RuntimeException("REDCap field type " + fieldType + " is not supported in a VALUE expression(field: "
-          + fieldId + ")");
+        case CALC:
+          // Calculations are always numbers
+          return getDecimal(val, fhirType);
+        case NOTES:
+          return getString(val, fhirType, "NOTES");
+        case RADIO:
+        case DROPDOWN:
+        case CHECKBOX:
+        case TRUEFALSE:
+        case YESNO:
+        case CHECKBOX_OPTION:
+        case DROPDOW_OR_RADIO_OPTION:
+        case SLIDER:
+        case DESCRIPTIVE:
+        case FILE:
+        case SQL:
+        case UNKNOWN:
+        default:
+          throw new RuntimeException("REDCap field type " + fieldType + " is not supported in a VALUE expression(field: "
+            + fieldId + ")");
+      }
     }
+    return null;
   }
 
   @Override
@@ -286,6 +304,15 @@ public class RedcapField implements Field {
   private Base getString(String val, Class<?> fhirType, String redcapFieldType) {
     if (fhirType.isAssignableFrom(StringType.class)) {
       return new StringType(val);
+    } else if (fhirType.isAssignableFrom(IdType.class)) {
+      if (idPattern.matcher(val).matches()) {
+        return new IdType(val);
+      } else {
+        // Transform to compatible value and warn
+        String validVal = val.substring(0, 64).replaceAll("[^A-Za-z0-9\\-.]", "-");
+        log.warn("Found invalid id '" + val + "' which was replaced with '" + validVal + "'");
+        return new IdType(validVal);
+      }
     } else {
       throw new CompilationException("Tried to assign REDCap " + redcapFieldType + " field "
         + "to FHIR type " + fhirType.getCanonicalName() + ". Only String is supported.");

@@ -4,8 +4,8 @@
  */
 package au.csiro.redmatch.model;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.google.gson.JsonElement;
+import org.jgrapht.Graph;
 
 /**
  * Represents a row of data.
@@ -16,21 +16,21 @@ import java.util.Map;
 public class Row {
   
   /**
-   * The key - value pairs in the row.
+   * A graph that represents all the information for a single patient.
    */
-  private Map<String, String> data = new HashMap<>();
+  private Graph<JsonElement, LabeledEdge> data = new LabeledDirectedMultigraph<>(LabeledEdge.class);
 
   /**
    * @return the data
    */
-  public Map<String, String> getData() {
+  public Graph<JsonElement, LabeledEdge> getData() {
     return data;
   }
 
   /**
    * @param data the data to set
    */
-  public void setData(Map<String, String> data) {
+  public void setData(Graph<JsonElement, LabeledEdge> data) {
     this.data = data;
   }
 

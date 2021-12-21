@@ -7,6 +7,8 @@ package au.csiro.redmatch.model;
 import au.csiro.redmatch.compiler.FieldBasedValue;
 import au.csiro.redmatch.compiler.FieldValue;
 import au.csiro.redmatch.compiler.Mapping;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Coding;
 
@@ -48,10 +50,10 @@ public interface Field {
    * Finds the selected mapping for this field.
    *
    * @param mappings The mappings.
-   * @param row The row that is in scope.
+   * @param vertex A vertex with patient data.
    * @return The selected mapping for this field or null if no such mapping exists.
    */
-  Mapping findSelectedMapping(Map<String, Mapping> mappings, Map<String, String> row);
+  Mapping findSelectedMapping(Map<String, Mapping> mappings, JsonObject vertex);
 
   Mapping findMapping(Map<String, Mapping> mappings);
 
@@ -59,20 +61,20 @@ public interface Field {
    * If this field captures coded data then this method returns the selected code for a specific row of data. Otherwise
    * it returns null.
    *
-   * @param row The row of data.
+   * @param vertex A vertex with patient data.
    * @return The {@link Coding} that was selected or null if this field does not capture coded data.
    */
-  Coding getCoding(Map<String, String> row);
+  Coding getCoding(JsonObject vertex);
 
   /**
    * Returns the value of this field.
    *
-   * @param row The row of data.
+   * @param vertex A vertex with patient data.
    * @param fhirType The type of the FHIR attribute where this value will be set.
    * @param pr The precision of dates. Can be null. Used for de-identification.
    * @return The value of the field. Can be null if there is no value for the field.
    */
-  Base getValue(Map<String, String> row, Class<?> fhirType, FieldValue.DatePrecision pr);
+  Base getValue(JsonObject vertex, Class<?> fhirType, FieldValue.DatePrecision pr);
 
   /**
    * Returns the field type.

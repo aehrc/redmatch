@@ -15,30 +15,30 @@ import java.util.Set;
  * @author Alejandro Metke Jimenez
  *
  */
-public class Graph {
+public class D3Graph {
 
-  private List<Node> nodes = new ArrayList<>();
-  private List<Link> links = new ArrayList<>();
+  private List<D3Node> d3Nodes = new ArrayList<>();
+  private List<D3Link> d3Links = new ArrayList<>();
   private Set<String> types = new HashSet<>();
 
-  public Graph() {
+  public D3Graph() {
 
   }
 
-  public List<Node> getNodes() {
-    return nodes;
+  public List<D3Node> getNodes() {
+    return d3Nodes;
   }
 
-  public void setNodes(List<Node> nodes) {
-    this.nodes = nodes;
+  public void setNodes(List<D3Node> d3Nodes) {
+    this.d3Nodes = d3Nodes;
   }
 
-  public List<Link> getLinks() {
-    return links;
+  public List<D3Link> getLinks() {
+    return d3Links;
   }
 
-  public void setLinks(List<Link> links) {
-    this.links = links;
+  public void setLinks(List<D3Link> d3Links) {
+    this.d3Links = d3Links;
   }
 
   public Set<String> getTypes() {
@@ -49,20 +49,20 @@ public class Graph {
     this.types = types;
   }
 
-  public void addNode(Node node) {
-    nodes.add(node);
+  public void addNode(D3Node d3Node) {
+    d3Nodes.add(d3Node);
   }
 
-  public void addLink(Link link) {
-    links.add(link);
-    types.add(link.getType());
+  public void addLink(D3Link d3Link) {
+    d3Links.add(d3Link);
+    types.add(d3Link.getType());
   }
 
   @Override
   public String toString() {
     return "Graph{" +
-      "nodes=" + nodes +
-      ", links=" + links +
+      "nodes=" + d3Nodes +
+      ", links=" + d3Links +
       ", types=" + types +
       '}';
   }

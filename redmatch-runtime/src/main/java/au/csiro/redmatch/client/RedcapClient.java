@@ -5,10 +5,11 @@
 package au.csiro.redmatch.client;
 
 import au.csiro.redmatch.importer.RedcapJsonImporter;
+import au.csiro.redmatch.model.LabeledDirectedMultigraph;
+import au.csiro.redmatch.model.LabeledEdge;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.Schema;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
@@ -19,6 +20,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
+import org.jgrapht.Graph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -26,7 +28,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Type;
 import java.util.*;
 
 /**
@@ -158,15 +159,72 @@ public class RedcapClient implements Client {
     }
   }
 
-  private List<Row> parseData(String data) {
-    Type listType = new TypeToken<List<HashMap<String, String>>>() {}.getType();
-    final List<Map<String, String>> rows = gson.fromJson(data, listType);
+  /**
+   * The assumption here is that each row contains data about a patient. The basic patient information will exist in the
+   * non-repeatable instrument. Additional information can be captured in repeatable or non-repeatable instruments.
+   *
+   * @param data The JSON string with the data.
+   * @return A list of {@link Row}s.
+   */
+  public List<Row> parseData(String data) {
+    final JsonArray rows = gson.fromJson(data, JsonArray.class);
+    if (rows.size() == 0) {
+      return Collections.emptyList();
+    }
+
+    // Find name of key that represents record number
+    String uniqueKey = null;
+    JsonObject jsonObject = rows.get(0).getAsJsonObject();
+    Optional<Map.Entry<String, JsonElement>> first = jsonObject.entrySet().stream().findFirst();
+    if (first.isPresent()) {
+      uniqueKey = first.get().getKey();
+    }
+    if (uniqueKey == null) {
+      throw new RuntimeException("Could not find unique key. This should not happen!");
+    }
 
     final List<Row> res = new ArrayList<>();
 
-    for (Map<String, String> row : rows) {
+    Map<String, JsonObject> patientObjectMap = new HashMap<>();
+    Map<String, List<JsonObject>> repeatableInstrumentsMap = new HashMap<>();
+    for (JsonElement row : rows) {
+      jsonObject = row.getAsJsonObject();
+
+      String key = jsonObject.get(uniqueKey).getAsString();
+      JsonElement repeatableInstrumentElement = jsonObject.get("redcap_repeat_instrument");
+      if (repeatableInstrumentElement != null) {
+        String repeatableInstrumentName = repeatableInstrumentElement.getAsString();
+        if (repeatableInstrumentName == null || repeatableInstrumentName.isEmpty()) {
+          // This is a patient instrument
+          jsonObject.addProperty(LabeledDirectedMultigraph.VERTEX_TYPE_FIELD, "Patient");
+          patientObjectMap.put(key, jsonObject);
+        } else {
+          // This is a repeatable instrument
+          jsonObject.addProperty(LabeledDirectedMultigraph.VERTEX_TYPE_FIELD, "RepeatableInstrument");
+          List<JsonObject> patientObjects = repeatableInstrumentsMap.computeIfAbsent(key, k -> new ArrayList<>());
+          patientObjects.add(jsonObject);
+        }
+      } else {
+        // Repeatable instruments are not enabled in REDCap
+        jsonObject.addProperty(LabeledDirectedMultigraph.VERTEX_TYPE_FIELD, "Patient");
+        patientObjectMap.put(key, jsonObject);
+      }
+    }
+
+    for (String key : patientObjectMap.keySet()) {
       Row entry = new Row();
-      entry.setData(row);
+      Graph<JsonElement, LabeledEdge> graph = new LabeledDirectedMultigraph<>(LabeledEdge.class);
+      JsonObject patient = patientObjectMap.get(key);
+      graph.addVertex(patient);
+      List<JsonObject> repeatableInstruments = repeatableInstrumentsMap.get(key);
+      if (repeatableInstruments != null) {
+        for (JsonObject repeatableInstrument : repeatableInstruments) {
+          graph.addVertex(repeatableInstrument);
+          String repeatableInstrumentName = repeatableInstrument.get("redcap_repeat_instrument").getAsString();
+          graph.addEdge(patient, repeatableInstrument, new LabeledEdge(repeatableInstrumentName));
+        }
+      }
+      entry.setData(graph);
       res.add(entry);
     }
     return res;

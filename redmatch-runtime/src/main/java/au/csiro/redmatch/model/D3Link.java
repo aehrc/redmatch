@@ -10,22 +10,22 @@ package au.csiro.redmatch.model;
  * @author Alejandro Metke Jimenez
  *
  */
-public class Link {
+public class D3Link {
   private String source;
   private String target;
   private String type;
 
-  public Link() {
+  public D3Link() {
 
   }
 
-  public Link(String source, String target, String type) {
+  public D3Link(String source, String target, String type) {
     this.source = source;
     this.target = target;
     this.type = type;
   }
 
-  public Link(String source, String target) {
+  public D3Link(String source, String target) {
     this(source, target, "UNKNOWN");
   }
 

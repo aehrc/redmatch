@@ -1,0 +1,21 @@
+SCHEMA: 'schemaRepeatableInstruments.csv' (REDCAP)
+
+RULES: {
+  TRUE {
+    Patient<p>:
+      *identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC)
+      *identifier.value = VALUE(stud_num)
+  }
+
+  NOTNULL(gtr_id) {
+    Observation<ob>:
+      * id = VALUE(gtr_id)
+      * subject = REF(Patient<p>)
+
+    REPEAT(1..6: x)
+    NOTNULL(gtr_var_gene_${x}) {
+        Observation<ob>:
+          * component.code = CONCEPT(gtr_var_gene_${x})
+    }
+  }
+}
