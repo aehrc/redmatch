@@ -1,0 +1,6 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE { Patient<p>: * identifier.type.text = 'Medicare Number' }
+  TRUE { Observation<sex>: * subject = REF(Patient<r>) }
+}

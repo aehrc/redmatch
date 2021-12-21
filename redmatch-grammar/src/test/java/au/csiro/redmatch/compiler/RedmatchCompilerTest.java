@@ -661,6 +661,19 @@ public class RedmatchCompilerTest {
     assertFalse(errors.isEmpty());
   }
 
+  @Test
+  public void testReferenceValidation() {
+    log.info("Running testReferenceValidation");
+    String document = FileUtils.loadTextFileFromClassPath("testReferenceValidation.rdm");
+    printTokens(document);
+
+    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.stream().anyMatch(e -> e.getSeverity().equals(DiagnosticSeverity.Error)));
+  }
+
   private void testMapping(Mapping m, String system, String code, String display) {
     assertNotNull(m.getTarget());
     assertEquals(system, m.getTarget().getSystem());
