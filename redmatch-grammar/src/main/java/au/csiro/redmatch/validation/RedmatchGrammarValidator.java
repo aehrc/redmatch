@@ -65,9 +65,10 @@ public class RedmatchGrammarValidator {
   private void init() throws IOException {
     CodeSystem[] codeSystems = new CodeSystem[2];
     if (!onto.isIndexed(RESOURCES_URL, "1.0") || !onto.isIndexed(TYPES_URL, "1.0")) {
-      RedmatchGrammarCodeSystemGenerator gen = new RedmatchGrammarCodeSystemGenerator();
-      FhirVersionEnum version = FhirVersionEnum.R4;
-      codeSystems = gen.createCodeSystems(loadTypesBundle(version), loadResourcesBundle(version));
+      // TODO: update this to use the new code system generator
+      //RedmatchGrammarCodeSystemGenerator gen = new RedmatchGrammarCodeSystemGenerator();
+      //FhirVersionEnum version = FhirVersionEnum.R4;
+      //codeSystems = gen.createCodeSystems(loadTypesBundle(version), loadResourcesBundle(version));
     }
 
     // Check if code systems are already indexed

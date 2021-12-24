@@ -4,41 +4,28 @@
  */
 package au.csiro.redmatch.validation;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import ca.uhn.fhir.context.FhirContext;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.BooleanType;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.CodeSystem.CodeSystemContentMode;
-import org.hl7.fhir.r4.model.CodeSystem.CodeSystemHierarchyMeaning;
-import org.hl7.fhir.r4.model.CodeSystem.ConceptDefinitionComponent;
-import org.hl7.fhir.r4.model.CodeSystem.FilterOperator;
-import org.hl7.fhir.r4.model.CodeSystem.PropertyType;
-import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeSystem.*;
 import org.hl7.fhir.r4.model.ElementDefinition.TypeRefComponent;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
-import org.hl7.fhir.r4.model.IntegerType;
-import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.StructureDefinition;
 
-import ca.uhn.fhir.context.FhirVersionEnum;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Creates a code system from the FHIR metadata that can be used for validation and searching.
- * 
+ *
  * @author Alejandro Metke-Jimenez
  *
  */
@@ -46,132 +33,75 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private static final Log log = LogFactory.getLog(RedmatchGrammarCodeSystemGenerator.class);
 
-  private FhirVersionEnum fhirVersion = FhirVersionEnum.R4;
-  private final Map<String, StructureDefinition> resourceMap = new HashMap<>();
-  private final Map<String, StructureDefinition> primitiveTypeMap = new HashMap<>();
-  private final Map<String, StructureDefinition> complexTypeMap = new HashMap<>();
-  private final Map<String, String> pathToTypeMap = new HashMap<>();
-  private final List<ConceptDefinitionComponentElementDefinitionPair> missingTypes = new ArrayList<>();
+  private final Gson gson;
+  private final FhirContext ctx;
 
+  private final Map<String, StructureDefinition> structureDefinitionsMapByCode = new HashMap<>();
+  //private final Map<String, StructureDefinition> structureDefinitionsMapByUrl = new HashMap<>();
   private final Set<String> allCodes = new HashSet<>();
-  private final Set<String> allParents = new HashSet<>();
 
-  public RedmatchGrammarCodeSystemGenerator() {
-
+  public RedmatchGrammarCodeSystemGenerator(Gson gson, FhirContext ctx) {
+    this.gson = gson;
+    this.ctx = ctx;
   }
 
-  public CodeSystem[] createCodeSystems(Bundle types, Bundle resources) {
-    log.info("Indexing structure definitions");
-    for (BundleEntryComponent bec : types.getEntry()) {
-      org.hl7.fhir.r4.model.Resource res = bec.getResource();
-      if (res.getResourceType().equals(ResourceType.StructureDefinition)
-        && !((StructureDefinition) res).getAbstract()) {
-        StructureDefinition sd = (StructureDefinition) res;
-        switch (sd.getKind()) {
-          case COMPLEXTYPE:
-            complexTypeMap.put(sd.getName(), sd);
-            break;
-          case PRIMITIVETYPE:
-            primitiveTypeMap.put(sd.getName(), sd);
-            break;
-          case LOGICAL:
-          case NULL:
-          case RESOURCE:
-          default:
-            log.debug("Ignoring " + sd.getName());
-            break;
-        }
-      }
+  /**
+   * Creates a validation code system for a version of FHIR or an implementation guide.
+   *
+   * @param fhirPackage The NPM package of a version of FHIR or implementation guide, e.g., hl7.fhir.r4.core.
+   * @return A code system that can be used for validation.
+   * @throws IOException If there are issues reading the files.
+   */
+  public CodeSystem createCodeSystem(VersionedFhirPackage fhirPackage) throws IOException {
+    getStructureDefinitions(fhirPackage).forEach(e -> {
+      structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
+      //structureDefinitionsMapByUrl.put(e.getUrl(), e);
+    });
+
+    for(VersionedFhirPackage dependantFhirPackage : getDependencies(fhirPackage)) {
+      getStructureDefinitions(dependantFhirPackage).forEach(e -> {
+        structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
+        //structureDefinitionsMapByUrl.put(e.getUrl(), e);
+      });
     }
 
-    for (BundleEntryComponent bec : resources.getEntry()) {
-      org.hl7.fhir.r4.model.Resource res = bec.getResource();
-      if (res.getResourceType().equals(ResourceType.StructureDefinition)
-        && !((StructureDefinition) res).getAbstract()) {
-        resourceMap.put(((StructureDefinition) res).getName(), (StructureDefinition) res);
-      }
+    Set<StructureDefinition> resourceProfiles = structureDefinitionsMapByCode.values().stream().filter(e ->
+      e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT)
+        && e.hasKind() && e.getKind().equals(StructureDefinition.StructureDefinitionKind.RESOURCE)
+    ).collect(Collectors.toSet());
+
+    log.info("Found " + resourceProfiles.size() + " resource profiles");
+
+    Set<StructureDefinition> resources = structureDefinitionsMapByCode.values().stream().filter(e ->
+      e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.SPECIALIZATION)
+        && e.hasKind() && e.getKind().equals(StructureDefinition.StructureDefinitionKind.RESOURCE)
+    ).collect(Collectors.toSet());
+
+    log.info("Found " + resources.size() + " resources");
+
+    CodeSystem codeSystem = createBaseCodeSystem(fhirPackage);
+
+    for (StructureDefinition structureDefinition : resourceProfiles) {
+      processStructureDefinition(codeSystem, structureDefinition, false, "");
     }
 
-    // Create resource code system
-    log.info("Creating resources code system");
-    CodeSystem resCs = createBaseResourceCodeSystem();
-
-    for (String key : resourceMap.keySet()) {
-      StructureDefinition res = resourceMap.get(key);
-      processStructureDefinition(resCs, res, false, "", true);
+    for (StructureDefinition structureDefinition : resources) {
+      processStructureDefinition(codeSystem, structureDefinition, false, "");
     }
 
-    allCodes.add("DomainResource");
-    addMissingTypes();
-
-    allParents.removeAll(allCodes);
-    for (String code : allParents) {
-      log.warn("Parent code " + code + " does not exist.");
-    }
-
-    allCodes.clear();
-    allParents.clear();
-    log.info("Creating complex types code system");
-    CodeSystem ctCs = createBaseComplexTypesCodeSystem();
-
-    for (String key : complexTypeMap.keySet()) {
-      StructureDefinition ct = complexTypeMap.get(key);
-      log.info("Processing " + ct.getName());
-      processStructureDefinition(ctCs, ct, false, "", false);
-    }
-    allCodes.add("Element");
-    addMissingTypes();
-
-    allParents.removeAll(allCodes);
-    for (String code : allParents) {
-      log.warn("Parent code " + code + " does not exist.");
-    }
-
-    return new CodeSystem[] { resCs, ctCs };
+    return codeSystem;
   }
 
-  private void addMissingTypes() {
-    // Add the types for missing concepts
-    for (ConceptDefinitionComponentElementDefinitionPair cdcEd : missingTypes) {
-      ElementDefinition ed = cdcEd.getEd();
-      ConceptDefinitionComponent cdc = cdcEd.getCdc();
-      if (ed.hasContentReference()) {
-        String ref = ed.getContentReference();
-        if (ref.startsWith("#")) {
-          ref = ref.substring(1);
-        }
-
-        String type = this.pathToTypeMap.get(ref);
-        if (type == null) {
-          throw new RuntimeException("Could not find referenced type " + ref
-            + ". This should never happen!");
-        }
-        cdc.addProperty().setCode("type").setValue(new StringType(type));
-      } else {
-        // This is a resource path
-
-        String code = cdc.getCode();
-        if (code.contains(".")) {
-          throw new RuntimeException("Code " + code
-            + " contains a dot. This should never happen!");
-        }
-        // TODO: we might want to use the StructureDefinition instead
-        cdc.addProperty().setCode("type").setValue(new StringType(cdc.getCode()));
-      }
-    }
-    missingTypes.clear();
-  }
-
-  private CodeSystem createBaseResourceCodeSystem() {
+  private CodeSystem createBaseCodeSystem(VersionedFhirPackage fhirPackage) {
     CodeSystem cs = new CodeSystem();
-    cs.setId("redmatch-fhir-resources");
-    cs.setUrl("http://csiro.au/redmatch-fhir/resources");
-    cs.setVersion("1.0");
-    cs.setName("Redmatch Grammar for FHIR Resources " + fhirVersion.getFhirVersionString());
+    cs.setId("redmatch-"+fhirPackage.getName());
+    cs.setUrl("http://redmatch."+fhirPackage.getName());
+    cs.setVersion(fhirPackage.getVersion());
+    cs.setName("Redmatch Validation Code System for " + fhirPackage.getName());
     cs.setStatus(PublicationStatus.ACTIVE);
-    cs.setDescription("A code system with all the valid paths used to refer to attributes of "
-      + "resources in FHIR version " + fhirVersion.getFhirVersionString());
-    cs.setValueSet("http://csiro.au/redmatch-fhir/resources?vs");
+    cs.setDescription("A code system with all the valid paths used to refer to attributes of resources in "
+      + fhirPackage.getName());
+    cs.setValueSet("http://redmatch."+fhirPackage.getName()+"?vs");
     cs.setHierarchyMeaning(CodeSystemHierarchyMeaning.ISA);
     cs.setContent(CodeSystemContentMode.COMPLETE);
     cs.setExperimental(false);
@@ -183,8 +113,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setType(PropertyType.CODE);
     cs.addProperty()
       .setCode("root")
-      .setDescription("Indicates if this concept is a root concept (i.e. Thing is equivalent or "
-        + "a direct parent)")
+      .setDescription("Indicates if this concept is a root concept.")
       .setType(PropertyType.BOOLEAN);
     cs.addProperty()
       .setCode("deprecated")
@@ -204,8 +133,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setType(PropertyType.STRING);
     cs.addProperty()
       .setCode("targetProfile")
-      .setDescription("If this code represents a Reference attribute, this property contains an "
-        + "allowed target profile.")
+      .setDescription("If this code represents a Reference attribute, contains an allowed target profile.")
       .setType(PropertyType.STRING);
     cs.addFilter()
       .setCode("root")
@@ -217,209 +145,311 @@ public class RedmatchGrammarCodeSystemGenerator {
       .addOperator(FilterOperator.EQUAL);
 
     // Create root concept
-    ConceptDefinitionComponent root = cs.addConcept()
-      .setCode("DomainResource")
-      .setDisplay("DomainResource");
-    root.addProperty().setCode("root").setValue(new BooleanType(true));
-    root.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    ConceptDefinitionComponent objectRoot = cs.addConcept()
+      .setCode("Object")
+      .setDisplay("Object");
+    objectRoot.addProperty().setCode("root").setValue(new BooleanType(true));
+    objectRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+
+    ConceptDefinitionComponent resourceRoot = cs.addConcept()
+      .setCode("Resource")
+      .setDisplay("Resource");
+    resourceRoot.addProperty().setCode("root").setValue(new BooleanType(false));
+    resourceRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    resourceRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
+
+    ConceptDefinitionComponent profileRoot = cs.addConcept()
+      .setCode("Profile")
+      .setDisplay("Profile");
+    profileRoot.addProperty().setCode("root").setValue(new BooleanType(false));
+    profileRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    profileRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
 
     return cs;
   }
 
-  private CodeSystem createBaseComplexTypesCodeSystem() {
-    CodeSystem cs = new CodeSystem();
-    cs.setId("redmatch-fhir-complex-types");
-    cs.setUrl("http://csiro.au/redmatch-fhir/complex-types");
-    cs.setVersion("1.0");
-    cs.setName("Redmatch Grammar for FHIR Complex Types "
-      + this.fhirVersion.getFhirVersionString());
-    cs.setStatus(PublicationStatus.ACTIVE);
-    cs.setDescription("A code system with all the valid paths used to refer to attributes of "
-      + "complex types in FHIR version " + this.fhirVersion.getFhirVersionString());
-    cs.setValueSet("http://csiro.au/redmatch-fhir/complex-types?vs");
-    cs.setHierarchyMeaning(CodeSystemHierarchyMeaning.ISA);
-    cs.setContent(CodeSystemContentMode.COMPLETE);
-    cs.setExperimental(false);
-    cs.setCompositional(false);
-    cs.setVersionNeeded(false);
-    cs.addProperty()
-      .setCode("parent")
-      .setDescription("Parent codes.")
-      .setType(PropertyType.CODE);
-    cs.addProperty()
-      .setCode("root")
-      .setDescription("Indicates if this concept is a root concept (i.e. Thing is equivalent or "
-        + "a direct parent)")
-      .setType(PropertyType.BOOLEAN);
-    cs.addProperty()
-      .setCode("deprecated")
-      .setDescription("Indicates if this concept is deprecated.")
-      .setType(PropertyType.BOOLEAN);
-    cs.addProperty()
-      .setCode("min")
-      .setDescription("Minimun cardinality")
-      .setType(PropertyType.INTEGER);
-    cs.addProperty()
-      .setCode("max")
-      .setDescription("Maximum cardinality")
-      .setType(PropertyType.STRING);
-    cs.addProperty()
-      .setCode("type")
-      .setDescription("Data type for this element.")
-      .setType(PropertyType.STRING);
-    cs.addProperty()
-      .setCode("targetProfile")
-      .setDescription("If this code represents a Reference attribute, this property contains an "
-        + "allowed target profile.")
-      .setType(PropertyType.STRING);
-    cs.addFilter()
-      .setCode("root")
-      .setValue("True or false.")
-      .addOperator(FilterOperator.EQUAL);
-    cs.addFilter()
-      .setCode("deprecated")
-      .setValue("True or false.")
-      .addOperator(FilterOperator.EQUAL);
+  private Set<VersionedFhirPackage> getDependencies(VersionedFhirPackage fhirPackage) throws IOException {
+    File mainPackageFile = Paths.get(
+      System.getProperty("user.home"),
+      ".fhir",
+      "packages",
+      fhirPackage.toString(),
+      "package",
+      "package.json"
+    ).toFile();
 
-    // Create root concept
-    ConceptDefinitionComponent root = cs.addConcept()
-      .setCode("Element")
-      .setDisplay("Element");
-    root.addProperty().setCode("root").setValue(new BooleanType(true));
-    root.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    if (!mainPackageFile.exists()) {
+      throw new FileNotFoundException("Package file " + mainPackageFile + " could not be found.");
+    }
+    if (!mainPackageFile.canRead()) {
+      throw new IOException("Package file " + mainPackageFile + " could not be read.");
+    }
 
-    return cs;
+    Set<VersionedFhirPackage> res = new HashSet<>();
+    try (FileReader fr = new FileReader(mainPackageFile)) {
+      JsonObject mainPackage = gson.fromJson(fr, JsonObject.class);
+      if (mainPackage.has("dependencies")) {
+        JsonObject dependencies = mainPackage.getAsJsonObject("dependencies");
+        for (String key : dependencies.keySet()) {
+          VersionedFhirPackage dependency = new VersionedFhirPackage(key, dependencies.get(key).getAsString());
+          res.add(dependency);
+          res.addAll(getDependencies(dependency));
+        }
+      }
+    }
+    return res;
+  }
+
+  private List<StructureDefinition> getStructureDefinitions(VersionedFhirPackage fhirPackage) throws IOException {
+    try (Stream<Path> paths = Files.walk(Paths.get(
+      System.getProperty("user.home"),
+      ".fhir",
+      "packages",
+      fhirPackage.toString(),
+      "package"
+    ))) {
+      return paths
+        .filter(Files::isRegularFile)
+        .map(Path::toFile)
+        .filter(f -> f.getName().endsWith(".json"))
+        .filter(f -> f.getName().startsWith("StructureDefinition"))
+        .filter(f -> {
+          try (FileReader reader = new FileReader(f)) {
+            StructureDefinition structureDefinition = (StructureDefinition) ctx.newJsonParser().parseResource(reader);
+            return structureDefinition.hasSnapshot();
+          } catch (Exception e) {
+            log.warn("There was a problem with " + f.getName(), e);
+            return false;
+          }
+        })
+        .map(f -> {
+          try (FileReader reader = new FileReader(f)) {
+            return (StructureDefinition) ctx.newJsonParser().parseResource(reader);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        })
+        .filter(s -> !s.getAbstract())
+        .collect(Collectors.toList());
+    }
   }
 
   private boolean isValueX(ElementDefinition ed) {
-    return ed.hasType() && ed.getType().size() > 1;
+    return ed.getPath().endsWith("[x]");
   }
 
   /**
    * Creates codes for all the valid paths of a structure definition.
    *
-   * @param cs The code system.
-   * @param sd The structure definition.
+   * @param codeSystem The code system.
+   * @param structureDefinition The structure definition.
    * @param nested True if this is being processed as an attribute of another structure definition.
    * @param prefix If nested is true, then this contains the base path for all the paths in this
    * structure definition.
    */
-  private void processStructureDefinition(CodeSystem cs, StructureDefinition sd, boolean nested,
-                                          String prefix, boolean isResource) {
-
-    if (sd.getName().equals("Extension")) {
-      return;
-    }
-
-    // Prevent creating duplicate codes when complex types are based on others, e.g. MoneyQuantity
-    // and Quantity
-    String realType = sd.getSnapshot().getElementFirstRep().getId();
-    if (allCodes.contains(realType)) {
-      return;
-    }
+  private void processStructureDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
+                                          boolean nested, String prefix) {
 
     // Keeps track of the parent paths of the elements, e.g. Observation.component
     final Deque<String> parents = new ArrayDeque<>();
-    parents.add("");
+    parents.push("");
 
-    for (ElementDefinition ed : sd.getSnapshot().getElement()) {
-      // Special case: root node in nested
-      if (nested && !ed.hasType()) {
+    Set<String> pathsToIgnore = new HashSet<>();
+
+    for (ElementDefinition elementDefinition : structureDefinition.getSnapshot().getElement()) {
+      // Special case: we ignore the root node if this is a nested element
+      if (nested && !elementDefinition.hasType()) {
         continue;
       }
 
-      boolean isValueX = isValueX(ed);
+      // Skip any sliced content
+      if (pathsToIgnore.stream().anyMatch(p -> elementDefinition.getPath().startsWith(p))) {
+        continue;
+      }
+
+      // Skip slices in profiles
+      if (elementDefinition.hasSlicing()) {
+        pathsToIgnore.add(elementDefinition.getPath());
+      }
+
+      boolean isValueX = isValueX(elementDefinition);
 
       if (isValueX) {
         // Process for each type, replacing path with actual type
-        for (TypeRefComponent trc : ed.getType()) {
-          String path = removeX(getPath(ed, nested)) + capitaliseFirst(trc.getCode());
-          processElementDefinition(cs, nested, prefix, parents, ed, path, trc, isResource);
+        for (TypeRefComponent typeRefComponent : elementDefinition.getType()) {
+          String path = calculatePath(structureDefinition, elementDefinition, nested);
+          if (path != null) {
+            path = removeX(path) + capitaliseFirst(typeRefComponent.getCode());
+            processElementDefinition(codeSystem, structureDefinition, elementDefinition, nested, prefix, parents, path,
+              typeRefComponent);
+          }
         }
       } else {
-        String path = getPath(ed, nested);
-        processElementDefinition(cs, nested, prefix, parents, ed, path, null, isResource);
+        String path = calculatePath(structureDefinition, elementDefinition, nested);
+        if (path != null) {
+          processElementDefinition(codeSystem, structureDefinition, elementDefinition, nested, prefix, parents, path,
+            null);
+          //parents.addFirst(path);
+        }
       }
     }
   }
 
-  private void processElementDefinition(CodeSystem cs, boolean nested, String prefix,
-                                        final Deque<String> parents, ElementDefinition ed, String path, TypeRefComponent trc,
-                                        boolean isResource) {
-    String currentParent = parents.peek();
+  private void processElementDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
+                                        ElementDefinition elementDefinition, boolean nested, String prefix,
+                                        Deque<String> parents, String path, TypeRefComponent typeRefComponent) {
+    log.debug("Processing element definition " + elementDefinition.getPath());
+    log.debug("Parent are: " + parents);
 
-    // Look for the right parent
+    // Look for the right fullParent
+    String parent = parents.peek();
     if (!path.isEmpty()) {
       while (true) {
-        assert currentParent != null;
-        if (path.startsWith(currentParent)) break;
+        assert parent != null;
+        if (path.startsWith(removeAllBrackets(parent))) break;
         parents.pop();
-        currentParent = parents.peek();
+        parent = parents.peek();
       }
     }
+    log.debug("Parent is: " + parent);
 
-    // Create the code
-    String parent;
+    String fullParent;
     if (prefix != null && !prefix.isEmpty()) {
-      if (currentParent != null && !currentParent.isEmpty()) {
-        parent = prefix + "." + currentParent;
+      if (parent != null && !parent.isEmpty()) {
+        fullParent = prefix + "." + parent;
       } else {
-        parent = prefix;
+        fullParent = prefix;
       }
     } else {
-      parent = currentParent;
+      fullParent = parent;
     }
+    log.debug("Full parent is: " + fullParent);
 
-    if (trc == null) {
-      trc = ed.getTypeFirstRep();
-      if (ed.getType().size() > 1) {
-        throw new RuntimeException("Found non-x-value with more than one type: " + ed);
+    if (typeRefComponent == null) {
+      typeRefComponent = elementDefinition.getTypeFirstRep();
+      if (elementDefinition.getType().size() > 1) {
+        throw new RuntimeException("Found non-x-value with more than one type: " + elementDefinition);
       }
     }
+    log.debug("Element definition type: " + typeRefComponent);
 
-    String trcCode = trc.getCode();
+    String typeCode = typeRefComponent.getCode();
+    List<CanonicalType> typeProfiles = typeRefComponent.getProfile();
+    if (typeProfiles.size() > 1) {
+      log.warn("Path " + path + " has more than one profile: " + typeProfiles);
+    }
+
+    // Special case: unprofiled extensions recurse forever
+    if ("Extension".equals(typeCode) && typeProfiles.isEmpty()) {
+      return;
+    }
+
+    // Create code in code system
+    String code = prefix + (nested ? "." : "") +  path;
+    log.debug("Creating code " + code);
+    if (!allCodes.add(removeAllBrackets(code))) {
+      log.warn("Duplicate code found " + removeAllBrackets(code));
+      return;
+    }
 
     ConceptDefinitionComponent cdc =
-      createCode(cs, path, ed.getMin(), ed.getMax(), parent, prefix, nested, trcCode, ed,
-        isResource);
+      codeSystem.addConcept()
+        .setCode(removeAllBrackets(code))
+        .setDisplay(removeAllBrackets(code));
+    cdc.addProperty().setCode("min").setValue(new IntegerType(elementDefinition.getMin()));
+    cdc.addProperty().setCode("max").setValue(new StringType(elementDefinition.getMax()));
+    if (fullParent != null && !fullParent.isEmpty()) {
+      cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(fullParent)));
+    } else {
+      if (isProfile(structureDefinition)) {
+        cdc.addProperty().setCode("parent").setValue(new CodeType("Profile"));
+      } else {
+        cdc.addProperty().setCode("parent").setValue(new CodeType("Resource"));
+      }
+    }
+    cdc.addProperty().setCode("root").setValue(new BooleanType(false));
+    cdc.addProperty().setCode("deprecated").setValue(new BooleanType(false));
 
-    // Special case: reference types - add target profile properties
-    if ("Reference".equals(trcCode)) {
-      for (CanonicalType targetProfile : trc.getTargetProfile()) {
+    // Add synonyms
+    addSynonym(code, cdc);
+    addSynonyms(code, 0, cdc);
+
+    if (typeCode != null) {
+      cdc.addProperty().setCode("type").setValue(new StringType(typeCode));
+    } else {
+      log.warn("No type found for code " + code);
+    }
+
+    if ("Reference".equals(typeCode)) {
+      for (CanonicalType targetProfile : typeRefComponent.getTargetProfile()) {
         cdc.addProperty()
           .setCode("targetProfile")
           .setValue(new StringType(targetProfile.getValueAsString()));
       }
-    } else if (!"Resource".equals(trcCode) && isComplexType(trc)) {
-      StructureDefinition nestedSd = getComplexType(trc);
+    } else if (!"Resource".equals(typeCode) && isComplexType(typeRefComponent)) {
+      log.debug("Processing type recursively: " + typeCode);
+      // TODO: the complex type might be profiled
+      StructureDefinition nestedStructureDefinition = getComplexType(typeRefComponent);
       assert prefix != null;
-      String pre = prefix + (prefix.isEmpty() ? "" : ".") + path;
-      processStructureDefinition(cs, nestedSd, true, pre, isResource);
+      String newPrefix = prefix + (prefix.isEmpty() ? "" : ".") + path;
+      processStructureDefinition(codeSystem, nestedStructureDefinition, true, newPrefix);
     }
 
-    // Now adjust the path
-    assert currentParent != null;
-    if (path.length() > currentParent.length() && path.startsWith(currentParent)) {
+    // Add path to parents if required
+    log.debug("Adding to parents if required");
+    assert fullParent != null;
+    String pathNoBrackets = removeAllBrackets(path);
+    log.debug("Path no brackets: " + pathNoBrackets);
+    String fullParentNoBrackets = removeAllBrackets(fullParent);
+    log.debug("Full parent no brackets: " + fullParentNoBrackets);
+    if (pathNoBrackets.length() > fullParentNoBrackets.length()
+      && pathNoBrackets.startsWith(fullParentNoBrackets)) {
       parents.push(path);
     }
   }
 
   /**
-   * Returns the path for an element definition.
+   * Calculates the path for an element definition, adding brackets where the multiplicity is greater than one. If it is
+   * nested then it drops the base type. If this is a profile then it replaces the resource / type name with the profile
+   * name.
    *
-   * @param ed The element definition.
-   * @param nested Flag to indicate if the element definition is nested.
-   * @return The path for the element definition.
+   * @param structureDefinition The structure definition that contains the element definition.
+   * @param elementDefinition The element definition.
+   * @param nested Flag that indicates if this is nested.
+   * @return The path or null of the path in the element definition is null.
    */
-  private String getPath (ElementDefinition ed, boolean nested) {
-    String path = nested ? discardBaseType(ed.getPath()) : ed.getPath();
-    if (!path.isEmpty() && (path.contains(".") || !Character.isUpperCase(path.charAt(0)))) {
-      String max = ed.getMax();
+  private String calculatePath(StructureDefinition structureDefinition, ElementDefinition elementDefinition,
+                               boolean nested) {
+    String path = elementDefinition.getPath();
+    if (path == null) {
+      return null;
+    }
+
+    if (isProfile(structureDefinition)) {
+      int index = path.indexOf('.');
+      if (index == -1) {
+        path = structureDefinition.getId().replace("StructureDefinition/", "");
+      } else {
+        path = structureDefinition.getId().replace("StructureDefinition/", "") + path.substring(index);
+      }
+    }
+
+    if (nested) {
+      path = discardBaseType(path);
+    }
+
+    if (path.contains(".")) {
+      String max = elementDefinition.getMax();
       if (!"1".equals(max)) {
         path = path + "[]";
       }
     }
+
     return path;
+  }
+
+  private boolean isProfile(StructureDefinition structureDefinition) {
+    return structureDefinition.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT);
   }
 
   private String discardBaseType(String path) {
@@ -433,49 +463,6 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private String removeAllBrackets (String s) {
     return s.replace("[]", "");
-  }
-
-  private ConceptDefinitionComponent createCode (CodeSystem cs, String path, int min, String max,
-                                                 String parentCode, String prefix, boolean nested, String type, ElementDefinition ed,
-                                                 boolean isResource) {
-    String code = prefix + (nested ? "." : "") +  path;
-
-    ConceptDefinitionComponent cdc =
-      cs.addConcept()
-        .setCode(removeAllBrackets(code))
-        .setDisplay(removeAllBrackets(code));
-    cdc.addProperty().setCode("min").setValue(new IntegerType(min));
-    cdc.addProperty().setCode("max").setValue(new StringType(max));
-    if (parentCode != null && !parentCode.isEmpty()) {
-      cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(parentCode)));
-      allParents.add(removeAllBrackets(parentCode));
-    } else {
-      if (isResource) {
-        cdc.addProperty().setCode("parent").setValue(new CodeType("DomainResource"));
-        allParents.add("DomainResource");
-      } else {
-        cdc.addProperty().setCode("parent").setValue(new CodeType("Element"));
-        allParents.add("Element");
-      }
-    }
-    cdc.addProperty().setCode("root").setValue(new BooleanType(false));
-    cdc.addProperty().setCode("deprecated").setValue(new BooleanType(false));
-
-    allCodes.add(removeAllBrackets(code));
-
-    // Add synonyms
-    addSynonym(code, cdc);
-    addSynonyms(code, 0, cdc);
-
-    if (type != null) {
-      this.pathToTypeMap.put(cdc.getCode(), type);
-      cdc.addProperty().setCode("type").setValue(new StringType(type));
-    } else {
-      // Cannot resolve type until processing everything because it can be a content reference
-      missingTypes.add(new ConceptDefinitionComponentElementDefinitionPair(cdc, ed));
-    }
-
-    return cdc;
   }
 
   private void addSynonyms (String code, int start, ConceptDefinitionComponent cdc) {
@@ -506,23 +493,33 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private boolean isComplexType(TypeRefComponent trc) {
     String code = trc.getCode();
-    String fhirpathBase = "http://hl7.org/fhirpath/";
-    if (code == null || code.startsWith(fhirpathBase) || primitiveTypeMap.containsKey(code)
-      || "BackboneElement".equals(code) || "Element".equals(code)) {
+
+    StructureDefinition structureDefinition = structureDefinitionsMapByCode.get(code);
+    if (structureDefinition != null) {
+      switch(structureDefinition.getKind()) {
+        case PRIMITIVETYPE:
+          return false;
+        case COMPLEXTYPE:
+        case RESOURCE:
+          return true;
+        case LOGICAL:
+        case NULL:
+          throw new RuntimeException("Unexpected structure definition kind '" + structureDefinition.getKind() + "' for "
+            + structureDefinition.getId());
+      }
+    } else if (code == null || "Element".equals(code) || "BackboneElement".equals(code)
+      || code.startsWith("http://hl7.org/fhirpath/")) {
       return false;
-    } else if (complexTypeMap.containsKey(code) || resourceMap.containsKey(code)) {
-      return true;
     } else {
       throw new RuntimeException("Unexpected type " + code);
     }
+    return false;
   }
 
   private StructureDefinition getComplexType(TypeRefComponent trc) {
     String code = trc.getCode();
-    if (complexTypeMap.containsKey(code)) {
-      return complexTypeMap.get(code);
-    } else if (resourceMap.containsKey(code)) {
-      return resourceMap.get(code);
+    if (structureDefinitionsMapByCode.containsKey(code)) {
+      return structureDefinitionsMapByCode.get(code);
     } else {
       throw new RuntimeException("Unexpected type " + code);
     }
@@ -537,22 +534,5 @@ public class RedmatchGrammarCodeSystemGenerator {
       return s;
     }
     return Character.toUpperCase(s.charAt(0)) + s.substring(1);
-  }
-
-  static class ConceptDefinitionComponentElementDefinitionPair {
-    private final ConceptDefinitionComponent cdc;
-    private final ElementDefinition ed;
-    public ConceptDefinitionComponentElementDefinitionPair(ConceptDefinitionComponent cdc,
-                                                           ElementDefinition ed) {
-      super();
-      this.cdc = cdc;
-      this.ed = ed;
-    }
-    public ConceptDefinitionComponent getCdc() {
-      return cdc;
-    }
-    public ElementDefinition getEd() {
-      return ed;
-    }
   }
 }
