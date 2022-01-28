@@ -37,7 +37,8 @@ public class RedmatchGrammarCodeSystemGenerator {
   private final FhirContext ctx;
 
   private final Map<String, StructureDefinition> structureDefinitionsMapByCode = new HashMap<>();
-  //private final Map<String, StructureDefinition> structureDefinitionsMapByUrl = new HashMap<>();
+  // Used to process profiled extensions
+  private final Map<String, StructureDefinition> structureDefinitionsMapByUrl = new HashMap<>();
   private final Set<String> allCodes = new HashSet<>();
 
   public RedmatchGrammarCodeSystemGenerator(Gson gson, FhirContext ctx) {
@@ -55,13 +56,13 @@ public class RedmatchGrammarCodeSystemGenerator {
   public CodeSystem createCodeSystem(VersionedFhirPackage fhirPackage) throws IOException {
     getStructureDefinitions(fhirPackage).forEach(e -> {
       structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
-      //structureDefinitionsMapByUrl.put(e.getUrl(), e);
+      structureDefinitionsMapByUrl.put(e.getUrl(), e);
     });
 
     for(VersionedFhirPackage dependantFhirPackage : getDependencies(fhirPackage)) {
       getStructureDefinitions(dependantFhirPackage).forEach(e -> {
         structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
-        //structureDefinitionsMapByUrl.put(e.getUrl(), e);
+        structureDefinitionsMapByUrl.put(e.getUrl(), e);
       });
     }
 
@@ -121,7 +122,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setType(PropertyType.BOOLEAN);
     cs.addProperty()
       .setCode("min")
-      .setDescription("Minimun cardinality")
+      .setDescription("Minimum cardinality")
       .setType(PropertyType.INTEGER);
     cs.addProperty()
       .setCode("max")
@@ -254,22 +255,12 @@ public class RedmatchGrammarCodeSystemGenerator {
     final Deque<String> parents = new ArrayDeque<>();
     parents.push("");
 
-    Set<String> pathsToIgnore = new HashSet<>();
+    Set<String> prefixesToIgnore = new HashSet<>();
 
     for (ElementDefinition elementDefinition : structureDefinition.getSnapshot().getElement()) {
       // Special case: we ignore the root node if this is a nested element
       if (nested && !elementDefinition.hasType()) {
         continue;
-      }
-
-      // Skip any sliced content
-      if (pathsToIgnore.stream().anyMatch(p -> elementDefinition.getPath().startsWith(p))) {
-        continue;
-      }
-
-      // Skip slices in profiles
-      if (elementDefinition.hasSlicing()) {
-        pathsToIgnore.add(elementDefinition.getPath());
       }
 
       boolean isValueX = isValueX(elementDefinition);
@@ -281,15 +272,14 @@ public class RedmatchGrammarCodeSystemGenerator {
           if (path != null) {
             path = removeX(path) + capitaliseFirst(typeRefComponent.getCode());
             processElementDefinition(codeSystem, structureDefinition, elementDefinition, nested, prefix, parents, path,
-              typeRefComponent);
+              typeRefComponent, prefixesToIgnore);
           }
         }
       } else {
         String path = calculatePath(structureDefinition, elementDefinition, nested);
         if (path != null) {
           processElementDefinition(codeSystem, structureDefinition, elementDefinition, nested, prefix, parents, path,
-            null);
-          //parents.addFirst(path);
+            null, prefixesToIgnore);
         }
       }
     }
@@ -297,8 +287,28 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private void processElementDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
                                         ElementDefinition elementDefinition, boolean nested, String prefix,
-                                        Deque<String> parents, String path, TypeRefComponent typeRefComponent) {
+                                        Deque<String> parents, String path, TypeRefComponent typeRefComponent,
+                                        Set<String> prefixesToIgnore) {
     log.debug("Processing element definition " + elementDefinition.getPath());
+
+    if ("0".equals(elementDefinition.getMax())) {
+      log.info("Element has a max value of 0 and will therefore be excluded from the code system.");
+      prefixesToIgnore.add(path);
+      return;
+    }
+
+    boolean[] ignore = new boolean[1];
+    prefixesToIgnore.forEach(p -> {
+      if (path.startsWith(removeAllBrackets(p))) {
+        log.info("Parent element was excluded, so excluding this element.");
+        ignore[0] = true;
+      }
+    });
+
+    if(ignore[0]) {
+      return;
+    }
+
     log.debug("Parent are: " + parents);
 
     // Look for the right fullParent
@@ -339,13 +349,14 @@ public class RedmatchGrammarCodeSystemGenerator {
       log.warn("Path " + path + " has more than one profile: " + typeProfiles);
     }
 
-    // Special case: unprofiled extensions recurse forever
+    // Special case: un-profiled extensions recurse forever
     if ("Extension".equals(typeCode) && typeProfiles.isEmpty()) {
       return;
     }
 
     // Create code in code system
     String code = prefix + (nested ? "." : "") +  path;
+
     log.debug("Creating code " + code);
     if (!allCodes.add(removeAllBrackets(code))) {
       log.warn("Duplicate code found " + removeAllBrackets(code));
@@ -386,13 +397,28 @@ public class RedmatchGrammarCodeSystemGenerator {
           .setCode("targetProfile")
           .setValue(new StringType(targetProfile.getValueAsString()));
       }
-    } else if (!"Resource".equals(typeCode) && isComplexType(typeRefComponent)) {
-      log.debug("Processing type recursively: " + typeCode);
-      // TODO: the complex type might be profiled
-      StructureDefinition nestedStructureDefinition = getComplexType(typeRefComponent);
-      assert prefix != null;
-      String newPrefix = prefix + (prefix.isEmpty() ? "" : ".") + path;
-      processStructureDefinition(codeSystem, nestedStructureDefinition, true, newPrefix);
+    } else {
+      String newPrefix = null;
+      if (prefix != null) {
+        newPrefix = prefix + (prefix.isEmpty() ? "" : ".") + path;
+      }
+      if ("Extension".equals(typeCode)) {
+        // Special case: profiled extensions
+        String extensionUrl = typeProfiles.get(0).getValue();
+        StructureDefinition extensionStructureDefinition = structureDefinitionsMapByUrl.get(extensionUrl);
+        if (extensionStructureDefinition == null) {
+          log.error("Could not find extension: " + extensionUrl);
+          return;
+        }
+        assert newPrefix != null;
+        processStructureDefinition(codeSystem, extensionStructureDefinition, true, newPrefix);
+      } else if (!"Resource".equals(typeCode) && isComplexType(typeRefComponent)) {
+        log.debug("Processing type recursively: " + typeCode);
+        // TODO: the complex type might be profiled
+        StructureDefinition nestedStructureDefinition = getComplexType(typeRefComponent);
+        assert newPrefix != null;
+        processStructureDefinition(codeSystem, nestedStructureDefinition, true, newPrefix);
+      }
     }
 
     // Add path to parents if required
@@ -425,6 +451,8 @@ public class RedmatchGrammarCodeSystemGenerator {
       return null;
     }
 
+    // If the structure definition is a profile, then we replace the path with the profile name (rather than the
+    // resource name)
     if (isProfile(structureDefinition)) {
       int index = path.indexOf('.');
       if (index == -1) {
@@ -442,6 +470,15 @@ public class RedmatchGrammarCodeSystemGenerator {
       String max = elementDefinition.getMax();
       if (!"1".equals(max)) {
         path = path + "[]";
+      }
+    }
+
+    // Special case: if this is a profiled extension, then we replace the 'extension' path element with the slice name
+    if (elementDefinition.hasType() && elementDefinition.hasSliceName()) {
+      TypeRefComponent typeRef = elementDefinition.getTypeFirstRep();
+      if ("Extension".equals(typeRef.getCode()) && !typeRef.getProfile().isEmpty() && path.endsWith(".extension")) {
+        path = path.substring(0, path.length() - 9) + elementDefinition.getSliceName();
+        log.debug("Replaced 'extension' element in path: " + path);
       }
     }
 
@@ -534,5 +571,28 @@ public class RedmatchGrammarCodeSystemGenerator {
       return s;
     }
     return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+  }
+
+  public static void main (String[] args) {
+    if (args.length != 3) {
+      System.out.println("Three arguments are required: FHIR package name, FHIR package version, output file.");
+      System.exit(0);
+    }
+
+    FhirContext ctx = FhirContext.forR4();
+    RedmatchGrammarCodeSystemGenerator generator =
+      new RedmatchGrammarCodeSystemGenerator(new Gson(), ctx);
+    CodeSystem cs = null;
+    try {
+      cs = generator.createCodeSystem(new VersionedFhirPackage(args[0], args[1]));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    try (FileWriter fw = new FileWriter(args[2])) {
+      ctx.newJsonParser().setPrettyPrint(true).encodeResourceToWriter(cs, fw);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 }

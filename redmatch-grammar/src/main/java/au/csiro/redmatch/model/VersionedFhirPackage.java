@@ -8,6 +8,8 @@ import java.util.Objects;
 
 /**
  * Represents the name of a FHIR NPM package.
+ *
+ * @author Alejandro Metke-Jimenez
  */
 public class VersionedFhirPackage {
   private final String name;
