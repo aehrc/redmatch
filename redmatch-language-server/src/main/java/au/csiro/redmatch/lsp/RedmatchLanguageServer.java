@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.*;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,6 +41,13 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     FhirContext ctx = FhirContext.forR4();
     Gson gson = new Gson();
     RedmatchGrammarValidator validator = new RedmatchGrammarValidator(gson, ctx);
+    validator.setFhirPackage("hl7.fhir.r4.core");
+    validator.setFhirPackageVersion("4.0.1");
+    try {
+      validator.init();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx);
     reflectionHelper.init();

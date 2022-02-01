@@ -8,11 +8,15 @@ parser grammar RedmatchGrammar;
 options { tokenVocab=RedmatchLexer; }
 
 document
-    : schema server? aliases? rules mappings?
+    : schema target? server? aliases? rules mappings?
     ;
 
 schema
     : SCHEMA COLON STRING OPEN SCHEMA_TYPE CLOSE
+    ;
+
+target
+    : TARGET COLON STRING
     ;
 
 server

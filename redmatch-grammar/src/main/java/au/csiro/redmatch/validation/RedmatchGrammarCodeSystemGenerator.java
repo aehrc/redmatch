@@ -66,6 +66,15 @@ public class RedmatchGrammarCodeSystemGenerator {
       });
     }
 
+
+    Set<StructureDefinition> complexTypes = structureDefinitionsMapByCode.values().stream().filter(e ->
+      e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.SPECIALIZATION)
+        && e.hasKind() && e.getKind().equals(StructureDefinition.StructureDefinitionKind.COMPLEXTYPE)
+    ).collect(Collectors.toSet());
+
+    log.info("Found " + complexTypes.size() + " complex types");
+
+
     Set<StructureDefinition> resourceProfiles = structureDefinitionsMapByCode.values().stream().filter(e ->
       e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT)
         && e.hasKind() && e.getKind().equals(StructureDefinition.StructureDefinitionKind.RESOURCE)
@@ -81,6 +90,10 @@ public class RedmatchGrammarCodeSystemGenerator {
     log.info("Found " + resources.size() + " resources");
 
     CodeSystem codeSystem = createBaseCodeSystem(fhirPackage);
+
+    for (StructureDefinition structureDefinition : complexTypes) {
+      processStructureDefinition(codeSystem, structureDefinition, false, "");
+    }
 
     for (StructureDefinition structureDefinition : resourceProfiles) {
       processStructureDefinition(codeSystem, structureDefinition, false, "");
@@ -151,6 +164,13 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDisplay("Object");
     objectRoot.addProperty().setCode("root").setValue(new BooleanType(true));
     objectRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+
+    ConceptDefinitionComponent complexTypeRoot = cs.addConcept()
+      .setCode("ComplexType")
+      .setDisplay("ComplexType");
+    complexTypeRoot.addProperty().setCode("root").setValue(new BooleanType(false));
+    complexTypeRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+    complexTypeRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
 
     ConceptDefinitionComponent resourceRoot = cs.addConcept()
       .setCode("Resource")
@@ -251,6 +271,10 @@ public class RedmatchGrammarCodeSystemGenerator {
   private void processStructureDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
                                           boolean nested, String prefix) {
 
+    if (structureDefinition.getName().equals("Extension")) {
+      return;
+    }
+
     // Keeps track of the parent paths of the elements, e.g. Observation.component
     final Deque<String> parents = new ArrayDeque<>();
     parents.push("");
@@ -350,9 +374,9 @@ public class RedmatchGrammarCodeSystemGenerator {
     }
 
     // Special case: un-profiled extensions recurse forever
-    if ("Extension".equals(typeCode) && typeProfiles.isEmpty()) {
-      return;
-    }
+    //if ("Extension".equals(typeCode) && typeProfiles.isEmpty()) {
+    //  return;
+    //}
 
     // Create code in code system
     String code = prefix + (nested ? "." : "") +  path;
@@ -372,7 +396,9 @@ public class RedmatchGrammarCodeSystemGenerator {
     if (fullParent != null && !fullParent.isEmpty()) {
       cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(fullParent)));
     } else {
-      if (isProfile(structureDefinition)) {
+      if (isComplexType(structureDefinition)) {
+        cdc.addProperty().setCode("parent").setValue(new CodeType("ComplexType"));
+      } else if (isProfile(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Profile"));
       } else {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Resource"));
@@ -402,7 +428,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       if (prefix != null) {
         newPrefix = prefix + (prefix.isEmpty() ? "" : ".") + path;
       }
-      if ("Extension".equals(typeCode)) {
+      if ("Extension".equals(typeCode) && !typeProfiles.isEmpty()) {
         // Special case: profiled extensions
         String extensionUrl = typeProfiles.get(0).getValue();
         StructureDefinition extensionStructureDefinition = structureDefinitionsMapByUrl.get(extensionUrl);
@@ -487,6 +513,10 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private boolean isProfile(StructureDefinition structureDefinition) {
     return structureDefinition.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT);
+  }
+
+  private boolean isComplexType(StructureDefinition structureDefinition) {
+    return structureDefinition.getKind().equals(StructureDefinition.StructureDefinitionKind.COMPLEXTYPE);
   }
 
   private String discardBaseType(String path) {

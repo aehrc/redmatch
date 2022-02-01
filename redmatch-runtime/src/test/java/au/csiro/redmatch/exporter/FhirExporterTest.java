@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,8 +43,11 @@ public class FhirExporterTest {
   private static final Gson gson = new Gson();
 
   @BeforeAll
-  private static void init() {
+  private static void init() throws IOException {
     validator = new RedmatchGrammarValidator(gson, ctx);
+    validator.setFhirPackage("hl7.fhir.r4.core");
+    validator.setFhirPackageVersion("4.0.1");
+    validator.init();
     helper = new HapiReflectionHelper(ctx);
     helper.init();
   }

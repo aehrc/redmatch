@@ -14,18 +14,19 @@ import java.util.regex.Pattern;
 
 import au.csiro.ontoserver.api.InternalApi;
 import au.csiro.redmatch.compiler.PathInfo;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.DateUtils;
-import au.csiro.redmatch.util.FileUtils;
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.context.FhirVersionEnum;
-import ca.uhn.fhir.parser.JsonParser;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
 
 /**
  * Supports validating Redmatch grammar expressions that select an attribute in the FHIR model.
@@ -39,81 +40,51 @@ public class RedmatchGrammarValidator {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchGrammarValidator.class);
 
-  private static final String RESOURCES_URL = "http://csiro.au/redmatch-fhir/resources";
-
-  private static final String TYPES_URL = "http://csiro.au/redmatch-fhir/complex-types";
+  private static final String REDMATCH_PREFIX = "http://redmatch.";
 
   private final Pattern bracketsPattern = Pattern.compile("\\[(\\d+)]");
 
+  private final FhirContext ctx;
+
   private final InternalApi onto;
+
+  @Value("${redmatch.fhir.package-name}")
+  private String fhirPackage;
+
+  @Value("${redmatch.fhir.package-version}")
+  private String fhirPackageVersion;
 
   @Autowired
   public RedmatchGrammarValidator(Gson gson, FhirContext ctx) {
     log.info("Initialising validator");
-    Instant start = Instant.now();
+    this.ctx = ctx;
     onto = new InternalApi(gson, ctx);
+  }
+
+  public void setFhirPackage(String fhirPackage) {
+    this.fhirPackage = fhirPackage;
+  }
+
+  public void setFhirPackageVersion(String fhirPackageVersion) {
+    this.fhirPackageVersion = fhirPackageVersion;
+  }
+
+  @PostConstruct
+  public void init() throws IOException {
     try {
-      init();
+      Instant start = Instant.now();
+      if (!onto.isIndexed(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion)) {
+        RedmatchGrammarCodeSystemGenerator generator = new RedmatchGrammarCodeSystemGenerator(new Gson(), ctx);
+        CodeSystem cs = generator.createCodeSystem(new VersionedFhirPackage(fhirPackage, fhirPackageVersion));
+        onto.indexFhirCodeSystem(cs);
+      } else {
+        log.debug("Validation code system for package " + fhirPackage + "#" + fhirPackageVersion + " is present");
+      }
       Instant finish = Instant.now();
       long timeElapsed = Duration.between(start, finish).toMillis();
       log.info("Done initialising validator in: " + DateUtils.prettyPrintMillis(timeElapsed));
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  private void init() throws IOException {
-    CodeSystem[] codeSystems = new CodeSystem[2];
-    if (!onto.isIndexed(RESOURCES_URL, "1.0") || !onto.isIndexed(TYPES_URL, "1.0")) {
-      // TODO: update this to use the new code system generator
-      //RedmatchGrammarCodeSystemGenerator gen = new RedmatchGrammarCodeSystemGenerator();
-      //FhirVersionEnum version = FhirVersionEnum.R4;
-      //codeSystems = gen.createCodeSystems(loadTypesBundle(version), loadResourcesBundle(version));
-    }
-
-    // Check if code systems are already indexed
-    if (!onto.isIndexed(RESOURCES_URL, "1.0")) {
-      log.info("Initialising validator for the first time");
-      log.debug("Loading FHIR resources code system");
-      CodeSystem resourcesCodeSystem = codeSystems[0];
-      assert resourcesCodeSystem != null;
-      onto.indexFhirCodeSystem(resourcesCodeSystem);
-      log.info("Indexed resources code system");
-    } else {
-      log.debug("Code system is present");
-    }
-
-    if (!onto.isIndexed(TYPES_URL, "1.0")) {
-      // Load complex types code system
-      log.debug("Loading FHIR complex types code system");
-      CodeSystem typesCodeSystem = codeSystems[1];
-      assert typesCodeSystem != null;
-      onto.indexFhirCodeSystem(typesCodeSystem);
-      log.info("Indexed types code system");
-    } else {
-      log.debug("Code system is present");
-    }
-  }
-
-  private Bundle loadResourcesBundle(FhirVersionEnum version) throws IOException {
-    File profilesResources = FileUtils.loadFileFromClassPath("fhir-metadata/4.0.1/profiles-resources.json");
-    log.info("Loading FHIR resources from " + profilesResources.getAbsolutePath());
-
-    FhirContext ctx = new FhirContext(version);
-    JsonParser parser = (JsonParser) ctx.newJsonParser().setPrettyPrint(true);
-    try (FileReader fr = new FileReader(profilesResources)) {
-      return parser.doParseResource(Bundle.class, fr);
-    }
-  }
-
-  private Bundle loadTypesBundle(FhirVersionEnum version) throws IOException {
-    File profilesTypes = FileUtils.loadFileFromClassPath("fhir-metadata/4.0.1/profiles-types.json");
-    log.info("Loading FHIR resources from " + profilesTypes.getAbsolutePath());
-
-    FhirContext ctx = new FhirContext(version);
-    JsonParser parser = (JsonParser) ctx.newJsonParser().setPrettyPrint(true);
-    try (FileReader fr = new FileReader(profilesTypes)) {
-      return parser.doParseResource(Bundle.class, fr);
     }
   }
 
@@ -141,7 +112,7 @@ public class RedmatchGrammarValidator {
     
     if (hasExtension(code)) {
       String first = getFirstExtension(code);
-      ValidationResult res = validateCode(first, path, true);
+      ValidationResult res = validateCode(first, path);
       if (!res.getResult()) {
         return res;
       }
@@ -154,7 +125,7 @@ public class RedmatchGrammarValidator {
       }
       
       for(String other : others) {
-        res = validateCode(other, path, false);
+        res = validateCode(other, path);
         if (!res.getResult()) {
           return res;
         }
@@ -163,22 +134,20 @@ public class RedmatchGrammarValidator {
       return new ValidationResult(true, code);
       
     } else {
-      return validateCode(code, path, true);
+      return validateCode(code, path);
     }
   }
   
-  private ValidationResult validateCode(String code, String path, boolean isResource) {
+  private ValidationResult validateCode(String code, String path) {
     // Special case: codes ending with extension.url
     if (code.endsWith("extension.url")) {
       code = code.substring(0, code.length() - 4);
     }
     
     Boolean res = null;
-    String url = isResource ? "http://csiro.au/redmatch-fhir/resources" : 
-      "http://csiro.au/redmatch-fhir/complex-types";
 
     try {
-      Parameters out = onto.validateCode(url, "1.0", code, null);
+      Parameters out = onto.validateCode(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, code, null);
       for (ParametersParameterComponent param : out.getParameter()) {
         if (param.getName().equals("result")) {
           res = ((BooleanType) param.getValue()).getValue();
@@ -315,8 +284,6 @@ public class RedmatchGrammarValidator {
   
   private PathInfo getInfo(String path, boolean isResource) {
     try {
-      String url = isResource ? RESOURCES_URL : TYPES_URL;
-
       if (hasExtension(path)) {
         String first = getFirstExtension(path);
         List<String> others = new ArrayList<>();
@@ -329,7 +296,8 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(url, "1.0", first, Arrays.asList("min", "max", "type", "targetProfile"));
+          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, first,
+            Arrays.asList("min", "max", "type", "targetProfile"));
           return getPathInfo(path, out);
         } else {
 
@@ -340,11 +308,13 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(url, "1.0", last, Arrays.asList("min", "max", "type", "targetProfile"));
+          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, last,
+            Arrays.asList("min", "max", "type", "targetProfile"));
           return getPathInfo(path, out);
         }
       } else {
-        Parameters out = onto.lookup(url, "1.0", path, Arrays.asList("min", "max", "type", "targetProfile"));
+        Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, path,
+          Arrays.asList("min", "max", "type", "targetProfile"));
         return getPathInfo(path, out);
       }
     } catch (IOException e) {

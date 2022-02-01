@@ -19,6 +19,7 @@ import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -41,8 +42,11 @@ public class RedmatchCompilerTest {
   private static final Gson gson = new Gson();
 
   @BeforeAll
-  private static void initValidator() {
+  private static void initValidator() throws IOException {
     validator = new RedmatchGrammarValidator(gson, ctx);
+    validator.setFhirPackage("hl7.fhir.r4.core");
+    validator.setFhirPackageVersion("4.0.1");
+    validator.init();
   }
 
   @Test

@@ -44,6 +44,7 @@ COMMA                : ',';
 SEMICOLON            : ';';
 MAP                  : '->' -> pushMode(CONCEPT_LITERAL_MODE) ;
 ATTRIBUTE_START      : '*' -> pushMode(ATTRIBUTES) ;
+TARGET               : 'TARGET';
 
 fragment LOWERCASE   : [a-z] ;
 fragment UPPERCASE   : [A-Z] ;
