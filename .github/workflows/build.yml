@@ -25,10 +25,10 @@ jobs:
 
       - name: install FHIR R4
         run: |
-          mkdir -p ~/.fhir/packages
+          mkdir -p ~/.fhir/packages/hl7.fhir.r4.core#4.0.1
           npm init --yes
-          npm --registry https://packages.simplifier.net install hl7.fhir.r4.core
-          mv node_modules/hl7.fhir.r4.core ~/.fhir/packages
+          npm --registry https://packages.simplifier.net install hl7.fhir.r4.core@4.0.1
+          mv node_modules/hl7.fhir.r4.core ~/.fhir2/packages/hl7.fhir.r4.core#4.0.1/package
 
       - name: build and test with maven
         run: mvn -B verify --file pom.xml
