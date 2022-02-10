@@ -5,6 +5,7 @@
 package au.csiro.redmatch.compiler;
 
 import au.csiro.redmatch.model.Schema;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import org.eclipse.lsp4j.Diagnostic;
 
 import java.util.*;
@@ -33,6 +34,11 @@ public class Document extends GrammarObject {
    * The schema of the data source.
    */
   private Schema schema;
+
+  /**
+   * The target FHIR package. Can be null and in that case a default FHIR package will be used.
+   */
+  private VersionedFhirPackage fhirPackage;
 
   /**
    * The server definition that represents the connection details to use to get data for this document. This name should
@@ -141,6 +147,10 @@ public class Document extends GrammarObject {
     return res;
   }
 
+  public VersionedFhirPackage getFhirPackage() {
+    return fhirPackage;
+  }
+
   private String removeOption(String s) {
     Matcher m = p.matcher(s);
     if (m.find()) {
@@ -158,6 +168,10 @@ public class Document extends GrammarObject {
 
   public void setDiagnostics(List<Diagnostic> diagnostics) {
     this.diagnostics = diagnostics;
+  }
+
+  public void setFhirPackage(VersionedFhirPackage fhirPackage) {
+    this.fhirPackage = fhirPackage;
   }
 
   @Override

@@ -22,11 +22,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
 
 /**
  * Supports validating Redmatch grammar expressions that select an attribute in the FHIR model.
@@ -34,7 +29,6 @@ import javax.annotation.PostConstruct;
  * @author Alejandro Metke-Jimenez
  *
  */
-@Component
 public class RedmatchGrammarValidator {
   
   /** Logger. */
@@ -44,48 +38,49 @@ public class RedmatchGrammarValidator {
 
   private final Pattern bracketsPattern = Pattern.compile("\\[(\\d+)]");
 
-  private final FhirContext ctx;
-
   private final InternalApi onto;
 
-  @Value("${redmatch.fhir.package-name}")
-  private String fhirPackage;
+  private final RedmatchGrammarCodeSystemGenerator generator;
 
-  @Value("${redmatch.fhir.package-version}")
-  private String fhirPackageVersion;
+  private final VersionedFhirPackage fhirPackage;
 
-  @Autowired
-  public RedmatchGrammarValidator(Gson gson, FhirContext ctx) {
-    log.info("Initialising validator");
-    this.ctx = ctx;
+  private final static String INVALID_ATTRIBUTE_MESSAGE = "The attribute %s is not valid";
+
+  public RedmatchGrammarValidator(Gson gson, FhirContext ctx, VersionedFhirPackage fhirPackage) {
+    log.info("Initialising validator with FHIR package " + fhirPackage);
     onto = new InternalApi(gson, ctx);
-  }
-
-  public void setFhirPackage(String fhirPackage) {
+    generator = new RedmatchGrammarCodeSystemGenerator(gson, ctx);
     this.fhirPackage = fhirPackage;
+    init(fhirPackage);
   }
 
-  public void setFhirPackageVersion(String fhirPackageVersion) {
-    this.fhirPackageVersion = fhirPackageVersion;
-  }
-
-  @PostConstruct
-  public void init() throws IOException {
+  private void init(VersionedFhirPackage fhirPackage) {
+    log.debug("Checking if FHIR package " + fhirPackage + " is installed");
     try {
       Instant start = Instant.now();
-      if (!onto.isIndexed(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion)) {
-        RedmatchGrammarCodeSystemGenerator generator = new RedmatchGrammarCodeSystemGenerator(new Gson(), ctx);
-        CodeSystem cs = generator.createCodeSystem(new VersionedFhirPackage(fhirPackage, fhirPackageVersion));
+      if (!onto.isIndexed(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion())) {
+        log.debug("Package is not indexed");
+        CodeSystem cs = generator.createCodeSystem(fhirPackage);
         onto.indexFhirCodeSystem(cs);
       } else {
-        log.debug("Validation code system for package " + fhirPackage + "#" + fhirPackageVersion + " is present");
+        log.debug("Validation code system for package " + fhirPackage + " is present");
       }
       Instant finish = Instant.now();
       long timeElapsed = Duration.between(start, finish).toMillis();
-      log.info("Done initialising validator in: " + DateUtils.prettyPrintMillis(timeElapsed));
+      log.info("Finished checking in: " + DateUtils.prettyPrintMillis(timeElapsed));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Validates a resource (or profile) name.
+   *
+   * @param resourceName The name.
+   * @return The validation result.
+   */
+  public ValidationResult validateResourceName(String resourceName) {
+    return validateCode(resourceName, resourceName, "%s is not a valid resource or profile name");
   }
 
   /**
@@ -112,7 +107,7 @@ public class RedmatchGrammarValidator {
     
     if (hasExtension(code)) {
       String first = getFirstExtension(code);
-      ValidationResult res = validateCode(first, path);
+      ValidationResult res = validateCode(first, path, INVALID_ATTRIBUTE_MESSAGE);
       if (!res.getResult()) {
         return res;
       }
@@ -125,7 +120,7 @@ public class RedmatchGrammarValidator {
       }
       
       for(String other : others) {
-        res = validateCode(other, path);
+        res = validateCode(other, path, INVALID_ATTRIBUTE_MESSAGE);
         if (!res.getResult()) {
           return res;
         }
@@ -134,11 +129,11 @@ public class RedmatchGrammarValidator {
       return new ValidationResult(true, code);
       
     } else {
-      return validateCode(code, path);
+      return validateCode(code, path, INVALID_ATTRIBUTE_MESSAGE);
     }
   }
-  
-  private ValidationResult validateCode(String code, String path) {
+
+  private ValidationResult validateCode(String code, String path, String message) {
     // Special case: codes ending with extension.url
     if (code.endsWith("extension.url")) {
       code = code.substring(0, code.length() - 4);
@@ -147,7 +142,7 @@ public class RedmatchGrammarValidator {
     Boolean res = null;
 
     try {
-      Parameters out = onto.validateCode(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, code, null);
+      Parameters out = onto.validateCode(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), code, null);
       for (ParametersParameterComponent param : out.getParameter()) {
         if (param.getName().equals("result")) {
           res = ((BooleanType) param.getValue()).getValue();
@@ -158,7 +153,7 @@ public class RedmatchGrammarValidator {
       }
       ValidationResult vr = new ValidationResult(res, code);
       if (!res) {
-        vr.getMessages().add("The path " + path + " is not valid.");
+        vr.getMessages().add(String.format(message, path));
       }
       return vr;
     } catch (IOException e) {
@@ -265,7 +260,7 @@ public class RedmatchGrammarValidator {
       getOtherExtensions(path, others);
       
       if (others.isEmpty()) {
-        return getInfo(first, true);
+        return getInfo(first);
       } else {
         // return info for last element
         // special case extension.value
@@ -275,14 +270,14 @@ public class RedmatchGrammarValidator {
         if (!newPath.contains(".")) {
           return handleExtensionValue(path);
         }
-        return getInfo(newPath, false);
+        return getInfo(newPath);
       }
     } else {
-      return getInfo(path, true);
+      return getInfo(path);
     }
   }
   
-  private PathInfo getInfo(String path, boolean isResource) {
+  private PathInfo getInfo(String path) {
     try {
       if (hasExtension(path)) {
         String first = getFirstExtension(path);
@@ -296,7 +291,7 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, first,
+          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), first,
             Arrays.asList("min", "max", "type", "targetProfile"));
           return getPathInfo(path, out);
         } else {
@@ -308,12 +303,12 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, last,
+          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), last,
             Arrays.asList("min", "max", "type", "targetProfile"));
           return getPathInfo(path, out);
         }
       } else {
-        Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage, fhirPackageVersion, path,
+        Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path,
           Arrays.asList("min", "max", "type", "targetProfile"));
         return getPathInfo(path, out);
       }

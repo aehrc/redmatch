@@ -19,10 +19,14 @@ import au.csiro.redmatch.importer.SchemaImporter;
 import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.ReplacementSuggestion;
 import au.csiro.redmatch.model.LabeledField;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.GraphUtils;
 import au.csiro.redmatch.util.StringUtils;
+import au.csiro.redmatch.validation.FhirPackageDownloadException;
+import au.csiro.redmatch.validation.FhirPackageNotFoundException;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.ValidationResult;
+import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -61,7 +65,6 @@ import au.csiro.redmatch.grammar.RedmatchGrammar.SchemaContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ValueContext;
 import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
 import au.csiro.redmatch.grammar.RedmatchLexer;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import static au.csiro.redmatch.compiler.ErrorCodes.*;
 
@@ -82,7 +85,6 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private static final String SRC_LEXER = "src_lexer";
   private static final String SRC_PARSER = "src_parser";
   private static final String SRC_COMPILER = "src_compiler";
-
 
   /**
    * Url for a FHIR resource. Used to identify "any" references.
@@ -130,12 +132,12 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private final List<Diagnostic> diagnostics = new ArrayList<>();
 
   /**
-   * Validator for FHIR attribute expressions.
+   * Reference to the FHIR context instance.
    */
-  private final RedmatchGrammarValidator validator;
+  private final FhirContext fhirContext;
 
   /**
-   * Reference to Gson, in case the schema is in JSON format.
+   * Reference to the only Gson instance, in case the schema is in JSON format.
    */
   private final Gson gson;
 
@@ -145,12 +147,19 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private File baseFolder;
 
   /**
+   * Validator for FHIR attribute expressions.
+   */
+  private RedmatchGrammarValidator validator;
+
+  private final VersionedFhirPackage defaultFhirPackage;
+
+  /**
    * Constructor.
    */
-  @Autowired
-  public RedmatchCompiler(RedmatchGrammarValidator validator, Gson gson) {
-    this.validator = validator;
+  public RedmatchCompiler(FhirContext fhirContext, Gson gson, VersionedFhirPackage defaultFhirPackage) {
+    this.fhirContext = fhirContext;
     this.gson = gson;
+    this.defaultFhirPackage = defaultFhirPackage;
   }
 
   /**
@@ -235,8 +244,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       }
       return doc;
     } catch (Throwable t) {
-      log.error("There was an unexpected problem compiling the rules.", t);
-      throw new CompilationException("There was an unexpected problem compiling the rules.", t);
+      // Special case: Interrupted exception wrapped in a runtime exception
+      if (t.getCause() != null && t.getCause() instanceof InterruptedException) {
+        log.error("The compilation was interrupted.", t.getCause());
+        throw new CompilationException("The compilation was interrupted.", t.getCause());
+      } else {
+        log.error("There was an unexpected problem compiling the rules.", t);
+        throw new CompilationException("There was an unexpected problem compiling the rules.", t);
+      }
     }
   }
 
@@ -289,6 +304,65 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       return res;
     }
 
+    // Load target FHIR package
+    if (ctx.target() != null && ctx.target().STRING() != null) {
+      String target = removeEnds(ctx.target().STRING().getText());
+      int hashCount = 0;
+      for (int i = 0; i < target.length(); i++) {
+        if (target.charAt(i) == '#') {
+          hashCount++;
+        }
+      }
+      if (hashCount != 1) {
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            ctx,
+            "Invalid target definition " + target + ". Expected format is PACKAGE_NAME#PACKAGE_VERSION.",
+            DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString()
+          )
+        );
+      } else {
+        String[] parts = target.split("[#]");
+        if (parts.length == 2) {
+          res.setFhirPackage(new VersionedFhirPackage(parts[0], parts[1]));
+        } else {
+          this.diagnostics.add(
+            getDiagnosticFromContext(
+              ctx,
+              "Invalid target definition " + target + ". Expected format is PACKAGE_NAME#PACKAGE_VERSION.",
+              DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString()
+            )
+          );
+        }
+      }
+    }
+
+    try {
+      VersionedFhirPackage fhirPackage = res.getFhirPackage();
+      if (fhirPackage != null) {
+        // If a FHIR package was set then create a validator using that package
+        this.validator = new RedmatchGrammarValidator(gson, fhirContext, fhirPackage);
+      } else {
+        // Otherwise, use the standard FHIR package
+        this.validator = new RedmatchGrammarValidator(gson, fhirContext, defaultFhirPackage);
+      }
+    } catch (FhirPackageNotFoundException e) {
+      this.diagnostics.add(getDiagnosticFromContext(ctx,
+        String.format("FHIR package %s does not exist.", e.getFhirPackage()), DiagnosticSeverity.Error,
+        CODE_COMPILER_ERROR.toString()
+        )
+      );
+      return res;
+    } catch (FhirPackageDownloadException e) {
+      this.diagnostics.add(getDiagnosticFromContext(ctx,
+          String.format("There was a problem installing FHIR package %s.", e.getFhirPackage()),
+          DiagnosticSeverity.Error, CODE_COMPILER_ERROR.toString())
+      );
+      return res;
+    }
+
     // Get server if present
     if (ctx.server() != null && ctx.server().STRING() != null) {
       res.setServer(removeEnds(ctx.server().STRING().getText()));
@@ -315,11 +389,13 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         RuleList rl = (RuleList) go;
         res.getRules().addAll(rl.getRules());
       } else {
-        getDiagnosticFromContext(
-          ctx,
-          "Unexpected type " + go.getClass().getCanonicalName() + ". Expected Rule or RuleList.",
-          DiagnosticSeverity.Error,
-          CODE_COMPILER_ERROR.toString()
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            ctx,
+            "Unexpected type " + go.getClass().getCanonicalName() + ". Expected Rule or RuleList.",
+            DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString()
+          )
         );
       }
     }
@@ -542,7 +618,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private Body visitFcBodyInternal(FcBodyContext ctx, Variables var) {
     final Body b = new Body();
     
-    for(ResourceContext rc :  ctx.resource()) {
+    for(ResourceContext rc : ctx.resource()) {
       b.getResources().add(visitResourceInternal(rc, var));
     }
     
@@ -756,6 +832,16 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     if (ctx == null) {
       return res;
     }
+
+    // Validate resource name
+    ValidationResult vr = validator.validateResourceName(ctx.RESOURCE().getText());
+    if (!vr.getResult()) {
+      for (String msg : vr.getMessages()) {
+        this.diagnostics.add(getDiagnosticFromContext(ctx, msg, DiagnosticSeverity.Error,
+          CODE_INVALID_FHIR_RESOURCE.toString()));
+      }
+    }
+
     res.setResourceType(ctx.RESOURCE().getText());
     
     String resourceId = processFhirId(ctx.ID(), ctx.ID().getSymbol(), var);
@@ -1000,8 +1086,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         if (!parts.isEmpty()) {
           code = parts.get(0).getText();
         } else {
-          getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
-            CODE_COMPILER_ERROR.toString());
+          this.diagnostics.add(
+            getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString())
+          );
           code = "";
         }
       } else  {
@@ -1009,8 +1097,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
           system = parts.get(0).getText();
           code = parts.get(1).getText();
         } else {
-          getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
-            CODE_COMPILER_ERROR.toString());
+          this.diagnostics.add(
+            getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString())
+          );
           system = "";
           code = "";
         }
@@ -1036,7 +1126,9 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else if (ctx.CODE_SELECTED() != null) {
         val = new CodeSelectedValue(fieldId);
       } else {
-        getDiagnosticFromContext(ctx, "Invalid expression", DiagnosticSeverity.Error, CODE_COMPILER_ERROR.toString());
+        this.diagnostics.add(
+          getDiagnosticFromContext(ctx, "Invalid expression", DiagnosticSeverity.Error, CODE_COMPILER_ERROR.toString())
+        );
         return null;
       }
       validateField(fieldId, val, ctx);
@@ -1071,8 +1163,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       if (!parts.isEmpty()) {
         code = parts.get(0).getText();
       } else {
-        getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
-          CODE_COMPILER_ERROR.toString());
+        this.diagnostics.add(
+          getDiagnosticFromContext(ctx, "Expected at least one CL_PART", DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString())
+        );
         code = "";
       }
     } else  {
@@ -1080,8 +1174,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         system = parts.get(0).getText();
         code = parts.get(1).getText();
       } else {
-        getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
-          CODE_COMPILER_ERROR.toString());
+        this.diagnostics.add(
+          getDiagnosticFromContext(ctx, "Expected at least two CL_PARTs", DiagnosticSeverity.Error,
+            CODE_COMPILER_ERROR.toString())
+        );
         system = "";
         code = "";
       }

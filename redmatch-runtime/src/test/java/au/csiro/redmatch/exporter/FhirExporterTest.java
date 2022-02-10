@@ -8,6 +8,7 @@ import au.csiro.redmatch.client.RedcapClient;
 import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Row;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.FileUtils;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import ca.uhn.fhir.context.FhirContext;
@@ -19,7 +20,6 @@ import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,12 +42,11 @@ public class FhirExporterTest {
 
   private static final Gson gson = new Gson();
 
+  private final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
+
   @BeforeAll
-  private static void init() throws IOException {
-    validator = new RedmatchGrammarValidator(gson, ctx);
-    validator.setFhirPackage("hl7.fhir.r4.core");
-    validator.setFhirPackageVersion("4.0.1");
-    validator.init();
+  private static void init() {
+    validator = new RedmatchGrammarValidator(gson, ctx, new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1"));
     helper = new HapiReflectionHelper(ctx);
     helper.init();
   }
@@ -57,7 +56,7 @@ public class FhirExporterTest {
     log.info("Running testRepeatableInstruments");
     String document = FileUtils.loadTextFileFromClassPath("testRepeatableInstruments.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -76,7 +75,7 @@ public class FhirExporterTest {
     log.info("Running testTutorialCondition");
     String document = FileUtils.loadTextFileFromClassPath("testTutorialCondition.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -95,7 +94,7 @@ public class FhirExporterTest {
     log.info("Running testAssignments");
     String document = FileUtils.loadTextFileFromClassPath("testAssignments.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);

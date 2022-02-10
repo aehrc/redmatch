@@ -8,6 +8,11 @@ import au.csiro.redmatch.model.VersionedFhirPackage;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
@@ -16,12 +21,17 @@ import org.hl7.fhir.r4.model.ElementDefinition.TypeRefComponent;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Creates a code system from the FHIR metadata that can be used for validation and searching.
@@ -54,18 +64,18 @@ public class RedmatchGrammarCodeSystemGenerator {
    * @throws IOException If there are issues reading the files.
    */
   public CodeSystem createCodeSystem(VersionedFhirPackage fhirPackage) throws IOException {
-    getStructureDefinitions(fhirPackage).forEach(e -> {
-      structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
-      structureDefinitionsMapByUrl.put(e.getUrl(), e);
-    });
 
-    for(VersionedFhirPackage dependantFhirPackage : getDependencies(fhirPackage)) {
-      getStructureDefinitions(dependantFhirPackage).forEach(e -> {
+    // Create a set with all the FHIR packages required
+    Set<VersionedFhirPackage> packages = new HashSet<>();
+    packages.add(fhirPackage);
+    packages.addAll(getDependencies(fhirPackage));
+
+    for(VersionedFhirPackage pack : packages) {
+      getStructureDefinitions(pack).forEach(e -> {
         structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
         structureDefinitionsMapByUrl.put(e.getUrl(), e);
       });
     }
-
 
     Set<StructureDefinition> complexTypes = structureDefinitionsMapByCode.values().stream().filter(e ->
       e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.SPECIALIZATION)
@@ -73,7 +83,6 @@ public class RedmatchGrammarCodeSystemGenerator {
     ).collect(Collectors.toSet());
 
     log.info("Found " + complexTypes.size() + " complex types");
-
 
     Set<StructureDefinition> resourceProfiles = structureDefinitionsMapByCode.values().stream().filter(e ->
       e.hasDerivation() && e.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT)
@@ -190,17 +199,11 @@ public class RedmatchGrammarCodeSystemGenerator {
   }
 
   private Set<VersionedFhirPackage> getDependencies(VersionedFhirPackage fhirPackage) throws IOException {
-    File mainPackageFile = Paths.get(
-      System.getProperty("user.home"),
-      ".fhir",
-      "packages",
-      fhirPackage.toString(),
-      "package",
-      "package.json"
-    ).toFile();
+    File mainPackageFile = getFolderForFhirPackage(fhirPackage).resolve("package.json").toFile();
 
     if (!mainPackageFile.exists()) {
-      throw new FileNotFoundException("Package file " + mainPackageFile + " could not be found.");
+      log.debug("Package is not available locally, so will try to install");
+      installPackage(fhirPackage);
     }
     if (!mainPackageFile.canRead()) {
       throw new IOException("Package file " + mainPackageFile + " could not be read.");
@@ -373,11 +376,6 @@ public class RedmatchGrammarCodeSystemGenerator {
       log.warn("Path " + path + " has more than one profile: " + typeProfiles);
     }
 
-    // Special case: un-profiled extensions recurse forever
-    //if ("Extension".equals(typeCode) && typeProfiles.isEmpty()) {
-    //  return;
-    //}
-
     // Create code in code system
     String code = prefix + (nested ? "." : "") +  path;
 
@@ -419,9 +417,18 @@ public class RedmatchGrammarCodeSystemGenerator {
 
     if ("Reference".equals(typeCode)) {
       for (CanonicalType targetProfile : typeRefComponent.getTargetProfile()) {
-        cdc.addProperty()
-          .setCode("targetProfile")
-          .setValue(new StringType(targetProfile.getValueAsString()));
+        String targetProfileUrl = targetProfile.getValueAsString();
+        StructureDefinition targetStructureDefinition = structureDefinitionsMapByUrl.get(targetProfileUrl);
+        if (targetStructureDefinition != null) {
+          cdc.addProperty()
+            .setCode("targetProfile")
+            .setValue(new StringType(targetStructureDefinition.getName()));
+        } else {
+          log.warn("Could not find structure definition for target profile " + targetProfileUrl);
+          cdc.addProperty()
+            .setCode("targetProfile")
+            .setValue(new StringType(targetProfileUrl));
+        }
       }
     } else {
       String newPrefix = null;
@@ -482,9 +489,11 @@ public class RedmatchGrammarCodeSystemGenerator {
     if (isProfile(structureDefinition)) {
       int index = path.indexOf('.');
       if (index == -1) {
-        path = structureDefinition.getId().replace("StructureDefinition/", "");
+        //path = structureDefinition.getId().replace("StructureDefinition/", "");
+        path = structureDefinition.getName();
       } else {
-        path = structureDefinition.getId().replace("StructureDefinition/", "") + path.substring(index);
+        //path = structureDefinition.getId().replace("StructureDefinition/", "") + path.substring(index);
+        path = structureDefinition.getName() + path.substring(index);
       }
     }
 
@@ -601,6 +610,59 @@ public class RedmatchGrammarCodeSystemGenerator {
       return s;
     }
     return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+  }
+
+  /**
+   * Attempts to download and install a FHIR package in the local machine if it doesn't exist.
+   *
+   * @param fhirPackage The FHIR package.
+   */
+  private void installPackage(VersionedFhirPackage fhirPackage) throws FhirPackageNotFoundException {
+    log.info("Installing FHIR package " + fhirPackage);
+    try {
+      URL url = new URL("https", "packages.simplifier.net", "/" + fhirPackage.getName() + "/"
+        + fhirPackage.getVersion());
+      ReadableByteChannel readableByteChannel = Channels.newChannel(url.openStream());
+
+      // Decompress in target folder
+      File outputDir = getFolderForFhirPackage(fhirPackage).toFile().getParentFile();
+      try(InputStream is = Channels.newInputStream(readableByteChannel)) {
+        try(GZIPInputStream in = new GZIPInputStream(is)) {
+          try (TarArchiveInputStream debInputStream =
+                 (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", in)) {
+            TarArchiveEntry entry;
+            while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
+              final File outputFile = new File(outputDir, entry.getName());
+              if (!entry.isDirectory()) {
+                File parentFolder = outputFile.getParentFile();
+                log.debug(String.format("Creating output file %s.%n", outputFile.getAbsolutePath()));
+                if (parentFolder.exists() || parentFolder.mkdirs()) {
+                  try (OutputStream outputFileStream = new FileOutputStream(outputFile)) {
+                    IOUtils.copy(debInputStream, outputFileStream);
+                  }
+                } else {
+                  log.warn(String.format("Skipping file %s because folders could not be created",
+                    outputFile.getAbsolutePath()));
+                }
+              }
+            }
+          }
+        }
+      }
+      log.debug("Done downloading and decompressing file");
+    } catch (MalformedURLException | FileNotFoundException e) {
+      throw new FhirPackageNotFoundException(fhirPackage, e);
+    } catch (ArchiveException | IOException e) {
+      throw new FhirPackageDownloadException(fhirPackage, e);
+    }
+  }
+
+  private Path getFolderForFhirPackage(VersionedFhirPackage fhirPackage) {
+    Path userFolder = new File(System.getProperty("user.home")).toPath();
+    Path fhirFolder = userFolder.resolve(".fhir");
+    Path packagesFolder = fhirFolder.resolve("packages");
+    Path packageFolder = packagesFolder.resolve(fhirPackage.toString());
+    return packageFolder.resolve("package");
   }
 
   public static void main (String[] args) {

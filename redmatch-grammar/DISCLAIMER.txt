@@ -1,5 +1,5 @@
 
-Lists of 67 third-party dependencies.
+Lists of 68 third-party dependencies.
      (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.4.4-SNAPSHOT - https://ontoserver.csiro.au)
      (Apache Software License 2.0) HAPI FHIR - Core Library (ca.uhn.hapi.fhir:hapi-fhir-base:4.2.0 - http://jamesagnew.github.io/hapi-fhir/)
      (Apache Software License 2.0) HAPI FHIR - Client Framework (ca.uhn.hapi.fhir:hapi-fhir-client:4.2.0 - https://hapifhir.io/hapi-deployable-pom/hapi-fhir-client)
@@ -26,6 +26,7 @@ Lists of 67 third-party dependencies.
      (Eclipse Public License 1.0) JUnit (junit:junit:4.13.1 - http://junit.org)
      (The BSD License) ANTLR 4 Runtime (org.antlr:antlr4-runtime:4.8-1 - http://www.antlr.org/antlr4-runtime)
      (Apache License, Version 2.0) Apache Commons Collections (org.apache.commons:commons-collections4:4.4 - https://commons.apache.org/proper/commons-collections/)
+     (Apache License, Version 2.0) Apache Commons Compress (org.apache.commons:commons-compress:1.21 - https://commons.apache.org/proper/commons-compress/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.11 - https://commons.apache.org/proper/commons-lang/)
      (Apache License, Version 2.0) Apache Commons Text (org.apache.commons:commons-text:1.7 - http://commons.apache.org/proper/commons-text)
      (Apache License, Version 2.0) Apache HttpClient (org.apache.httpcomponents:httpclient:4.5.13 - http://hc.apache.org/httpcomponents-client)

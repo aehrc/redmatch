@@ -1,0 +1,16 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+TARGET: 'hl7.fhir.us.mcode#x.y.z'
+
+RULES: {
+  TRUE { 
+    USCorePatientProfile<pat>:
+      * identifier.type.text = 'Medicare Number' 
+  }
+  
+  TRUE {
+    CancerRelatedSurgicalProcedure<proc>:
+      * status = CODE(completed)
+      * subject = REF(USCorePatientProfile<pat>)
+  }
+}

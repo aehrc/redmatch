@@ -1,12 +1,14 @@
 package au.csiro.redmatch;
 
 import au.csiro.redmatch.compiler.RedmatchCompiler;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import ca.uhn.fhir.context.FhirContext;
 
 import com.google.gson.Gson;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -28,7 +30,7 @@ public class Application implements CommandLineRunner {
 
   @Bean
   public RedmatchCompiler compiler() {
-    return new RedmatchCompiler(validator, gson);
+    return new RedmatchCompiler(ctx, gson, new VersionedFhirPackage(defaultFhirPackage, defaultFhirPackageVersion));
   }
 
   @Autowired
@@ -39,6 +41,15 @@ public class Application implements CommandLineRunner {
 
   @Autowired
   private RedmatchApi api;
+
+  @Autowired
+  private FhirContext ctx;
+
+  @Value("${redmatch.fhir.package-name}")
+  private String defaultFhirPackage;
+
+  @Value("${redmatch.fhir.package-version}")
+  private String defaultFhirPackageVersion;
 
   /**
    * Main method.

@@ -5,8 +5,8 @@
 package au.csiro.redmatch.compiler;
 
 import au.csiro.redmatch.grammar.RedmatchLexer;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.FileUtils;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.antlr.v4.runtime.CharStreams;
@@ -16,10 +16,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -35,19 +33,11 @@ public class RedmatchCompilerTest {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchCompilerTest.class);
 
-  private static RedmatchGrammarValidator validator;
-
   private static final FhirContext ctx = FhirContext.forR4();
 
   private static final Gson gson = new Gson();
 
-  @BeforeAll
-  private static void initValidator() throws IOException {
-    validator = new RedmatchGrammarValidator(gson, ctx);
-    validator.setFhirPackage("hl7.fhir.r4.core");
-    validator.setFhirPackageVersion("4.0.1");
-    validator.init();
-  }
+  private final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
 
   @Test
   public void testComplexExtension() {
@@ -55,7 +45,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testComplexExtension.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -68,7 +58,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testExtension.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -81,7 +71,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testInvalidKeyword.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -94,7 +84,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testOneLiners.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -162,7 +152,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testInvalidOneLiner.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -175,7 +165,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testLoincConceptLiteral.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -191,7 +181,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testComplexCondition.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -211,7 +201,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testEvenMoreComplexCondition.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -231,7 +221,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testComplexConditionWithParenthesis.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -251,7 +241,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testInvalidField.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -264,7 +254,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testId.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -277,7 +267,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testInvalidId.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -290,7 +280,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testInvalidId2.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -303,7 +293,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testListExplicit.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -350,7 +340,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testListImplicit.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -397,7 +387,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testWrongAttribute.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -410,7 +400,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testTutorialPatient.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -464,7 +454,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testMissingResource.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -477,7 +467,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testTutorialCondition.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -583,7 +573,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testMappings.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -611,7 +601,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testMappingsMissingAlias.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -624,7 +614,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testMappingsUnnecessaryMapping.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> warnings = doc.getDiagnostics();
     printErrors(warnings);
@@ -641,7 +631,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testMappingsFieldDoesNotExist.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -658,7 +648,7 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testOldRules.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -671,7 +661,46 @@ public class RedmatchCompilerTest {
     String document = FileUtils.loadTextFileFromClassPath("testReferenceValidation.rdm");
     printTokens(document);
 
-    RedmatchCompiler compiler = new RedmatchCompiler(validator, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.stream().anyMatch(e -> e.getSeverity().equals(DiagnosticSeverity.Error)));
+  }
+
+  @Test
+  public void testTarget() {
+    log.info("Running testTarget");
+    String document = FileUtils.loadTextFileFromClassPath("testTarget.rdm");
+    printTokens(document);
+
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+  }
+
+  @Test
+  public void testInvalidTarget() {
+    log.info("Running testInvalidTarget");
+    String document = FileUtils.loadTextFileFromClassPath("testInvalidTarget.rdm");
+    printTokens(document);
+
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.stream().anyMatch(e -> e.getSeverity().equals(DiagnosticSeverity.Error)));
+  }
+
+  @Test
+  public void testTargetInvalidReference() {
+    log.info("Running testTargetInvalidReference");
+    String document = FileUtils.loadTextFileFromClassPath("testTargetInvalidReference.rdm");
+    printTokens(document);
+
+    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
