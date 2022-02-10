@@ -4,13 +4,21 @@
  */
 package au.csiro.redmatch.util;
 
-import org.hl7.fhir.r4.model.BackboneElement;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.Resource;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import ca.uhn.fhir.context.FhirContext;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.hl7.fhir.r4.model.*;
 
+import java.io.FileReader;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Miscellaneous utilities to deal with FHIR.
@@ -18,6 +26,51 @@ import java.util.*;
  * @author Alejandro Metke Jimenez
  */
 public class FhirUtils {
+
+  private static final Log log = LogFactory.getLog(FhirUtils.class);
+
+  /**
+   * Returns the structure definitions in a FHIR package.
+   *
+   * @param ctx The FHIR context.
+   * @param fhirPackage The FHIR package.
+   * @return The list of structure definitions in the package.
+   * @throws IOException If an I/O error occurs.
+   */
+  public static List<StructureDefinition> getStructureDefinitions(FhirContext ctx, VersionedFhirPackage fhirPackage)
+    throws IOException {
+    try (Stream<Path> paths = Files.walk(Paths.get(
+      System.getProperty("user.home"),
+      ".fhir",
+      "packages",
+      fhirPackage.toString(),
+      "package"
+    ))) {
+      return paths
+        .filter(Files::isRegularFile)
+        .map(Path::toFile)
+        .filter(f -> f.getName().endsWith(".json"))
+        .filter(f -> f.getName().startsWith("StructureDefinition"))
+        .filter(f -> {
+          try (FileReader reader = new FileReader(f)) {
+            StructureDefinition structureDefinition = (StructureDefinition) ctx.newJsonParser().parseResource(reader);
+            return structureDefinition.hasSnapshot();
+          } catch (Exception e) {
+            log.warn("There was a problem with " + f.getName(), e);
+            return false;
+          }
+        })
+        .map(f -> {
+          try (FileReader reader = new FileReader(f)) {
+            return (StructureDefinition) ctx.newJsonParser().parseResource(reader);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        })
+        .filter(s -> !s.getAbstract())
+        .collect(Collectors.toList());
+    }
+  }
 
   /**
    * Returns all the resources referenced by a {@link Resource}. Assumes the {@link Reference}s have the actual target

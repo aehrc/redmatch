@@ -10,7 +10,6 @@ import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.FileUtils;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
@@ -34,20 +33,17 @@ public class FhirExporterTest {
   /** Logger. */
   private static final Log log = LogFactory.getLog(FhirExporterTest.class);
 
-  private static RedmatchGrammarValidator validator;
-
   private static HapiReflectionHelper helper;
 
   private static final FhirContext ctx = FhirContext.forR4();
 
   private static final Gson gson = new Gson();
 
-  private final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
+  private static final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
 
   @BeforeAll
   private static void init() {
-    validator = new RedmatchGrammarValidator(gson, ctx, new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1"));
-    helper = new HapiReflectionHelper(ctx);
+    helper = new HapiReflectionHelper(ctx, defaultFhirPackage);
     helper.init();
   }
 

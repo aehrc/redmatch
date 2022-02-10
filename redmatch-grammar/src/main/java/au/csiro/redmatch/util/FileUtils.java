@@ -4,6 +4,7 @@
  */
 package au.csiro.redmatch.util;
 
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -11,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Scanner;
 
@@ -68,5 +70,19 @@ public class FileUtils {
   public static InputStream loadFileAsInputStream(String name) {
     ClassLoader classLoader = FileUtils.class.getClassLoader();
     return classLoader.getResourceAsStream(name);
+  }
+
+  /**
+   * Returns the local path of a FHIR package.
+   *
+   * @param fhirPackage The FHIR package.
+   * @return The local path.
+   */
+  public static Path getFolderForFhirPackage(VersionedFhirPackage fhirPackage) {
+    Path userFolder = new File(System.getProperty("user.home")).toPath();
+    Path fhirFolder = userFolder.resolve(".fhir");
+    Path packagesFolder = fhirFolder.resolve("packages");
+    Path packageFolder = packagesFolder.resolve(fhirPackage.toString());
+    return packageFolder.resolve("package");
   }
 }

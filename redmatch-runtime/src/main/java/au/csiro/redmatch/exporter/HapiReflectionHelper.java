@@ -5,34 +5,28 @@
 package au.csiro.redmatch.exporter;
 
 import au.csiro.redmatch.compiler.Attribute;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.util.FhirUtils;
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.JsonParser;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Enumeration;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.lang.reflect.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
+ * Helper class to do reflection with the FHIR HAPI API.
+ *
  * @author Alejandro Metke Jimenez
  *
  */
 @Component
 public class HapiReflectionHelper {
-  
-  /** Logger. */
-  private static final Log log = LogFactory.getLog(HapiReflectionHelper.class);
   
   public static final String FHIR_TYPES_BASE_PACKAGE = "org.hl7.fhir.r4.model";
   
@@ -49,6 +43,8 @@ public class HapiReflectionHelper {
       "throws", "transient", "true", "try", "var", "void", "volatile", "while"));
 
   private final FhirContext ctx;
+
+  private final VersionedFhirPackage defaultFhirPackage;
   
   /**
    * Sets the FHIR context.
@@ -56,8 +52,9 @@ public class HapiReflectionHelper {
    * @param ctx The FHIR context.
    */
   @Autowired
-  public HapiReflectionHelper(FhirContext ctx) {
+  public HapiReflectionHelper(FhirContext ctx, VersionedFhirPackage defaultFhirPackage) {
     this.ctx = ctx;
+    this.defaultFhirPackage = defaultFhirPackage;
   }
 
   /**
@@ -66,45 +63,27 @@ public class HapiReflectionHelper {
   @PostConstruct
   public void init() {
     // Load FHIR simple and complex types - needed to get attribute types
-    try (final InputStream in = HapiReflectionHelper.class.getClassLoader()
-        .getResourceAsStream("fhir-metadata/4.0.1/profiles-types.json")) {
+    try {
+      for (StructureDefinition structureDefinition : FhirUtils.getStructureDefinitions(ctx, defaultFhirPackage)) {
+        StructureDefinition.StructureDefinitionKind sdk = structureDefinition.getKind();
+        switch (sdk) {
+          case COMPLEXTYPE:
+            fhirComplexTypes.add(structureDefinition.getType());
+            break;
 
-      if (in == null) {
-        throw new RuntimeException("Could not load profiles-types.json");
-      }
-
-      final JsonParser parser = (JsonParser) ctx.newJsonParser();
-      final Bundle types = parser.doParseResource(Bundle.class,
-          new InputStreamReader(in, StandardCharsets.UTF_8));
-
-      for (BundleEntryComponent bec : types.getEntry()) {
-        org.hl7.fhir.r4.model.Resource r = bec.getResource();
-        if (r instanceof StructureDefinition) {
-          StructureDefinition sd = (StructureDefinition) r;
-          StructureDefinition.StructureDefinitionKind sdk = sd.getKind();
-          switch (sdk) {
-            case COMPLEXTYPE:
-              fhirComplexTypes.add(sd.getType());
-              break;
-
-            case PRIMITIVETYPE:
-              final String type = sd.getType();
-              fhirBasicTypes.add(Character.toUpperCase(type.charAt(0)) + type.substring(1));
-              break;
-            case LOGICAL:
-            case NULL:
-            case RESOURCE:
-            default:
-              break;
-          }
+          case PRIMITIVETYPE:
+            final String type = structureDefinition.getType();
+            fhirBasicTypes.add(Character.toUpperCase(type.charAt(0)) + type.substring(1));
+            break;
+          case LOGICAL:
+          case NULL:
+          case RESOURCE:
+          default:
+            break;
         }
       }
-
-      log.info("Loaded the following FHIR primitive types: " + fhirBasicTypes);
-      log.info("Loaded the following FHIR complex types: " + fhirComplexTypes);
-
     } catch (IOException e) {
-      throw new RuntimeException("There was a problem loading profiles-types.json", e);
+      throw new RuntimeException("There was a problem loading FHIR basic types.", e);
     }
   }
   

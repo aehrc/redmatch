@@ -5,6 +5,8 @@
 package au.csiro.redmatch.validation;
 
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.util.FhirUtils;
+import au.csiro.redmatch.util.FileUtils;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -25,12 +27,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -71,7 +69,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     packages.addAll(getDependencies(fhirPackage));
 
     for(VersionedFhirPackage pack : packages) {
-      getStructureDefinitions(pack).forEach(e -> {
+      FhirUtils.getStructureDefinitions(ctx, pack).forEach(e -> {
         structureDefinitionsMapByCode.put(e.getId().replace("StructureDefinition/", ""), e);
         structureDefinitionsMapByUrl.put(e.getUrl(), e);
       });
@@ -207,7 +205,7 @@ public class RedmatchGrammarCodeSystemGenerator {
   }
 
   private Set<VersionedFhirPackage> getDependencies(VersionedFhirPackage fhirPackage) throws IOException {
-    File mainPackageFile = getFolderForFhirPackage(fhirPackage).resolve("package.json").toFile();
+    File mainPackageFile = FileUtils.getFolderForFhirPackage(fhirPackage).resolve("package.json").toFile();
 
     if (!mainPackageFile.exists()) {
       log.debug("Package is not available locally, so will try to install");
@@ -230,40 +228,6 @@ public class RedmatchGrammarCodeSystemGenerator {
       }
     }
     return res;
-  }
-
-  private List<StructureDefinition> getStructureDefinitions(VersionedFhirPackage fhirPackage) throws IOException {
-    try (Stream<Path> paths = Files.walk(Paths.get(
-      System.getProperty("user.home"),
-      ".fhir",
-      "packages",
-      fhirPackage.toString(),
-      "package"
-    ))) {
-      return paths
-        .filter(Files::isRegularFile)
-        .map(Path::toFile)
-        .filter(f -> f.getName().endsWith(".json"))
-        .filter(f -> f.getName().startsWith("StructureDefinition"))
-        .filter(f -> {
-          try (FileReader reader = new FileReader(f)) {
-            StructureDefinition structureDefinition = (StructureDefinition) ctx.newJsonParser().parseResource(reader);
-            return structureDefinition.hasSnapshot();
-          } catch (Exception e) {
-            log.warn("There was a problem with " + f.getName(), e);
-            return false;
-          }
-        })
-        .map(f -> {
-          try (FileReader reader = new FileReader(f)) {
-            return (StructureDefinition) ctx.newJsonParser().parseResource(reader);
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-        })
-        .filter(s -> !s.getAbstract())
-        .collect(Collectors.toList());
-    }
   }
 
   private boolean isValueX(ElementDefinition ed) {
@@ -637,7 +601,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       ReadableByteChannel readableByteChannel = Channels.newChannel(url.openStream());
 
       // Decompress in target folder
-      File outputDir = getFolderForFhirPackage(fhirPackage).toFile().getParentFile();
+      File outputDir = FileUtils.getFolderForFhirPackage(fhirPackage).toFile().getParentFile();
       try(InputStream is = Channels.newInputStream(readableByteChannel)) {
         try(GZIPInputStream in = new GZIPInputStream(is)) {
           try (TarArchiveInputStream debInputStream =
@@ -667,14 +631,6 @@ public class RedmatchGrammarCodeSystemGenerator {
     } catch (ArchiveException | IOException e) {
       throw new FhirPackageDownloadException(fhirPackage, e);
     }
-  }
-
-  private Path getFolderForFhirPackage(VersionedFhirPackage fhirPackage) {
-    Path userFolder = new File(System.getProperty("user.home")).toPath();
-    Path fhirFolder = userFolder.resolve(".fhir");
-    Path packagesFolder = fhirFolder.resolve("packages");
-    Path packageFolder = packagesFolder.resolve(fhirPackage.toString());
-    return packageFolder.resolve("package");
   }
 
   public static void main (String[] args) {
