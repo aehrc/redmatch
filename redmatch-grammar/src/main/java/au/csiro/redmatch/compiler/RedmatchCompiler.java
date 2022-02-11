@@ -849,7 +849,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
       AttributeValue av = new AttributeValue();
-      av.setAttributes(visitAttributeInternal(res.getResourceType(), ctx.attribute(i)));
+      av.setAttributes(visitAttributeInternal(res.getResourceType(), ctx.attribute(i), var));
       av.setValue(visitValueInternal(ctx.value(i), var));
       res.getResourceAttributeValues().add(av);
     }
@@ -857,21 +857,22 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return res;
   }
 
-  private Attribute visitAttributePathInternal(AttributePathContext ctx) {
+  private Attribute visitAttributePathInternal(AttributePathContext ctx, Variables var) {
     Attribute att = new Attribute();
     att.setName(ctx.PATH().getText());
     if (ctx.INDEX() != null) {
-      att.setAttributeIndex(Integer.parseInt(ctx.INDEX().getText()));
+      String val = processFhirOrRedcapId(ctx.INDEX(), ctx.INDEX().getSymbol(), var);
+      att.setAttributeIndex(Integer.parseInt(val));
     }
     return att;
   }
 
-  private List<Attribute> visitAttributeInternal(String resourceType, AttributeContext ctx) {
+  private List<Attribute> visitAttributeInternal(String resourceType, AttributeContext ctx, Variables var) {
     final List<Attribute> res = new ArrayList<>();
     String path = resourceType;
     
     for (AttributePathContext apCtx : ctx.attributePath()) {
-      Attribute att = visitAttributePathInternal(apCtx);
+      Attribute att = visitAttributePathInternal(apCtx, var);
       res.add(att);
       
       // Validate attribute

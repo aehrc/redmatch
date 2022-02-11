@@ -136,7 +136,7 @@ mode ATTRIBUTES;
 OPEN_SQ           : '[';
 CLOSE_SQ          : ']';
 DOT               : '.';
-INDEX             : [0-9]+;
+INDEX             : REDMATCH_ID | [0-9]+;
 PATH              : LOWERCASE (LOWERCASE | UPPERCASE)*;
 ATT_WS            : [ \r\n\t]+ -> skip;
 ATTRIBUTE_END     : '=' -> popMode;
