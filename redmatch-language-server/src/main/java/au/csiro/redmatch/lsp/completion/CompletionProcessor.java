@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2018-2021, Commonwealth Scientific and Industrial Research Organisation (CSIRO) ABN 41 687 119 230.
+ * Licensed under the CSIRO Open Source Software Licence Agreement.
+ */
 package au.csiro.redmatch.lsp.completion;
 
 import au.csiro.redmatch.grammar.RedmatchLexer;
@@ -16,6 +20,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Generates auto-completions.
+ *
+ * @author Alejandro Metke-Jimenez
+ *
+ */
 public class CompletionProcessor {
 
   /** Logger. */
@@ -27,6 +37,14 @@ public class CompletionProcessor {
     this.documentService = documentService;
   }
 
+  /**
+   * Returns a list of possible auto-completions.
+   *
+   * @param url The document url.
+   * @param document The text of the document.
+   * @param position The position in the text where the autocompletion was triggered.
+   * @return A list of possible auto-completions.
+   */
   public synchronized List<CompletionItem> getCompletions(String url, String document, Position position) {
     String snippet = document.substring(0, DocumentUtils.getPosition(position, document) + 1);
     if (snippet.length() >= 6) {
@@ -40,6 +58,16 @@ public class CompletionProcessor {
 
     Token last = tokens.get(tokens.size() - 1);
     switch (last.getType()){
+      // Last token is a '{'
+      case RedmatchLexer.OPEN_CURLY:
+        // The only case when an open curly is not preceded by a colon is the case we want
+        if (tokens.size() >= 2) {
+          Token beforeCurly = tokens.get(tokens.size() - 2);
+          if (beforeCurly.getType() != RedmatchLexer.COLON) {
+            // Return all resource types if user hasn't started typing
+            return handleResource(url, null);
+          }
+        }
       case RedmatchLexer.CLOSE:
         if (tokens.size() >= 4) {
           // Look for token before close
@@ -77,6 +105,14 @@ public class CompletionProcessor {
     return Collections.emptyList();
   }
 
+  /**
+   * Handles the generation of autocompletion items for the several keywords.
+   *
+   * @param url The document url.
+   * @param beforeOpen The token before the opening parenthesis.
+   * @param idToken The id token, i.e., the text the user has started typing.
+   * @return List of possible completions.
+   */
   private List<CompletionItem> handleOpen(String url, Token beforeOpen, Token idToken) {
     String prefix = idToken != null ? idToken.getText() : null;
     switch (beforeOpen.getType()) {
@@ -114,6 +150,11 @@ public class CompletionProcessor {
           log.warn("Schema for document " + url + " was not found");
         }
     }
+    return Collections.emptyList();
+  }
+
+  private List<CompletionItem> handleResource(String url, Token resourceToken) {
+    // TODO: finish this!
     return Collections.emptyList();
   }
 

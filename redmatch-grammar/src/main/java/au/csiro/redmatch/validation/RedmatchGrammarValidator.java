@@ -5,19 +5,13 @@
 package au.csiro.redmatch.validation;
 
 import java.io.*;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import au.csiro.ontoserver.api.InternalApi;
 import au.csiro.redmatch.compiler.PathInfo;
 import au.csiro.redmatch.model.VersionedFhirPackage;
-import au.csiro.redmatch.util.DateUtils;
-import ca.uhn.fhir.context.FhirContext;
-import com.google.gson.Gson;
+import au.csiro.redmatch.terminology.TerminologyService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
@@ -34,43 +28,19 @@ public class RedmatchGrammarValidator {
   /** Logger. */
   private static final Log log = LogFactory.getLog(RedmatchGrammarValidator.class);
 
-  private static final String REDMATCH_PREFIX = "http://redmatch.";
-
   private final Pattern bracketsPattern = Pattern.compile("\\[(\\d+)]");
 
-  private final InternalApi onto;
-
-  private final RedmatchGrammarCodeSystemGenerator generator;
+  private final TerminologyService terminologyService;
 
   private final VersionedFhirPackage fhirPackage;
 
   private final static String INVALID_ATTRIBUTE_MESSAGE = "The attribute %s is not valid";
 
-  public RedmatchGrammarValidator(Gson gson, FhirContext ctx, VersionedFhirPackage fhirPackage) {
+  public RedmatchGrammarValidator(TerminologyService terminologyService, VersionedFhirPackage fhirPackage) {
     log.info("Initialising validator with FHIR package " + fhirPackage);
-    onto = new InternalApi(gson, ctx);
-    generator = new RedmatchGrammarCodeSystemGenerator(gson, ctx);
+    this.terminologyService = terminologyService;
     this.fhirPackage = fhirPackage;
-    init(fhirPackage);
-  }
-
-  private void init(VersionedFhirPackage fhirPackage) {
-    log.debug("Checking if FHIR package " + fhirPackage + " is installed");
-    try {
-      Instant start = Instant.now();
-      if (!onto.isIndexed(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion())) {
-        log.debug("Package is not indexed");
-        CodeSystem cs = generator.createCodeSystem(fhirPackage);
-        onto.indexFhirCodeSystem(cs);
-      } else {
-        log.debug("Validation code system for package " + fhirPackage + " is present");
-      }
-      Instant finish = Instant.now();
-      long timeElapsed = Duration.between(start, finish).toMillis();
-      log.info("Finished checking in: " + DateUtils.prettyPrintMillis(timeElapsed));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    terminologyService.addPackage(fhirPackage);
   }
 
   /**
@@ -142,7 +112,7 @@ public class RedmatchGrammarValidator {
     Boolean res = null;
 
     try {
-      Parameters out = onto.validateCode(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), code, null);
+      Parameters out = terminologyService.validate(fhirPackage, code);
       for (ParametersParameterComponent param : out.getParameter()) {
         if (param.getName().equals("result")) {
           res = ((BooleanType) param.getValue()).getValue();
@@ -291,8 +261,7 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), first,
-            Arrays.asList("min", "max", "type", "targetProfile"));
+          Parameters out = terminologyService.lookup(fhirPackage, first);
           return getPathInfo(path, out);
         } else {
 
@@ -303,13 +272,11 @@ public class RedmatchGrammarValidator {
             return handleExtensionUrl(path);
           }
 
-          Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), last,
-            Arrays.asList("min", "max", "type", "targetProfile"));
+          Parameters out = terminologyService.lookup(fhirPackage, last);
           return getPathInfo(path, out);
         }
       } else {
-        Parameters out = onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path,
-          Arrays.asList("min", "max", "type", "targetProfile"));
+        Parameters out = terminologyService.lookup(fhirPackage, path);
         return getPathInfo(path, out);
       }
     } catch (IOException e) {

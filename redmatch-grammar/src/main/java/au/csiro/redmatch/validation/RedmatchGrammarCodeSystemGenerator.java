@@ -145,6 +145,11 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDescription("Indicates if this concept represents a resource or profile.")
       .setType(PropertyType.BOOLEAN);
     cs.addProperty()
+      .setCode("parentResource")
+      .setDescription("If this concept represents an attribute then this property represents the resource or profile" +
+        "that contains the attribute.")
+      .setType(PropertyType.CODE);
+    cs.addProperty()
       .setCode("min")
       .setDescription("Minimum cardinality")
       .setType(PropertyType.INTEGER);
@@ -167,6 +172,14 @@ public class RedmatchGrammarCodeSystemGenerator {
     cs.addFilter()
       .setCode("deprecated")
       .setValue("True or false.")
+      .addOperator(FilterOperator.EQUAL);
+    cs.addFilter()
+      .setCode("resource")
+      .setValue("True or false.")
+      .addOperator(FilterOperator.EQUAL);
+    cs.addFilter()
+      .setCode("parentResource")
+      .setValue("The parent resource code.")
       .addOperator(FilterOperator.EQUAL);
 
     // Create root concept
@@ -366,6 +379,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     if (fullParent != null && !fullParent.isEmpty()) {
       cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(fullParent)));
       cdc.addProperty().setCode("resource").setValue(new BooleanType(false));
+      cdc.addProperty().setCode("parentResource").setValue(new CodeType(getResource(fullParent)));
     } else {
       if (isComplexType(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("ComplexType"));
@@ -515,6 +529,10 @@ public class RedmatchGrammarCodeSystemGenerator {
 
   private String removeAllBrackets (String s) {
     return s.replace("[]", "");
+  }
+
+  private String getResource (String s) {
+    return s.split("[.]")[0];
   }
 
   private void addSynonyms (String code, int start, ConceptDefinitionComponent cdc) {

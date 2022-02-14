@@ -9,6 +9,7 @@ import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exporter.GraphExporterService;
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
@@ -41,7 +42,8 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     Gson gson = new Gson();
     // TODO: would be good to allow users to set the default FHIR package through configuration options
     VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
-    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    TerminologyService terminologyService = new TerminologyService(ctx, gson);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage);
     reflectionHelper.init();
     GraphExporterService graphExporterService = new GraphExporterService();

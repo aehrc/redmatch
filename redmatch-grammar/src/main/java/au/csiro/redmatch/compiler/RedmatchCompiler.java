@@ -20,13 +20,13 @@ import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.ReplacementSuggestion;
 import au.csiro.redmatch.model.LabeledField;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.GraphUtils;
 import au.csiro.redmatch.util.StringUtils;
 import au.csiro.redmatch.validation.FhirPackageDownloadException;
 import au.csiro.redmatch.validation.FhirPackageNotFoundException;
 import au.csiro.redmatch.validation.RedmatchGrammarValidator;
 import au.csiro.redmatch.validation.ValidationResult;
-import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -132,14 +132,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   private final List<Diagnostic> diagnostics = new ArrayList<>();
 
   /**
-   * Reference to the FHIR context instance.
-   */
-  private final FhirContext fhirContext;
-
-  /**
    * Reference to the only Gson instance, in case the schema is in JSON format.
    */
   private final Gson gson;
+
+  /**
+   * The terminology service.
+   */
+  private final TerminologyService terminologyService;
 
   /**
    * The base folder where the input files are contained. Can be null if the compiler is used in a server environment.
@@ -151,14 +151,16 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    */
   private RedmatchGrammarValidator validator;
 
+
+
   private final VersionedFhirPackage defaultFhirPackage;
 
   /**
    * Constructor.
    */
-  public RedmatchCompiler(FhirContext fhirContext, Gson gson, VersionedFhirPackage defaultFhirPackage) {
-    this.fhirContext = fhirContext;
+  public RedmatchCompiler(Gson gson, TerminologyService terminologyService, VersionedFhirPackage defaultFhirPackage) {
     this.gson = gson;
+    this.terminologyService = terminologyService;
     this.defaultFhirPackage = defaultFhirPackage;
   }
 
@@ -343,10 +345,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       VersionedFhirPackage fhirPackage = res.getFhirPackage();
       if (fhirPackage != null) {
         // If a FHIR package was set then create a validator using that package
-        this.validator = new RedmatchGrammarValidator(gson, fhirContext, fhirPackage);
+        this.validator = new RedmatchGrammarValidator(terminologyService, fhirPackage);
       } else {
         // Otherwise, use the standard FHIR package
-        this.validator = new RedmatchGrammarValidator(gson, fhirContext, defaultFhirPackage);
+        this.validator = new RedmatchGrammarValidator(terminologyService, defaultFhirPackage);
       }
     } catch (FhirPackageNotFoundException e) {
       this.diagnostics.add(getDiagnosticFromContext(ctx,

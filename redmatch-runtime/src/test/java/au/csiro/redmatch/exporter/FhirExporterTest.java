@@ -9,6 +9,7 @@ import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.FileUtils;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
@@ -41,6 +42,8 @@ public class FhirExporterTest {
 
   private static final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
 
+  private static final TerminologyService terminologyService = new TerminologyService(ctx, gson);
+
   @BeforeAll
   private static void init() {
     helper = new HapiReflectionHelper(ctx, defaultFhirPackage);
@@ -52,7 +55,7 @@ public class FhirExporterTest {
     log.info("Running testRepeatableInstruments");
     String document = FileUtils.loadTextFileFromClassPath("testRepeatableInstruments.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -71,7 +74,7 @@ public class FhirExporterTest {
     log.info("Running testTutorialCondition");
     String document = FileUtils.loadTextFileFromClassPath("testTutorialCondition.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);
@@ -90,7 +93,7 @@ public class FhirExporterTest {
     log.info("Running testAssignments");
     String document = FileUtils.loadTextFileFromClassPath("testAssignments.rdm");
 
-    RedmatchCompiler compiler = new RedmatchCompiler(ctx, gson, defaultFhirPackage);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
     Document doc = compiler.compile(document);
     List<Diagnostic> errors = doc.getDiagnostics();
     printErrors(errors);

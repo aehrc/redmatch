@@ -2,7 +2,7 @@ package au.csiro.redmatch;
 
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.model.VersionedFhirPackage;
-import au.csiro.redmatch.validation.RedmatchGrammarValidator;
+import au.csiro.redmatch.terminology.TerminologyService;
 import ca.uhn.fhir.context.FhirContext;
 
 import com.google.gson.Gson;
@@ -29,12 +29,15 @@ public class Application implements CommandLineRunner {
   }
 
   @Bean
-  public RedmatchCompiler compiler() {
-    return new RedmatchCompiler(ctx, gson, new VersionedFhirPackage(defaultFhirPackage, defaultFhirPackageVersion));
+  public TerminologyService terminologyService() {
+    return new TerminologyService(ctx, gson);
   }
 
-  @Autowired
-  private RedmatchGrammarValidator validator;
+  @Bean
+  public RedmatchCompiler compiler() {
+    return new RedmatchCompiler(gson, terminologyService,
+      new VersionedFhirPackage(defaultFhirPackage, defaultFhirPackageVersion));
+  }
 
   @Autowired
   private Gson gson;
@@ -44,6 +47,9 @@ public class Application implements CommandLineRunner {
 
   @Autowired
   private FhirContext ctx;
+
+  @Autowired
+  private TerminologyService terminologyService;
 
   @Value("${redmatch.fhir.package-name}")
   private String defaultFhirPackage;

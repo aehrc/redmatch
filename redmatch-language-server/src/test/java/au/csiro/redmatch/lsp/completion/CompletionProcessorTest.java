@@ -68,4 +68,72 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("pat_sex___2")));
   }
 
+  //@Test
+  public void testCompletionsFhirResource() {
+    RedmatchLanguageServer server = new RedmatchLanguageServer();
+    server.connect(mockClient);
+    String schemaString = FileUtils.loadTextFileFromClassPath("simple_schema.json");
+    RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
+    server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
+
+    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService());
+    String uri = "1";
+    String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { ";
+    Position position = new Position(0, 52);
+    List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
+    assertEquals(198, completions.size());
+
+    documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Obs ";
+    position = new Position(0, 56);
+    completions = completionProcessor.getCompletions(uri, documentString, position);
+    assertEquals(15, completions.size());
+
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("ObservationDefinition")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bmi")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodyheight")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodytemp")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodyweight")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bp")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation-genetics")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-headcircum")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-heartrate")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-oxygensat")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-resprate")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-vitalspanel")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Device Metric Observation Profile")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-vitalsigns")));
+  }
+
+  //@Test
+  public void testCompletionsFhirAttribute() {
+    RedmatchLanguageServer server = new RedmatchLanguageServer();
+    server.connect(mockClient);
+    String schemaString = FileUtils.loadTextFileFromClassPath("simple_schema.json");
+    RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
+    server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
+
+    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService());
+    String uri = "1";
+    String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Observation<sex>: * ";
+
+    Position position = new Position(0, 72);
+    List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
+    assertEquals(497, completions.size());
+
+    documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Observation<sex>: * code.co ";
+    position = new Position(0, 80);
+    completions = completionProcessor.getCompletions(uri, documentString, position);
+    assertEquals(8, completions.size());
+
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.id")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.code")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.system")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.display")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.version")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.extension")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.userSelected")));
+  }
+
 }
