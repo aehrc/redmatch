@@ -73,7 +73,7 @@
     <dependency>
       <groupId>au.csiro</groupId>
       <artifactId>onto-library</artifactId>
-      <version>6.4.4-SNAPSHOT</version>
+      <version>6.5.4-SNAPSHOT</version>
     </dependency>
     <!-- Required by Ontoserver. -->
     <dependency>
