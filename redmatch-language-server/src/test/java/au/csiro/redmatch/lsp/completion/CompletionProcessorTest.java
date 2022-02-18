@@ -88,6 +88,9 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { ";
     Position position = new Position(0, 52);
     List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
+    for (CompletionItem completionItem : completions) {
+      System.out.println(completionItem.getLabel());
+    }
     assertEquals(198, completions.size());
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Obs ";
