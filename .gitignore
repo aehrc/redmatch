@@ -39,3 +39,4 @@ generated
 /redmatch-grammar/gen/
 /redmatch-grammar/src/main/resources/redmatch-fhir-complex-types.json
 /redmatch-grammar/src/main/resources/redmatch-fhir-resources.json
+/redmatch-grammar/src/main/antlr4/au/csiro/redmatch/grammar/gen/

@@ -4,13 +4,13 @@ TARGET: 'hl7.fhir.us.mcode#2.0.0'
 
 RULES: {
   TRUE { 
-    USCorePatientProfile<pat>:
+    us-core-patient<pat>:
       * identifier.type.text = 'Medicare Number' 
   }
   
   TRUE {
-    CancerRelatedSurgicalProcedure<proc>:
+    mcode-cancer-related-surgical-procedure<proc>:
       * status = CODE(completed)
-      * subject = REF(USCorePatientProfile<pat>)
+      * subject = REF(us-core-patient<pat>)
   }
 }

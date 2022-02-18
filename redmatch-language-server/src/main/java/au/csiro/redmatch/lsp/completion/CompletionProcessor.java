@@ -202,7 +202,7 @@ public class CompletionProcessor {
     Token beforeLast = tokens.get(tokens.size() - 2);
     Token beforeBeforeLast = tokens.get(tokens.size() - 3);
 
-    if (last.getType() == RedmatchLexer.RESOURCE && beforeLast.getType() == RedmatchLexer.OPEN_CURLY &&
+    if (last.getType() == RedmatchLexer.ID && beforeLast.getType() == RedmatchLexer.OPEN_CURLY &&
       beforeBeforeLast.getType() != RedmatchLexer.COLON) {
       return handleResource(url, last.getText());
     } else if (last.getType() == RedmatchLexer.OPEN_CURLY && beforeLast.getType() != RedmatchLexer.COLON) {

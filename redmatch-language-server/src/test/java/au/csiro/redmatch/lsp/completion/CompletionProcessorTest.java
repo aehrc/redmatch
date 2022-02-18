@@ -91,28 +91,16 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     for (CompletionItem completionItem : completions) {
       System.out.println(completionItem.getLabel());
     }
-    assertEquals(198, completions.size());
+    assertEquals(189, completions.size());
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Obs ";
     position = new Position(0, 56);
     completions = completionProcessor.getCompletions(uri, documentString, position);
-    assertEquals(15, completions.size());
+    assertEquals(3, completions.size());
 
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation")));
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("ObservationDefinition")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bmi")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodyheight")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodytemp")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bodyweight")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-bp")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation-genetics")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-headcircum")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-heartrate")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-oxygensat")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-resprate")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-vitalspanel")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Device Metric Observation Profile")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-vitalsigns")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-genetics")));
   }
 
   //@Test

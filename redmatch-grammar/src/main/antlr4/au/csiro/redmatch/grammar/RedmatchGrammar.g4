@@ -44,7 +44,7 @@ fcBody
     ;
     
 repeatsClause
-    : REPEAT OPEN NUMBER DOTDOT NUMBER COLON ID CLOSE
+    : REPEAT R_OPEN R_NUMBER DOTDOT R_NUMBER R_COLON ID CLOSE
     ;
 
 condition
@@ -58,7 +58,7 @@ condition
     ;
 
 resource
-    : RESOURCE LT ID GT COLON attribute value (attribute value)*
+    : ID LT ID GT COLON attribute value (attribute value)*
     ;
   
 attribute
@@ -81,7 +81,7 @@ value
     ;
 
 reference
-    : REF OPEN RESOURCE LT ID GT CLOSE
+    : REF OPEN ID LT ID GT CLOSE
     ;
 
 mappings

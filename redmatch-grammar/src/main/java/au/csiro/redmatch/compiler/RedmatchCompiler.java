@@ -637,8 +637,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   }
 
   private RepeatsClause visitRepeatsClauseInternal(RepeatsClauseContext ctx) {
-    int start = Integer.parseInt(ctx.NUMBER(0).getText());
-    int end = Integer.parseInt(ctx.NUMBER(1).getText());
+    int start = Integer.parseInt(ctx.R_NUMBER(0).getText());
+    int end = Integer.parseInt(ctx.R_NUMBER(1).getText());
     final String varName = ctx.ID().getText();
     return new RepeatsClause(start, end, varName);
   }
@@ -835,18 +835,20 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       return res;
     }
 
+    String resourceType = ctx.ID().get(0).getText();
+
     // Validate resource name
-    ValidationResult vr = validator.validateResourceName(ctx.RESOURCE().getText());
+    ValidationResult vr = validator.validateResourceName(resourceType);
     if (!vr.getResult()) {
       for (String msg : vr.getMessages()) {
         this.diagnostics.add(getDiagnosticFromContext(ctx, msg, DiagnosticSeverity.Error,
           CODE_INVALID_FHIR_RESOURCE.toString()));
       }
     }
+    res.setResourceType(resourceType);
 
-    res.setResourceType(ctx.RESOURCE().getText());
-    
-    String resourceId = processFhirId(ctx.ID(), ctx.ID().getSymbol(), var);
+    TerminalNode resourceIdNode = ctx.ID().get(1);
+    String resourceId = processFhirId(resourceIdNode, resourceIdNode.getSymbol(), var);
     res.setResourceId(resourceId);
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
@@ -1227,7 +1229,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * Example: REF(Patient<p>)
    */
   private Value visitReferenceInternal(ReferenceContext ctx, Variables var) {
-    final String resType = ctx.RESOURCE().getText();
+    final String resType = ctx.ID(0).getText();
     
     // Validate reference based on target profiles
     final List<String> tgtProfiles = lastInfo.getTargetProfiles();
@@ -1254,7 +1256,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     
     final ReferenceValue res = new ReferenceValue();
     res.setResourceType(resType);
-    String id = processFhirId(ctx.ID(), ctx.ID().getSymbol(), var);
+    String id = processFhirId(ctx.ID(1), ctx.ID(1).getSymbol(), var);
     res.setResourceId(id);
     
     return res;

@@ -11,7 +11,7 @@ SERVER               : 'SERVER';
 RULES                : 'RULES';
 MAPPINGS             : 'MAPPINGS';
 ELSE                 : 'ELSE';
-REPEAT               : 'REPEAT' ;
+REPEAT               : 'REPEAT' -> pushMode(REPEAT_MODE);
 OPEN                 : '(';
 CLOSE                : ')';
 NOT                  : '^';
@@ -38,7 +38,6 @@ REF                  : 'REF';
 CLOSE_CURLY          : '}';
 OPEN_CURLY           : '{';
 OPEN_CURLY_DOLLAR    : '${';
-DOTDOT               : '..';
 COLON                : ':';
 COMMA                : ',';
 SEMICOLON            : ';';
@@ -55,19 +54,24 @@ SCHEMA_TYPE
     ;
 
 // A FHIR resource identifier.
-RESOURCE
-    : UPPERCASE (LOWERCASE | UPPERCASE)*
-    ;
+//RESOURCE
+//    : (LOWERCASE | UPPERCASE | DIGIT | '-' | '.')+
+//    ;
 
 ALIAS
     : DOLLAR UPPERCASE*
+    ;
+
+
+NUMBER
+    : DIGIT+('.' DIGIT+)?
     ;
 
 // An identifier of a REDCap form, a FHIR resource created in the rules or a Redmatch variable. Can 
 // include a reference to a Redmatch variable anywhere, except on the first character and when a
 // Redmatch variable is being defined.
 ID
-    : LOWERCASE (REDMATCH_ID | LOWERCASE | UPPERCASE | DIGIT | '_'  | '-')*
+    : (REDMATCH_ID | LOWERCASE | UPPERCASE | DIGIT | '_'  | '-' | '.')+
     ;
 
 // A reference to a Redmatch variable
@@ -77,10 +81,6 @@ REDMATCH_ID
 
 STRING
     : '\'' (ESC | .)*? '\''
-    ;
-
-NUMBER
-    : DIGIT+('.' DIGIT+)?
     ;
 
 COMMENT
@@ -154,5 +154,12 @@ CL_SEMICOLON : SEMICOLON -> popMode;
 
 mode CODE_MODE;
 
-C_OPEN: OPEN;
-C_ID : ~([ \r\n\t] | '(' | ')') ~([ \r\n\t] |'(' | ')')* -> popMode;
+C_OPEN : OPEN;
+C_ID   : ~([ \r\n\t] | '(' | ')') ~([ \r\n\t] |'(' | ')')* -> popMode;
+
+mode REPEAT_MODE;
+
+R_OPEN   : OPEN;
+R_NUMBER : NUMBER;
+DOTDOT   : '..';
+R_COLON  : COLON -> popMode;
