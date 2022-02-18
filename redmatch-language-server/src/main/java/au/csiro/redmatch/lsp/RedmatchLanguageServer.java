@@ -48,7 +48,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     reflectionHelper.init();
     GraphExporterService graphExporterService = new GraphExporterService();
     api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService);
-    textDocumentService = new RedmatchTextDocumentService(this);
+    textDocumentService = new RedmatchTextDocumentService(this, terminologyService);
     workspaceService = new RedmatchWorkspaceService(this);
   }
 

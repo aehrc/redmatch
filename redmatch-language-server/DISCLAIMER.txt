@@ -1,5 +1,5 @@
 
-Lists of 79 third-party dependencies.
+Lists of 81 third-party dependencies.
      (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.4.4-SNAPSHOT - https://ontoserver.csiro.au)
      (CSIRO Open Source Software Licence Agreement) Redmatch Grammar (au.csiro:redmatch-grammar:2.3.0 - https://github.com/aehrc/redmatch/redmatch-grammar)
      (CSIRO Open Source Software Licence Agreement) Redmatch Runtime (au.csiro:redmatch-runtime:2.3.0 - https://github.com/aehrc/redmatch/redmatch-runtime)
@@ -41,6 +41,8 @@ Lists of 79 third-party dependencies.
      (Apache License, Version 2.0) Apache Log4j to SLF4J Adapter (org.apache.logging.log4j:log4j-to-slf4j:2.13.3 - https://logging.apache.org/log4j/2.x/log4j-to-slf4j/)
      (Apache 2) Lucene Common Analyzers (org.apache.lucene:lucene-analyzers-common:8.3.1 - https://lucene.apache.org/lucene-parent/lucene-analyzers-common)
      (Apache 2) Lucene Core (org.apache.lucene:lucene-core:8.3.1 - https://lucene.apache.org/lucene-parent/lucene-core)
+     (Apache 2) Lucene Join (org.apache.lucene:lucene-join:8.3.1 - https://lucene.apache.org/lucene-parent/lucene-join)
+     (Apache 2) Lucene Queries (org.apache.lucene:lucene-queries:8.3.1 - https://lucene.apache.org/lucene-parent/lucene-queries)
      (The Apache License, Version 2.0) org.apiguardian:apiguardian-api (org.apiguardian:apiguardian-api:1.1.0 - https://github.com/apiguardian-team/apiguardian)
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:2.8.1 - https://checkerframework.org)
      (MIT license) Animal Sniffer Annotations (org.codehaus.mojo:animal-sniffer-annotations:1.17 - http://www.mojohaus.org/animal-sniffer/animal-sniffer-annotations)

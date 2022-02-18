@@ -7,7 +7,10 @@ package au.csiro.redmatch.lsp.completion;
 import au.csiro.redmatch.importer.RedcapJsonImporter;
 import au.csiro.redmatch.lsp.AbstractRedmatchTest;
 import au.csiro.redmatch.lsp.RedmatchLanguageServer;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.FileUtils;
+import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class CompletionProcessorTest extends AbstractRedmatchTest {
 
   private static final Gson gson = new Gson();
+  private static final TerminologyService terminologyService = new TerminologyService(FhirContext.forR4(), gson);
 
   @Test
   public void testCompletionsRedcapField() {
@@ -35,7 +39,8 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
     server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
 
-    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService());
+    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService(),
+      terminologyService);
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { VALUE(";
     Position position = new Position(0, 52);
@@ -68,15 +73,17 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("pat_sex___2")));
   }
 
-  //@Test
+  @Test
   public void testCompletionsFhirResource() {
     RedmatchLanguageServer server = new RedmatchLanguageServer();
     server.connect(mockClient);
     String schemaString = FileUtils.loadTextFileFromClassPath("simple_schema.json");
     RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
     server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
+    server.getTextDocumentService().setFhirPackage("1", new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1"));
 
-    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService());
+    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService(),
+      terminologyService);
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { ";
     Position position = new Position(0, 52);
@@ -113,7 +120,8 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
     server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
 
-    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService());
+    CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService(),
+      terminologyService);
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Observation<sex>: * ";
 

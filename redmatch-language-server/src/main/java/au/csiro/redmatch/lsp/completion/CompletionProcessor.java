@@ -7,6 +7,8 @@ package au.csiro.redmatch.lsp.completion;
 import au.csiro.redmatch.grammar.RedmatchLexer;
 import au.csiro.redmatch.lsp.RedmatchTextDocumentService;
 import au.csiro.redmatch.model.Schema;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.DocumentUtils;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Lexer;
@@ -15,9 +17,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
+import org.hl7.fhir.r4.model.ValueSet;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -32,9 +38,11 @@ public class CompletionProcessor {
   private static final Log log = LogFactory.getLog(CompletionProcessor.class);
 
   private final RedmatchTextDocumentService documentService;
+  private final TerminologyService terminologyService;
 
-  public CompletionProcessor(RedmatchTextDocumentService documentService) {
+  public CompletionProcessor(RedmatchTextDocumentService documentService, TerminologyService terminologyService) {
     this.documentService = documentService;
+    this.terminologyService = terminologyService;
   }
 
   /**
@@ -56,18 +64,38 @@ public class CompletionProcessor {
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(snippet));
     List<? extends Token> tokens = lexer.getAllTokens();
 
+    List<CompletionItem> completionItems = handleOpen(url, tokens);
+    if (!completionItems.isEmpty()) {
+      return completionItems;
+    }
+
+    completionItems = handleResource(url, tokens);
+
+    return completionItems;
+  }
+
+  /**
+   * Handles the generation of autocompletion items after the opening bracket for the following keywords:
+   *
+   * <ul>
+   *   <li>NULL</li>
+   *   <li>NOTNULL</li>
+   *   <li>VALUE</li>
+   *   <li>CONCEPT</li>
+   *   <li>CONCEPT_SELECTED</li>
+   *   <li>CODE_SELECTED</li>
+   * </ul>
+   *
+   * @param url The document url.
+   * @param tokens The list of tokens
+   * @return List of possible completions.
+   */
+  private List<CompletionItem> handleOpen(String url, List<? extends Token> tokens) {
+    Token previousToken = null;
+    Token idToken = null;
+
     Token last = tokens.get(tokens.size() - 1);
-    switch (last.getType()){
-      // Last token is a '{'
-      case RedmatchLexer.OPEN_CURLY:
-        // The only case when an open curly is not preceded by a colon is the case we want
-        if (tokens.size() >= 2) {
-          Token beforeCurly = tokens.get(tokens.size() - 2);
-          if (beforeCurly.getType() != RedmatchLexer.COLON) {
-            // Return all resource types if user hasn't started typing
-            return handleResource(url, null);
-          }
-        }
+    switch (last.getType()) {
       case RedmatchLexer.CLOSE:
         if (tokens.size() >= 4) {
           // Look for token before close
@@ -77,9 +105,13 @@ public class CompletionProcessor {
             Token beforeId = tokens.get(tokens.size() - 3);
             if (beforeId.getType() == RedmatchLexer.OPEN) {
               // Look for token before open
-              Token beforeOpen = tokens.get(tokens.size() - 4);
-              return handleOpen(url, beforeOpen, beforeClose);
+              previousToken = tokens.get(tokens.size() - 4);
+              idToken = beforeClose;
+            } else {
+              return Collections.emptyList();
             }
+          } else {
+            return Collections.emptyList();
           }
         }
         break;
@@ -89,33 +121,29 @@ public class CompletionProcessor {
           Token beforeId = tokens.get(tokens.size() - 2);
           if (beforeId.getType() == RedmatchLexer.OPEN) {
             // Look for token before open
-            Token beforeOpen = tokens.get(tokens.size() - 3);
-            return handleOpen(url, beforeOpen, tokens.get(tokens.size() - 1));
+            previousToken = tokens.get(tokens.size() - 3);
+            idToken = tokens.get(tokens.size() - 1);
+          } else {
+            return Collections.emptyList();
           }
+        } else {
+          return Collections.emptyList();
         }
         break;
       case RedmatchLexer.OPEN:
         if (tokens.size() >= 2) {
           // Look for token before open
-          Token beforeOpen = tokens.get(tokens.size() - 2);
-          return handleOpen(url, beforeOpen, null);
+          previousToken = tokens.get(tokens.size() - 2);
+        } else {
+          return Collections.emptyList();
         }
         break;
+      default:
+        return Collections.emptyList();
     }
-    return Collections.emptyList();
-  }
 
-  /**
-   * Handles the generation of autocompletion items for the several keywords.
-   *
-   * @param url The document url.
-   * @param beforeOpen The token before the opening parenthesis.
-   * @param idToken The id token, i.e., the text the user has started typing.
-   * @return List of possible completions.
-   */
-  private List<CompletionItem> handleOpen(String url, Token beforeOpen, Token idToken) {
     String prefix = idToken != null ? idToken.getText() : null;
-    switch (beforeOpen.getType()) {
+    switch (Objects.requireNonNull(previousToken).getType()) {
       case RedmatchLexer.NULL:
       case RedmatchLexer.NOTNULL:
       case RedmatchLexer.VALUE:
@@ -153,9 +181,50 @@ public class CompletionProcessor {
     return Collections.emptyList();
   }
 
-  private List<CompletionItem> handleResource(String url, Token resourceToken) {
-    // TODO: finish this!
-    return Collections.emptyList();
+  /**
+   * Handles searching for a resource name.
+   *
+   * @param url The document url. Used to get the FHIR package for that document.
+   * @param tokens The list of tokens.
+   * @return A list of potential completions.
+   */
+  private List<CompletionItem> handleResource(String url, List<? extends Token> tokens) {
+    String prefix = null;
+
+    List<CompletionItem> completionItems = new ArrayList<>();
+
+    if (tokens.size() <= 3) {
+      return completionItems;
+    }
+
+    // Determine if this is an auto-completion of a resource
+    Token last = tokens.get(tokens.size() - 1);
+    Token beforeLast = tokens.get(tokens.size() - 2);
+    Token beforeBeforeLast = tokens.get(tokens.size() - 3);
+
+    if (last.getType() == RedmatchLexer.RESOURCE && beforeLast.getType() == RedmatchLexer.OPEN_CURLY &&
+      beforeBeforeLast.getType() != RedmatchLexer.COLON) {
+      return handleResource(url, last.getText());
+    } else if (last.getType() == RedmatchLexer.OPEN_CURLY && beforeLast.getType() != RedmatchLexer.COLON) {
+      return handleResource(url, "");
+    } else {
+      return completionItems;
+    }
+  }
+
+  private List<CompletionItem> handleResource(String url, String prefix) {
+    VersionedFhirPackage fhirPackage = documentService.getFhirPackage(url);
+    try {
+      List<CompletionItem> completionItems = new ArrayList<>();
+      ValueSet expansion = terminologyService.expand(fhirPackage, prefix, true, null);
+      for (ValueSet.ValueSetExpansionContainsComponent component : expansion.getExpansion().getContains()) {
+        completionItems.add(new CompletionItem(component.getCode()));
+      }
+      return completionItems;
+    } catch (IOException e) {
+      log.error("There was a problem creating auto-completion results for document " + url + " and prefix " + prefix);
+      return Collections.emptyList();
+    }
   }
 
 }

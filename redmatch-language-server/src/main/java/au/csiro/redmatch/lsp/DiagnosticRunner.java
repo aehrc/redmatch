@@ -6,6 +6,7 @@ package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.model.Schema;
+import au.csiro.redmatch.model.VersionedFhirPackage;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
@@ -86,6 +87,12 @@ public class DiagnosticRunner {
       if (schema != null) {
         languageServer.getTextDocumentService().setSchema(uri, schema);
       }
+
+      VersionedFhirPackage fhirPackage = doc.getFhirPackage();
+      if (fhirPackage != null) {
+        languageServer.getTextDocumentService().setFhirPackage(uri, fhirPackage);
+      }
+
       return null;
     });
     Executors.newCachedThreadPool().submit(task);

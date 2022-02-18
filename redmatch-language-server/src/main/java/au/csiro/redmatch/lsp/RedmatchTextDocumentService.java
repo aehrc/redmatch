@@ -6,6 +6,8 @@ package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.lsp.completion.CompletionProcessor;
 import au.csiro.redmatch.model.Schema;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.TerminologyService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
@@ -30,11 +32,14 @@ public class RedmatchTextDocumentService implements TextDocumentService {
   private final RedmatchLanguageServer languageServer;
   private final Map<String, TextDocumentItem> openedDocuments = new ConcurrentHashMap<>();
   private final Map<String, Schema> openedSchemas = new ConcurrentHashMap<>();
+  private final Map<String, VersionedFhirPackage> openedFhirPackages = new ConcurrentHashMap<>();
   private final DiagnosticRunner diagnosticRunner;
+  private final TerminologyService terminologyService;
 
-  public RedmatchTextDocumentService(RedmatchLanguageServer languageServer) {
+  public RedmatchTextDocumentService(RedmatchLanguageServer languageServer, TerminologyService terminologyService) {
     this.languageServer = languageServer;
     this.diagnosticRunner = new DiagnosticRunner(languageServer);
+    this.terminologyService = terminologyService;
   }
 
   @Override
@@ -105,7 +110,7 @@ public class RedmatchTextDocumentService implements TextDocumentService {
       TextDocumentItem textDocumentItem = openedDocuments.get(uri);
       if (textDocumentItem != null) {
         Position position = completionParams.getPosition();
-        List<CompletionItem> result = new CompletionProcessor(this)
+        List<CompletionItem> result = new CompletionProcessor(this, terminologyService)
           .getCompletions(uri, textDocumentItem.getText(), position);
         log.info("Generated " + result.size() + " completion results");
         return Either.forLeft(result);
@@ -127,6 +132,14 @@ public class RedmatchTextDocumentService implements TextDocumentService {
 
   public synchronized void setSchema(String uri, Schema schema) {
     openedSchemas.put(uri, schema);
+  }
+
+  public synchronized VersionedFhirPackage getFhirPackage(String uri) {
+    return openedFhirPackages.get(uri);
+  }
+
+  public synchronized void setFhirPackage(String uri, VersionedFhirPackage fhirPackage) {
+    openedFhirPackages.put(uri, fhirPackage);
   }
 
 }

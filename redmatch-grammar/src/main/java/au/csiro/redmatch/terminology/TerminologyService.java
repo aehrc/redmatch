@@ -14,11 +14,14 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.ValueSet;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A service that provides terminology functionality.
@@ -80,6 +83,29 @@ public class TerminologyService {
   public Parameters lookup(VersionedFhirPackage fhirPackage, String path) throws IOException {
     return onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path,
       Arrays.asList("min", "max", "type", "targetProfile"));
+  }
+
+  public ValueSet expand(VersionedFhirPackage fhirPackage, String query, boolean isResource, String parentResource)
+    throws IOException {
+    List<ValueSet.ConceptSetFilterComponent> filters = new ArrayList<>();
+
+    if (isResource) {
+      filters.add(new ValueSet.ConceptSetFilterComponent()
+        .setProperty("resource")
+        .setOp(ValueSet.FilterOperator.EQUAL)
+        .setValue("true"));
+    } else {
+      filters.add(new ValueSet.ConceptSetFilterComponent()
+        .setProperty("resource")
+        .setOp(ValueSet.FilterOperator.EQUAL)
+        .setValue("false"));
+      filters.add(new ValueSet.ConceptSetFilterComponent()
+        .setProperty("parentResource")
+        .setOp(ValueSet.FilterOperator.EQUAL)
+        .setValue(parentResource));
+    }
+
+    return onto.expand(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), query, filters);
   }
 
 }
