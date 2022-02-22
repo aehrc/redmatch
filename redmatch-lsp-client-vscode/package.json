@@ -1,10 +1,12 @@
 {
 	"name": "redmatch-lsp-client",
+	"displayName": "Redmatch",
 	"description": "Visual Studio Code plugin for the Redmatch language.",
 	"author": "The Australian e-Health Research Centre",
 	"license": "MIT",
-	"version": "2.3.0",
+	"version": "2.3.1",
 	"publisher": "aehrc",
+	"icon": "images/redmatch-icon.png",
 	"categories": [],
 	"engines": {
 		"vscode": "^1.52.0"
