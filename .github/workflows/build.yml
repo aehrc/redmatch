@@ -61,3 +61,10 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           file_glob: true
+
+      - name: publish plugin
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+        run: npm run deploy
+        working-directory: ./redmatch-lsp-client-vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

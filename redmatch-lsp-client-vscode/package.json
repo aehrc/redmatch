@@ -68,7 +68,8 @@
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
-		"lint": "eslint ./src --ext .ts,.tsx"
+		"lint": "eslint ./src --ext .ts,.tsx",
+		"deploy": "vsce publish --yarn"
 	},
 	"dependencies": {
 		"vscode-languageclient": "^7.0.0",
