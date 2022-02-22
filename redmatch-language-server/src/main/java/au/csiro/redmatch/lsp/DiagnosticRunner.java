@@ -91,6 +91,8 @@ public class DiagnosticRunner {
       VersionedFhirPackage fhirPackage = doc.getFhirPackage();
       if (fhirPackage != null) {
         languageServer.getTextDocumentService().setFhirPackage(uri, fhirPackage);
+      } else {
+        languageServer.getTextDocumentService().setFhirPackage(uri, languageServer.getDefaultFhirPackage());
       }
 
       return null;

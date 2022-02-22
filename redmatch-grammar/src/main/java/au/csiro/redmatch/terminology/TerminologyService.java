@@ -87,25 +87,23 @@ public class TerminologyService {
 
   public ValueSet expand(VersionedFhirPackage fhirPackage, String query, boolean isResource, String parentResource)
     throws IOException {
-    List<ValueSet.ConceptSetFilterComponent> filters = new ArrayList<>();
+    ValueSet.ConceptSetFilterComponent filter = null;
 
     if (isResource) {
-      filters.add(new ValueSet.ConceptSetFilterComponent()
-        .setProperty("resource")
-        .setOp(ValueSet.FilterOperator.EQUAL)
-        .setValue("true"));
-    } else {
-      filters.add(new ValueSet.ConceptSetFilterComponent()
-        .setProperty("resource")
-        .setOp(ValueSet.FilterOperator.EQUAL)
-        .setValue("false"));
-      filters.add(new ValueSet.ConceptSetFilterComponent()
+      filter = new ValueSet.ConceptSetFilterComponent()
         .setProperty("parentResource")
         .setOp(ValueSet.FilterOperator.EQUAL)
-        .setValue(parentResource));
+        .setValue("Object");
+    } else {
+      filter = new ValueSet.ConceptSetFilterComponent()
+        .setProperty("parentResource")
+        .setOp(ValueSet.FilterOperator.EQUAL)
+        .setValue(parentResource);
+      query = parentResource + "." + query;
     }
 
-    return onto.expand(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), query, filters);
+    log.info("Expanding FHIR package " + fhirPackage + " with query " + query);
+    return onto.expand(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), query, filter);
   }
 
 }

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>au.csiro</groupId>
   <artifactId>onto-library</artifactId>
-  <version>6.5.4-SNAPSHOT</version>
+  <version>6.5.5-SNAPSHOT</version>
   <description>POM was created from install:install-file</description>
   <url>https://ontoserver.csiro.au</url>
   <licenses>

@@ -1,6 +1,6 @@
 
 Lists of 72 third-party dependencies.
-     (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.5.4-SNAPSHOT - https://ontoserver.csiro.au)
+     (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.5.5-SNAPSHOT - https://ontoserver.csiro.au)
      (CSIRO Open Source Software Licence Agreement) Redmatch Grammar (au.csiro:redmatch-grammar:2.3.0 - https://github.com/aehrc/redmatch/redmatch-grammar)
      (CSIRO Open Source Software Licence Agreement) Redmatch Runtime (au.csiro:redmatch-runtime:2.3.0 - https://github.com/aehrc/redmatch/redmatch-runtime)
      (Apache Software License 2.0) HAPI FHIR - Core Library (ca.uhn.hapi.fhir:hapi-fhir-base:4.2.0 - http://jamesagnew.github.io/hapi-fhir/)

@@ -33,6 +33,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
   private final RedmatchWorkspaceService workspaceService;
   private LanguageClient client;
   private final RedmatchApi api;
+  private VersionedFhirPackage defaultFhirPackage;
 
   /**
    * Constructor.
@@ -41,7 +42,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     FhirContext ctx = FhirContext.forR4();
     Gson gson = new Gson();
     // TODO: would be good to allow users to set the default FHIR package through configuration options
-    VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
+    defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
     TerminologyService terminologyService = new TerminologyService(ctx, gson);
     RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage);
@@ -113,6 +114,8 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
   public RedmatchApi getApi() {
     return api;
   }
+
+  public VersionedFhirPackage getDefaultFhirPackage() { return defaultFhirPackage; }
 
   private ServerCapabilities createServerCapabilities() {
     ServerCapabilities capabilities = new ServerCapabilities();

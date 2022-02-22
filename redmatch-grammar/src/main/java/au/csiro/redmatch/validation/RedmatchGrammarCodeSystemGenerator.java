@@ -141,13 +141,9 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDescription("Indicates if this concept is deprecated.")
       .setType(PropertyType.BOOLEAN);
     cs.addProperty()
-      .setCode("resource")
-      .setDescription("Indicates if this concept represents a resource or profile.")
-      .setType(PropertyType.BOOLEAN);
-    cs.addProperty()
       .setCode("parentResource")
       .setDescription("If this concept represents an attribute then this property represents the resource or profile" +
-        "that contains the attribute.")
+        "that contains the attribute. If this concepts is a profile or resource then the parent resource is Object.")
       .setType(PropertyType.CODE);
     cs.addProperty()
       .setCode("min")
@@ -174,10 +170,6 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setValue("True or false.")
       .addOperator(FilterOperator.EQUAL);
     cs.addFilter()
-      .setCode("resource")
-      .setValue("True or false.")
-      .addOperator(FilterOperator.EQUAL);
-    cs.addFilter()
       .setCode("parentResource")
       .setValue("The parent resource code.")
       .addOperator(FilterOperator.EQUAL);
@@ -188,14 +180,12 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDisplay("Object");
     objectRoot.addProperty().setCode("root").setValue(new BooleanType(true));
     objectRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
-    objectRoot.addProperty().setCode("resource").setValue(new BooleanType(false));
 
     ConceptDefinitionComponent complexTypeRoot = cs.addConcept()
       .setCode("ComplexType")
       .setDisplay("ComplexType");
     complexTypeRoot.addProperty().setCode("root").setValue(new BooleanType(false));
     complexTypeRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
-    complexTypeRoot.addProperty().setCode("resource").setValue(new BooleanType(false));
     complexTypeRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
 
     ConceptDefinitionComponent resourceRoot = cs.addConcept()
@@ -203,7 +193,6 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDisplay("Resource");
     resourceRoot.addProperty().setCode("root").setValue(new BooleanType(false));
     resourceRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
-    resourceRoot.addProperty().setCode("resource").setValue(new BooleanType(false));
     resourceRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
 
     ConceptDefinitionComponent profileRoot = cs.addConcept()
@@ -211,7 +200,6 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDisplay("Profile");
     profileRoot.addProperty().setCode("root").setValue(new BooleanType(false));
     profileRoot.addProperty().setCode("deprecated").setValue(new BooleanType(false));
-    profileRoot.addProperty().setCode("resource").setValue(new BooleanType(false));
     profileRoot.addProperty().setCode("parent").setValue(new CodeType("Object"));
 
     return cs;
@@ -378,18 +366,16 @@ public class RedmatchGrammarCodeSystemGenerator {
     cdc.addProperty().setCode("max").setValue(new StringType(elementDefinition.getMax()));
     if (fullParent != null && !fullParent.isEmpty()) {
       cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(fullParent)));
-      cdc.addProperty().setCode("resource").setValue(new BooleanType(false));
       cdc.addProperty().setCode("parentResource").setValue(new CodeType(getResource(fullParent)));
     } else {
       if (isComplexType(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("ComplexType"));
-        cdc.addProperty().setCode("resource").setValue(new BooleanType(false));
       } else if (isProfile(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Profile"));
-        cdc.addProperty().setCode("resource").setValue(new BooleanType(true));
+        cdc.addProperty().setCode("parentResource").setValue(new CodeType("Object"));
       } else {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Resource"));
-        cdc.addProperty().setCode("resource").setValue(new BooleanType(true));
+        cdc.addProperty().setCode("parentResource").setValue(new CodeType("Object"));
       }
     }
     cdc.addProperty().setCode("root").setValue(new BooleanType(false));

@@ -70,6 +70,11 @@ public class CompletionProcessor {
     }
 
     completionItems = handleResource(url, tokens);
+    if (!completionItems.isEmpty()) {
+      return completionItems;
+    }
+
+    completionItems = handleAttribute(url, tokens);
 
     return completionItems;
   }
@@ -182,15 +187,13 @@ public class CompletionProcessor {
   }
 
   /**
-   * Handles searching for a resource name.
+   * Handles searching for a FHIR resource name.
    *
    * @param url The document url. Used to get the FHIR package for that document.
    * @param tokens The list of tokens.
    * @return A list of potential completions.
    */
   private List<CompletionItem> handleResource(String url, List<? extends Token> tokens) {
-    String prefix = null;
-
     List<CompletionItem> completionItems = new ArrayList<>();
 
     if (tokens.size() <= 3) {
@@ -219,6 +222,89 @@ public class CompletionProcessor {
       ValueSet expansion = terminologyService.expand(fhirPackage, prefix, true, null);
       for (ValueSet.ValueSetExpansionContainsComponent component : expansion.getExpansion().getContains()) {
         completionItems.add(new CompletionItem(component.getCode()));
+      }
+      return completionItems;
+    } catch (IOException e) {
+      log.error("There was a problem creating auto-completion results for document " + url + " and prefix " + prefix);
+      return Collections.emptyList();
+    }
+  }
+
+  /**
+   * Handles searching for a FHIR resource attribute name.
+   *
+   * @param url The document url. Used to get the FHIR package for that document.
+   * @param tokens The list of tokens.
+   * @return A list of potential completions.
+   */
+  private List<CompletionItem> handleAttribute(String url, List<? extends Token> tokens) {
+    List<CompletionItem> completionItems = new ArrayList<>();
+
+    // Look for ATTRIBUTE_START and return if we find a token that is not one of the following: NOT, PATH, OPEN_SQ,
+    // INDEX, CLOSE_SQ or ATTRIBUTE_START
+    List<Token> attributes = new ArrayList<>();
+    int i = tokens.size() - 1;
+    outer:
+    for (; i >= 0; i--) {
+      switch(tokens.get(i).getType()) {
+        case RedmatchLexer.ATTRIBUTE_START:
+          break outer;
+        case RedmatchLexer.NOT:
+        case RedmatchLexer.PATH:
+        case RedmatchLexer.OPEN_SQ:
+        case RedmatchLexer.INDEX:
+        case RedmatchLexer.CLOSE_SQ:
+        case RedmatchLexer.DOT:
+          attributes.add(tokens.get(i));
+          break;
+        default:
+          return completionItems;
+      }
+    }
+
+    // We need to look for the resource token, because it is needed in the call to Ontoserver. This will be the second
+    // ID token after the colon, going from right to left
+    Token resourceToken = null;
+    boolean hasSeenColon = false;
+    boolean hasSeenResourceId = false;
+    outer:
+    for (; i >= 0; i--) {
+      switch(tokens.get(i).getType()) {
+        case RedmatchLexer.COLON:
+          hasSeenColon = true;
+          break;
+        case RedmatchLexer.ID:
+          if (hasSeenColon) {
+            if (hasSeenResourceId) {
+              resourceToken = tokens.get(i);
+              break outer;
+            } else {
+              hasSeenResourceId = true;
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (resourceToken == null) {
+      return completionItems;
+    }
+
+    // The attributes array contains the tokens that make up the prefix
+    StringBuilder sb = new StringBuilder();
+    for (i = attributes.size() - 1; i >= 0; i--) {
+      sb.append(attributes.get(i).getText());
+    }
+    String prefix = sb.toString();
+    VersionedFhirPackage fhirPackage = documentService.getFhirPackage(url);
+    try {
+      String parentResource = resourceToken.getText();
+      ValueSet expansion = terminologyService.expand(fhirPackage, prefix, false, parentResource);
+      for (ValueSet.ValueSetExpansionContainsComponent component : expansion.getExpansion().getContains()) {
+        String code = component.getCode().substring(parentResource.length() + 1); // +1 to account for the dot
+        completionItems.add(new CompletionItem(code));
       }
       return completionItems;
     } catch (IOException e) {

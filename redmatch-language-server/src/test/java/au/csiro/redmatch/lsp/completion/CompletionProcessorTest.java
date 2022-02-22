@@ -103,13 +103,14 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-genetics")));
   }
 
-  //@Test
+  @Test
   public void testCompletionsFhirAttribute() {
     RedmatchLanguageServer server = new RedmatchLanguageServer();
     server.connect(mockClient);
     String schemaString = FileUtils.loadTextFileFromClassPath("simple_schema.json");
     RedcapJsonImporter redcapJsonImporter = new RedcapJsonImporter(gson);
     server.getTextDocumentService().setSchema("1", redcapJsonImporter.loadSchema(schemaString));
+    server.getTextDocumentService().setFhirPackage("1", new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1"));
 
     CompletionProcessor completionProcessor = new CompletionProcessor(server.getTextDocumentService(),
       terminologyService);
@@ -125,14 +126,14 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(8, completions.size());
 
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.id")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.code")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.system")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.display")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.version")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.extension")));
-    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation.code.coding.userSelected")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.id")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.code")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.system")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.display")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.version")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.extension")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("code.coding.userSelected")));
   }
 
 }
