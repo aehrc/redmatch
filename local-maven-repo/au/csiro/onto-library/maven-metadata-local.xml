@@ -4,8 +4,8 @@
   <artifactId>onto-library</artifactId>
   <versioning>
     <versions>
-      <version>6.5.5-SNAPSHOT</version>
+      <version>6.5.8-SNAPSHOT</version>
     </versions>
-    <lastUpdated>20220221054915</lastUpdated>
+    <lastUpdated>20220223054915</lastUpdated>
   </versioning>
 </metadata>

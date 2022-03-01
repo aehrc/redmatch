@@ -1,8 +1,8 @@
 
-Lists of 81 third-party dependencies.
-     (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.5.5-SNAPSHOT - https://ontoserver.csiro.au)
-     (CSIRO Open Source Software Licence Agreement) Redmatch Grammar (au.csiro:redmatch-grammar:2.3.2 - https://github.com/aehrc/redmatch/redmatch-grammar)
-     (CSIRO Open Source Software Licence Agreement) Redmatch Runtime (au.csiro:redmatch-runtime:2.3.2 - https://github.com/aehrc/redmatch/redmatch-runtime)
+Lists of 82 third-party dependencies.
+     (CSIRO Binary Software Licence) onto-library (au.csiro:onto-library:6.5.8-SNAPSHOT - https://ontoserver.csiro.au)
+     (CSIRO Open Source Software Licence Agreement) Redmatch Grammar (au.csiro:redmatch-grammar:2.3.3 - https://github.com/aehrc/redmatch/redmatch-grammar)
+     (CSIRO Open Source Software Licence Agreement) Redmatch Runtime (au.csiro:redmatch-runtime:2.3.3 - https://github.com/aehrc/redmatch/redmatch-runtime)
      (Apache Software License 2.0) HAPI FHIR - Core Library (ca.uhn.hapi.fhir:hapi-fhir-base:4.2.0 - http://jamesagnew.github.io/hapi-fhir/)
      (Apache Software License 2.0) HAPI FHIR - Client Framework (ca.uhn.hapi.fhir:hapi-fhir-client:4.2.0 - https://hapifhir.io/hapi-deployable-pom/hapi-fhir-client)
      (Apache Software License 2.0) HAPI FHIR Structures - FHIR R4 (ca.uhn.hapi.fhir:hapi-fhir-structures-r4:4.2.0 - https://hapifhir.io/hapi-deployable-pom/hapi-fhir-structures-r4)
@@ -55,6 +55,7 @@ Lists of 81 third-party dependencies.
      (BSD 3 Clause) Ucum-java (org.fhir:ucum:1.0.2 - http://fhir.org)
      (EPL 2.0) (GPL2 w/ CPE) Jakarta Expression Language 3.0 (org.glassfish:jakarta.el:3.0.3 - https://projects.eclipse.org/projects/ee4j.el)
      (Apache License 2.0) Hibernate Validator Engine (org.hibernate.validator:hibernate-validator:6.1.7.Final - http://hibernate.org/validator/hibernate-validator)
+     (The Apache Software License, Version 2.0) javatuples (org.javatuples:javatuples:1.2 - http://www.javatuples.org)
      (Apache License, version 2.0) JBoss Logging 3 (org.jboss.logging:jboss-logging:3.4.1.Final - http://www.jboss.org)
      (Eclipse Public License (EPL) 2.0) (GNU Lesser General Public License Version 2.1, February 1999) JGraphT - Core (org.jgrapht:jgrapht-core:1.5.0 - http://www.jgrapht.org/jgrapht-core)
      (Apache License, Version 2.0) JHeaps (org.jheaps:jheaps:0.13 - http://www.jheaps.org)

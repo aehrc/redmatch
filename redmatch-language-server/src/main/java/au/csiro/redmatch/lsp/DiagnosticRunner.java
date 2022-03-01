@@ -4,6 +4,7 @@
  */
 package au.csiro.redmatch.lsp;
 
+import au.csiro.redmatch.compiler.CompilationException;
 import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.model.Schema;
 import au.csiro.redmatch.model.VersionedFhirPackage;
@@ -71,11 +72,14 @@ public class DiagnosticRunner {
 
     task = new FutureTask<>(() -> {
       log.debug("Creating new diagnostic runner");
-      Document doc = languageServer.getApi().compile(text, uri, null);
-      if (doc == null) {
-        // To handle cancellations inside compilation method
+      Document doc;
+      try {
+        doc = languageServer.getApi().compile(text, uri, null);
+      } catch (CompilationException e) {
+        // If something goes wrong then don't return any partial results because they could be wrong
         return null;
       }
+
       List<Diagnostic> diagnostics = doc.getDiagnostics();
       log.info("Compilation produced " + diagnostics.size() + " diagnostic messages");
       if (Thread.interrupted()) {

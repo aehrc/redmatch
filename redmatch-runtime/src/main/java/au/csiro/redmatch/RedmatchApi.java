@@ -99,11 +99,6 @@ public class RedmatchApi {
       long timeElapsed = Duration.between(start, finish).toMillis();
       log.info("Compilation finished in: " + DateUtils.prettyPrintMillis(timeElapsed));
       return res;
-    } catch (Throwable t) {
-      // Catch everything here because we don't want exceptions to propagate beyond this layer
-      Document res = new Document();
-      res.getDiagnostics().add(new Diagnostic(zeroZero, "Unexpected compilation issue" + t.getLocalizedMessage()));
-      return res;
     } finally {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportEnd());

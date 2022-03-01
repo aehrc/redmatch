@@ -17,10 +17,15 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.junit.Before;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,7 +45,23 @@ public class RedmatchCompilerTest {
 
   private final VersionedFhirPackage defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
 
-  private final TerminologyService terminologyService = new TerminologyService(ctx, gson);
+  private static final TerminologyService terminologyService = new TerminologyService(ctx, gson);
+
+  @BeforeAll
+  private static void init() {
+    try {
+      terminologyService.addPackage(new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1")).get();
+      terminologyService.addPackage(new VersionedFhirPackage("hl7.fhir.us.mcode", "2.0.0")).get();
+    } catch (ExecutionException | InterruptedException e) {
+      log.error(e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  @AfterAll
+  private static void cleanUp() {
+    terminologyService.shutdown();
+  }
 
   @Test
   public void testComplexExtension() {

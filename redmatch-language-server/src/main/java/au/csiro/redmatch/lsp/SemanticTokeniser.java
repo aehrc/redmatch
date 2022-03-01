@@ -26,16 +26,93 @@ public class SemanticTokeniser {
 
   /**
    * Represents a map between ANTLR tokens and semantic tokens. The index represents the ANTlR token and the value the
-   * semantic token index.
+   * semantic token index. The declared semantic token types are:
+   *
+   * <ul>
+   *   <li>keyword</li>
+   *   <li>comment</li>
+   *   <li>string</li>
+   *   <li>number</li>
+   *   <li>operator</li>
+   *   <li>property</li>
+   *   <li>class</li>
+   *   <li>variable</li>
+   * </ul>
    */
   private static final int[] map = {
-    -1, 0, 0, 0, 0, 0, 0, 0, -1, -1,
-    4, 4, 4, 4, 0, 0, 0, 0, 0, 4,
-    4, 4, 4, 4, 4, 0, 0, 0, 0, 0,
-    0, -1, -1, -1, -1, -1, -1, -1, 4, 5,
-    2, 6, 7, 7, 7, 2, 3, 1, 1, -1,
-    2, 2, 2, -1, -1, -1, 3, 5, -1, 4,
-    2, 4, -1, 2, 7, -1, -1, -1
+    -1,
+    0, // ALIASES=1
+    0, // SCHEMA=2
+    0, // SERVER=3
+    0, // RULES=4
+    0, // MAPPINGS=5
+    0, // ELSE=6
+    0, // REPEAT=7
+    -1, // OPEN=8
+    -1, // CLOSE=9
+    4, // NOT=10
+    4, // AND=11
+    4, // OR=12
+    4, // DOLLAR=13
+    0, // TRUE=14
+    0, // FALSE=15
+    0, // NULL=16
+    0, // NOTNULL=17
+    0, // VALUE=18
+    4, // EQ=19
+    4, // NEQ=20
+    4, // LT=21
+    4, // GT=22
+    4, // LTE=23
+    4, // GTE=24
+    0, // CONCEPT=25
+    0, // CONCEPT_SELECTED=26
+    0, // CONCEPT_LITERAL=27
+    0, // CODE=28
+    0, // CODE_SELECTED=29
+    0, // REF=30
+    -1, // CLOSE_CURLY=31
+    -1, // OPEN_CURLY=32
+    -1, // OPEN_CURLY_DOLLAR=33
+    -1, // COLON=34
+    -1, // COMMA=35
+    -1, // SEMICOLON=36
+    4, // MAP=37
+    5, // ATTRIBUTE_START=38
+    0, // TARGET=39
+    2, // SCHEMA_TYPE=40
+    7, // ALIAS=41
+    3, // NUMBER=42
+    7, // ID=43
+    7, // REDMATCH_ID=44
+    2, // STRING=45
+    1, // COMMENT=46
+    1, // LINE_COMMENT=47
+    -1, // WS=48
+    2, // DATE=49
+    2, // DATETIME=50
+    2, // TIME=51
+    -1, // OPEN_SQ=52
+    -1, // CLOSE_SQ=53
+    -1, // DOT=54
+    3, // INDEX=55
+    5, // PATH=56
+    -1, // ATT_WS=57
+    4, // ATTRIBUTE_END=58
+    2, // CL_STRING=59
+    4, // CL_PIPE=60
+    -1, // CL_OPEN=61
+    2, // CL_PART=62
+    7, // CL_ALIAS=63
+    -1, // CL_WS=64
+    -1, // CL_CLOSE=65
+    -1, // CL_SEMICOLON=66
+    -1, // C_OPEN=67,
+    7, // C_ID=68
+    -1, // R_OPEN=69
+    3, // R_NUMBER=70
+    -1, // DOTDOT=71
+    -1 // R_COLON=72
   };
 
   public static SemanticTokens tokenise(String text) {
@@ -92,97 +169,7 @@ public class SemanticTokeniser {
   }
 
   /**
-   * Maps the Redmatch ANTLR tokens to the semantic tokens declared in the capabilities. These are:<br>
-   *
-   * <ul>
-   *   <li>keyword</li>
-   *   <li>comment</li>
-   *   <li>string</li>
-   *   <li>number</li>
-   *   <li>operator</li>
-   *   <li>property</li>
-   *   <li>class</li>
-   *   <li>variable</li>
-   * </ul>
-   *
-   * The following table shows all the mappings:
-   *
-   * <table>
-   *   <tr>
-   * 	   <td>ANTLR Token Name</td>
-   * 	   <td>ANTLR Token Symbol</td>
-   * 	   <td>ANTLR Token Id</td>
-   * 	   <td>Semantic Token Name</td>
-   * 	   <td>Semantic Token Id</td>
-   * 	 </tr>
-   * 	 <tr><td>ALIASES</td><td>ALIASES</td><td>1</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>SCHEMA</td><td>SCHEMA</td><td>2</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>SERVER</td><td>SERVER</td><td>3</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>RULES</td><td>RULES</td><td>4</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>MAPPINGS</td><td>MAPPINGS</td><td>5</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>ELSE</td><td>ELSE</td><td>6</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>REPEAT</td><td>REPEAT</td><td>7</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>OPEN</td><td>(</td><td>8</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>CLOSE</td><td>)</td><td>9</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>NOT</td><td>^</td><td>10</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>AND</td><td>&amp;</td><td>11</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>OR</td><td>|</td><td>12</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>DOLLAR</td><td>$</td><td>13</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>TRUE</td><td>TRUE</td><td>14</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>FALSE</td><td>FALSE</td><td>15</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>NULL</td><td>NULL</td><td>16</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>NOTNULL</td><td>NOTNULL</td><td>17</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>VALUE</td><td>VALUE</td><td>18</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>EQ</td><td>=</td><td>19</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>NEQ</td><td>!=</td><td>20</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>LT</td><td>&lt;</td><td>21</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>GT</td><td>&gt;</td><td>22</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>LTE</td><td>&lt;=</td><td>23</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>GTE</td><td>&gt;=</td><td>24</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>CONCEPT</td><td>CONCEPT</td><td>25</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>CONCEPT_SELECTED</td><td>CONCEPT_SELECTED</td><td>26</td><td>keyword</td><td>0</td></tr>
-   *   <tr><td>CONCEPT_LITERAL</td><td>CONCEPT_LITERAL</td><td>27</td><td>keyword</td><td>0</td></tr>
-   *   <tr><td>CODE</td><td>CODE</td><td>28</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>CODE_SELECTED</td><td>CODE_SELECTED</td><td>29</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>REF</td><td>REF</td><td>30</td><td>keyword</td><td>0</td></tr>
-   * 	 <tr><td>CLOSE_CURLY</td><td>}</td><td>31</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>OPEN_CURLY</td><td>{</td><td>32</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>OPEN_CURLY_DOLLAR</td><td>${</td><td>33</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>DOTDOT</td><td>..</td><td>34</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>COLON</td><td>:</td><td>35</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>COMMA</td><td>,</td><td>36</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>SEMICOLON</td><td>;</td><td>37</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>MAP</td><td>-&gt;</td><td>38</td><td>operator</td><td>4</td></tr>
-   * 	 <tr><td>ATTRIBUTE_START</td><td>*</td><td>39</td><td>property</td><td>5</td></tr>
-   * 	 <tr><td>SCHEMA_TYPE</td><td></td><td>40</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>RESOURCE</td><td></td><td>41</td><td>class</td><td>6</td></tr>
-   * 	 <tr><td>ALIAS</td><td></td><td>42</td><td>variable</td><td>7</td></tr>
-   * 	 <tr><td>ID</td><td></td><td>43</td><td>variable</td><td>7</td></tr>
-   * 	 <tr><td>REDMATCH_ID</td><td></td><td>44</td><td>variable</td><td>7</td></tr>
-   * 	 <tr><td>STRING</td><td></td><td>45</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>NUMBER</td><td></td><td>46</td><td>number</td><td>3</td></tr>
-   * 	 <tr><td>COMMENT</td><td></td><td>47</td><td>comment</td><td>1</td></tr>
-   * 	 <tr><td>LINE_COMMENT</td><td></td><td>48</td><td>comment</td><td>1</td></tr>
-   * 	 <tr><td>WS</td><td></td><td>49</td><td>-</td><td>-</td></tr>
-   * 	 <tr><td>DATE</td><td></td><td>50</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>DATETIME</td><td></td><td>51</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>TIME</td><td></td><td>52</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>OPEN_SQ/td><td>[</td><td>53</td><td>-</td><td>-</td></tr>
-   *   <tr><td>CLOSE_SQ</td><td>]</td><td>54</td><td>-</td><td>-</td></tr>
-   *   <tr><td>DOT</td><td>.</td><td>55</td><td>-</td><td>-</td></tr>
-   *   <tr><td>INDEX</td><td></td><td>56</td><td>number</td><td>3</td></tr>
-   *   <tr><td>PATH</td><td></td><td>57</td><td>property</td><td>5</td></tr>
-   *   <tr><td>WHITE_SPACE</td><td></td><td>58</td><td>-</td><td>-</td></tr>
-   *   <tr><td>ATTRIBUTE_END</td><td>=</td><td>59</td><td>operator</td><td>4</td></tr>
-   *   <tr><td>CL_STRING</td><td></td><td>60</td><td>string</td><td>2</td></tr>
-   * 	 <tr><td>CL_PIPE</td><td>|</td><td>61</td><td>operator</td><td>4</td></tr>
-   *   <tr><td>CL_OPEN</td><td>(</td><td>62</td><td>-</td><td>-</td></tr>
-   *   <tr><td>CL_PART</td><td></td><td>63</td><td>string</td><td>2</td></tr>
-   *   <tr><td>CL_ALIAS</td><td></td><td>64</td><td>variable</td><td>7</td></tr>
-   *   <tr><td>CL_WS</td><td></td><td>65</td><td>-</td><td>-</td></tr>
-   *   <tr><td>CL_CLOSE</td><td>)</td><td>66</td><td>-</td><td>-</td></tr>
-   *   <tr><td>CL_SEMICOLON</td><td>;</td><td>67</td><td>-</td><td>-</td></tr>
-   * </table>
+   * Maps the Redmatch ANTLR tokens to the semantic tokens declared in the capabilities.
    *
    * @param antlrTokenType The Redmatch ANTLR token type.
    * @return The corresponding semantic token type.

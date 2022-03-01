@@ -33,7 +33,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
   private final RedmatchWorkspaceService workspaceService;
   private LanguageClient client;
   private final RedmatchApi api;
-  private VersionedFhirPackage defaultFhirPackage;
+  private final VersionedFhirPackage defaultFhirPackage;
 
   /**
    * Constructor.
@@ -44,7 +44,8 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     // TODO: would be good to allow users to set the default FHIR package through configuration options
     defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
     TerminologyService terminologyService = new TerminologyService(ctx, gson);
-    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage,
+      new LspProgressReporter(this));
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage);
     reflectionHelper.init();
     GraphExporterService graphExporterService = new GraphExporterService();
@@ -70,6 +71,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
   @Override
   public CompletableFuture<Object> shutdown() {
     log.info("Client has requested to shut down.");
+    textDocumentService.shutdown();
     return CompletableFuture.completedFuture(new Object());
   }
 

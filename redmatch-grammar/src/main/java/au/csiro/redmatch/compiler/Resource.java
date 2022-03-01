@@ -92,6 +92,8 @@ public class Resource extends GrammarObject {
     return sb.toString();
   }
 
+  public String toResourceString() { return resourceType + "<" + resourceId + ">"; }
+
   @Override
   public DataReference referencesData() {
     DataReference referencesData = DataReference.NO;

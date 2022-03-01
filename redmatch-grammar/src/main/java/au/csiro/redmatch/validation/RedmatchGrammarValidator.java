@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import au.csiro.redmatch.compiler.PathInfo;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.terminology.TerminologyService;
+import au.csiro.redmatch.util.ProgressReporter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hl7.fhir.r4.model.*;
@@ -36,11 +37,12 @@ public class RedmatchGrammarValidator {
 
   private final static String INVALID_ATTRIBUTE_MESSAGE = "The attribute %s is not valid";
 
-  public RedmatchGrammarValidator(TerminologyService terminologyService, VersionedFhirPackage fhirPackage) {
+  public RedmatchGrammarValidator(TerminologyService terminologyService, VersionedFhirPackage fhirPackage,
+                                  ProgressReporter progressReporter) {
     log.info("Initialising validator with FHIR package " + fhirPackage);
     this.terminologyService = terminologyService;
     this.fhirPackage = fhirPackage;
-    terminologyService.addPackage(fhirPackage);
+    terminologyService.addPackage(fhirPackage, progressReporter);
   }
 
   /**
@@ -49,7 +51,7 @@ public class RedmatchGrammarValidator {
    * @param resourceName The name.
    * @return The validation result.
    */
-  public ValidationResult validateResourceName(String resourceName) {
+  public ValidationResult validateResourceName(String resourceName) throws IOException {
     return validateCode(resourceName, resourceName, "%s is not a valid resource or profile name");
   }
 
@@ -60,7 +62,7 @@ public class RedmatchGrammarValidator {
    * @param path The path to validate.
    * @return A {@link ValidationResult} object with the result of the validation.
    */
-  public ValidationResult validateAttributePath (String path) {
+  public ValidationResult validateAttributePath (String path) throws IOException {
     // Remove any indexes
     String code = String.join("", bracketsPattern.split(path));
     
@@ -103,7 +105,7 @@ public class RedmatchGrammarValidator {
     }
   }
 
-  private ValidationResult validateCode(String code, String path, String message) {
+  private ValidationResult validateCode(String code, String path, String message) throws IOException {
     // Special case: codes ending with extension.url
     if (code.endsWith("extension.url")) {
       code = code.substring(0, code.length() - 4);
@@ -111,24 +113,20 @@ public class RedmatchGrammarValidator {
     
     Boolean res = null;
 
-    try {
-      Parameters out = terminologyService.validate(fhirPackage, code);
-      for (ParametersParameterComponent param : out.getParameter()) {
-        if (param.getName().equals("result")) {
-          res = ((BooleanType) param.getValue()).getValue();
-        }
+    Parameters out = terminologyService.validate(fhirPackage, code);
+    for (ParametersParameterComponent param : out.getParameter()) {
+      if (param.getName().equals("result")) {
+        res = ((BooleanType) param.getValue()).getValue();
       }
-      if (res == null) {
-        throw new RuntimeException("Unexpected response (has no 'result' out parameter).");
-      }
-      ValidationResult vr = new ValidationResult(res, code);
-      if (!res) {
-        vr.getMessages().add(String.format(message, path));
-      }
-      return vr;
-    } catch (IOException e) {
-      throw new RuntimeException("There was an issue calling Ontoserver.", e);
     }
+    if (res == null) {
+      throw new RuntimeException("Unexpected response (has no 'result' out parameter).");
+    }
+    ValidationResult vr = new ValidationResult(res, code);
+    if (!res) {
+      vr.getMessages().add(String.format(message, path));
+    }
+    return vr;
   }
   
   /**
@@ -223,7 +221,7 @@ public class RedmatchGrammarValidator {
    * @param path The path.
    * @return The properties of the path.
    */
-  public PathInfo getPathInfo(String path) {
+  public PathInfo getPathInfo(String path) throws IOException {
     if (hasExtension(path)) {
       String first = getFirstExtension(path);
       List<String> others = new ArrayList<>();
@@ -247,40 +245,36 @@ public class RedmatchGrammarValidator {
     }
   }
   
-  private PathInfo getInfo(String path) {
-    try {
-      if (hasExtension(path)) {
-        String first = getFirstExtension(path);
-        List<String> others = new ArrayList<>();
-        getOtherExtensions(path, others);
+  private PathInfo getInfo(String path) throws IOException {
+    if (hasExtension(path)) {
+      String first = getFirstExtension(path);
+      List<String> others = new ArrayList<>();
+      getOtherExtensions(path, others);
 
-        if (others.isEmpty()) {
+      if (others.isEmpty()) {
 
-          // Special case: codes ending with extension.url
-          if (first.endsWith("extension.url")) {
-            return handleExtensionUrl(path);
-          }
-
-          Parameters out = terminologyService.lookup(fhirPackage, first);
-          return getPathInfo(path, out);
-        } else {
-
-          String last = others.get(others.size() - 1);
-
-          // Special case: codes ending with extension.url
-          if (last.endsWith("extension.url")) {
-            return handleExtensionUrl(path);
-          }
-
-          Parameters out = terminologyService.lookup(fhirPackage, last);
-          return getPathInfo(path, out);
+        // Special case: codes ending with extension.url
+        if (first.endsWith("extension.url")) {
+          return handleExtensionUrl(path);
         }
+
+        Parameters out = terminologyService.lookup(fhirPackage, first);
+        return getPathInfo(path, out);
       } else {
-        Parameters out = terminologyService.lookup(fhirPackage, path);
+
+        String last = others.get(others.size() - 1);
+
+        // Special case: codes ending with extension.url
+        if (last.endsWith("extension.url")) {
+          return handleExtensionUrl(path);
+        }
+
+        Parameters out = terminologyService.lookup(fhirPackage, last);
         return getPathInfo(path, out);
       }
-    } catch (IOException e) {
-      throw new RuntimeException("There was an issue calling Ontoserver.", e);
+    } else {
+      Parameters out = terminologyService.lookup(fhirPackage, path);
+      return getPathInfo(path, out);
     }
   }
   

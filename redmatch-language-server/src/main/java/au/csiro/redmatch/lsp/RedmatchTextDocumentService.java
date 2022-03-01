@@ -104,12 +104,14 @@ public class RedmatchTextDocumentService implements TextDocumentService {
 
   @Override
   public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams completionParams) {
-    log.info("Running completions: " + completionParams);
+
+    final Position position = completionParams.getPosition();
+    final String uri = completionParams.getTextDocument().getUri();
+    log.info("Running completions for document " + uri + " at line " + position.getLine() + ", position "
+      + position.getCharacter());
     return CompletableFutures.computeAsync(cancelToken -> {
-      String uri = completionParams.getTextDocument().getUri();
       TextDocumentItem textDocumentItem = openedDocuments.get(uri);
       if (textDocumentItem != null) {
-        Position position = completionParams.getPosition();
         List<CompletionItem> result = new CompletionProcessor(this, terminologyService)
           .getCompletions(uri, textDocumentItem.getText(), position);
         log.info("Generated " + result.size() + " completion results");
@@ -140,6 +142,10 @@ public class RedmatchTextDocumentService implements TextDocumentService {
 
   public synchronized void setFhirPackage(String uri, VersionedFhirPackage fhirPackage) {
     openedFhirPackages.put(uri, fhirPackage);
+  }
+
+  public void shutdown() {
+    terminologyService.shutdown();
   }
 
 }

@@ -17,6 +17,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.Diagnostic;
 import org.hl7.fhir.r4.model.*;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +49,11 @@ public class FhirExporterTest {
   private static void init() {
     helper = new HapiReflectionHelper(ctx, defaultFhirPackage);
     helper.init();
+  }
+
+  @AfterAll
+  private static void cleanUp() {
+    terminologyService.shutdown();
   }
 
   @Test

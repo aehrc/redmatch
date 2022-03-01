@@ -54,11 +54,11 @@ public class CompletionProcessor {
    * @return A list of possible auto-completions.
    */
   public synchronized List<CompletionItem> getCompletions(String url, String document, Position position) {
-    String snippet = document.substring(0, DocumentUtils.getPosition(position, document) + 1);
+    String snippet = document.substring(0, DocumentUtils.getPosition(position, document));
     if (snippet.length() >= 6) {
-      log.info("Processing snippet ending in " + snippet.substring(snippet.length() - 6));
+      log.debug("Processing snippet ending in " + snippet.substring(snippet.length() - 6));
     } else {
-      log.info("Processing snippet " + snippet);
+      log.debug("Processing snippet " + snippet);
     }
 
     final Lexer lexer = new RedmatchLexer(CharStreams.fromString(snippet));
@@ -158,7 +158,7 @@ public class CompletionProcessor {
         // In any of these cases we return a list of fields in the schema
         Schema schema = documentService.getSchema(url);
         if (schema != null) {
-          log.info("Found cached schema for document " + url + " with " + schema.getFields().size() + " fields");
+          log.debug("Found cached schema for document " + url + " with " + schema.getFields().size() + " fields");
           if (prefix != null && !prefix.isEmpty()) {
             return documentService.getSchema(url).getFields().stream()
               .map(f -> {
@@ -217,6 +217,9 @@ public class CompletionProcessor {
 
   private List<CompletionItem> handleResource(String url, String prefix) {
     VersionedFhirPackage fhirPackage = documentService.getFhirPackage(url);
+    if (fhirPackage == null) {
+      return Collections.emptyList();
+    }
     try {
       List<CompletionItem> completionItems = new ArrayList<>();
       ValueSet expansion = terminologyService.expand(fhirPackage, prefix, true, null);
@@ -299,6 +302,9 @@ public class CompletionProcessor {
     }
     String prefix = sb.toString();
     VersionedFhirPackage fhirPackage = documentService.getFhirPackage(url);
+    if (fhirPackage == null) {
+      return Collections.emptyList();
+    }
     try {
       String parentResource = resourceToken.getText();
       ValueSet expansion = terminologyService.expand(fhirPackage, prefix, false, parentResource);

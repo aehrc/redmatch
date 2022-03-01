@@ -2,22 +2,22 @@
 <metadata modelVersion="1.1.0">
   <groupId>au.csiro</groupId>
   <artifactId>onto-library</artifactId>
-  <version>6.5.5-SNAPSHOT</version>
+  <version>6.5.8-SNAPSHOT</version>
   <versioning>
     <snapshot>
       <localCopy>true</localCopy>
     </snapshot>
-    <lastUpdated>20220221054915</lastUpdated>
+    <lastUpdated>20220223054915</lastUpdated>
     <snapshotVersions>
       <snapshotVersion>
         <extension>jar</extension>
-        <value>6.5.5-SNAPSHOT</value>
-        <updated>20220221054915</updated>
+        <value>6.5.7-SNAPSHOT</value>
+        <updated>20220223054915</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>pom</extension>
-        <value>6.5.5-SNAPSHOT</value>
-        <updated>20220221054915</updated>
+        <value>6.5.7-SNAPSHOT</value>
+        <updated>20220223054915</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>

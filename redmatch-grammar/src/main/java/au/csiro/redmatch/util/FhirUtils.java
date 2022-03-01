@@ -56,7 +56,7 @@ public class FhirUtils {
             StructureDefinition structureDefinition = (StructureDefinition) ctx.newJsonParser().parseResource(reader);
             return structureDefinition.hasSnapshot();
           } catch (Exception e) {
-            log.warn("There was a problem with " + f.getName(), e);
+            //log.warn("There was a problem with " + f.getName(), e);
             return false;
           }
         })

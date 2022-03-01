@@ -5,6 +5,7 @@
 package au.csiro.redmatch.compiler;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -22,6 +23,7 @@ import au.csiro.redmatch.model.LabeledField;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.GraphUtils;
+import au.csiro.redmatch.util.ProgressReporter;
 import au.csiro.redmatch.util.StringUtils;
 import au.csiro.redmatch.validation.FhirPackageDownloadException;
 import au.csiro.redmatch.validation.FhirPackageNotFoundException;
@@ -65,6 +67,7 @@ import au.csiro.redmatch.grammar.RedmatchGrammar.SchemaContext;
 import au.csiro.redmatch.grammar.RedmatchGrammar.ValueContext;
 import au.csiro.redmatch.grammar.RedmatchGrammarBaseVisitor;
 import au.csiro.redmatch.grammar.RedmatchLexer;
+import org.javatuples.Pair;
 
 import static au.csiro.redmatch.compiler.ErrorCodes.*;
 
@@ -151,17 +154,52 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    */
   private RedmatchGrammarValidator validator;
 
-
-
+  /**
+   * The default FHIR package to use if one is not specified in the rules.
+   */
   private final VersionedFhirPackage defaultFhirPackage;
 
   /**
+   * A set with all the names and ids, e.g., Patient&lt;p&gt;, found so far.
+   */
+  private final Set<String> existingResources = new HashSet<>();
+
+  /**
+   * The rules do not impose an order so we need to keep track of potential reference to non-existent resources and
+   * check when all rules have been processed. The context is needed to show the error in the right place.
+   */
+  private final List<Pair<String, ReferenceContext>> referencesToCheck = new ArrayList<>();
+
+  /**
+   * An object to report progress. Can be null.
+   */
+  private final ProgressReporter progressReporter;
+
+  /**
    * Constructor.
+   *
+   * @param gson The only GSON instance.
+   * @param terminologyService The only terminology service instance.
+   * @param defaultFhirPackage The default FHIR package to use if no package is specified in the rules.
    */
   public RedmatchCompiler(Gson gson, TerminologyService terminologyService, VersionedFhirPackage defaultFhirPackage) {
+    this(gson, terminologyService, defaultFhirPackage, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param gson The only GSON instance.
+   * @param terminologyService The only terminology service instance.
+   * @param defaultFhirPackage The default FHIR package to use if no package is specified in the rules.
+   * @param progressReporter An object to report progress. Can be null.
+   */
+  public RedmatchCompiler(Gson gson, TerminologyService terminologyService, VersionedFhirPackage defaultFhirPackage,
+                          ProgressReporter progressReporter) {
     this.gson = gson;
     this.terminologyService = terminologyService;
     this.defaultFhirPackage = defaultFhirPackage;
+    this.progressReporter = progressReporter;
   }
 
   /**
@@ -171,8 +209,9 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * @param document The Redmatch document.
    *
    * @return A Document object or null if there is an unrecoverable compilation problem.
+   * @throws CompilationException If something goes wrong with the compilation.
    */
-  public Document compile(File baseFolder, String document) {
+  public Document compile(File baseFolder, String document) throws CompilationException {
     clear();
 
     this.baseFolder = baseFolder;
@@ -210,8 +249,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     });
 
     if (Thread.interrupted()) {
-      log.debug("Interrupting compilation");
-      return null;
+      throw new CompilationException("The compilation was interrupted");
     }
     final DocumentContext docCtx = parser.document();
 
@@ -229,8 +267,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
 
     try {
       if (Thread.interrupted()) {
-        log.debug("Interrupting compilation");
-        return null;
+        throw new CompilationException("The compilation was interrupted");
       }
       Document doc = (Document) docCtx.accept(this);
       doc.setDiagnostics(new ArrayList<>(this.diagnostics));
@@ -238,8 +275,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       // Validate the resulting FHIR graph if there are no errors
       if (this.diagnostics.stream().noneMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
         if (Thread.interrupted()) {
-          log.debug("Interrupting compilation");
-          return null;
+          throw new CompilationException("The compilation was interrupted");
         }
         GraphUtils.Results res = GraphUtils.buildGraph(doc);
         doc.getDiagnostics().addAll(res.getDiagnostics());
@@ -248,12 +284,9 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     } catch (Throwable t) {
       // Special case: Interrupted exception wrapped in a runtime exception
       if (t.getCause() != null && t.getCause() instanceof InterruptedException) {
-        log.error("The compilation was interrupted.", t.getCause());
-        throw new CompilationException("The compilation was interrupted.", t.getCause());
-      } else {
-        log.error("There was an unexpected problem compiling the rules.", t);
-        throw new CompilationException("There was an unexpected problem compiling the rules.", t);
+        throw new CompilationException("The compilation was interrupted", t.getCause());
       }
+      throw t;
     }
   }
 
@@ -263,16 +296,19 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
    * @param document The Redmatch document.
    * 
    * @return A Document object or null if there is an unrecoverable compilation problem.
+   * @throws CompilationException If something goes wrong with the compilation.
    */
-  public synchronized Document compile(String document) {
+  public synchronized Document compile(String document) throws CompilationException {
     return this.compile(null, document);
   }
   
   /**
    * Entry point for visitor. This is the only method that should be called.
+   *
+   * @throws CompilationException If something goes wrong with the compilation.
    */
   @Override
-  public GrammarObject visitDocument(DocumentContext ctx) {
+  public GrammarObject visitDocument(DocumentContext ctx) throws CompilationException {
     final Document res = new Document();
     
     // If parsing produced errors then do not continue
@@ -340,15 +376,14 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
       }
     }
-
+    VersionedFhirPackage fhirPackage = res.getFhirPackage();
     try {
-      VersionedFhirPackage fhirPackage = res.getFhirPackage();
       if (fhirPackage != null) {
         // If a FHIR package was set then create a validator using that package
-        this.validator = new RedmatchGrammarValidator(terminologyService, fhirPackage);
+        this.validator = new RedmatchGrammarValidator(terminologyService, fhirPackage, progressReporter);
       } else {
         // Otherwise, use the standard FHIR package
-        this.validator = new RedmatchGrammarValidator(terminologyService, defaultFhirPackage);
+        this.validator = new RedmatchGrammarValidator(terminologyService, defaultFhirPackage, progressReporter);
       }
     } catch (FhirPackageNotFoundException e) {
       this.diagnostics.add(getDiagnosticFromContext(ctx,
@@ -358,11 +393,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       );
       return res;
     } catch (FhirPackageDownloadException e) {
-      this.diagnostics.add(getDiagnosticFromContext(ctx,
-          String.format("There was a problem installing FHIR package %s.", e.getFhirPackage()),
-          DiagnosticSeverity.Error, CODE_COMPILER_ERROR.toString())
-      );
-      return res;
+      throw new CompilationException("There was a problem downloading package " + fhirPackage, e);
     }
 
     // Get server if present
@@ -384,21 +415,25 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     // Process rules
     for (FcRuleContext rule : ctx.rules().fcRule()) {
       final Variables var = new Variables();
-      GrammarObject go =  visitFcRuleInternal(rule, var);
-      if (go instanceof Rule) {
-        res.getRules().add((Rule) go);
-      } else if (go instanceof RuleList) {
-        RuleList rl = (RuleList) go;
-        res.getRules().addAll(rl.getRules());
-      } else {
-        this.diagnostics.add(
-          getDiagnosticFromContext(
-            ctx,
-            "Unexpected type " + go.getClass().getCanonicalName() + ". Expected Rule or RuleList.",
-            DiagnosticSeverity.Error,
-            CODE_COMPILER_ERROR.toString()
-          )
-        );
+      try {
+        GrammarObject go = visitFcRuleInternal(rule, var);
+        if (go instanceof Rule) {
+          res.getRules().add((Rule) go);
+        } else if (go instanceof RuleList) {
+          RuleList rl = (RuleList) go;
+          res.getRules().addAll(rl.getRules());
+        } else {
+          this.diagnostics.add(
+            getDiagnosticFromContext(
+              ctx,
+              "Unexpected type " + go.getClass().getCanonicalName() + ". Expected Rule or RuleList.",
+              DiagnosticSeverity.Error,
+              CODE_COMPILER_ERROR.toString()
+            )
+          );
+        }
+      } catch (IOException e) {
+        throw new CompilationException("There was a problem compiling the rules: " + e.getLocalizedMessage(), e);
       }
     }
 
@@ -484,6 +519,21 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       }
     }
 
+    // Check any reference targets that might be missing
+    for (Pair<String, ReferenceContext> referenceToCheck : referencesToCheck) {
+      if (!existingResources.contains(referenceToCheck.getValue0())) {
+        this.diagnostics.add(
+          getDiagnosticFromContext(
+            referenceToCheck.getValue1(),
+            "Resource " + referenceToCheck.getValue0() + " is not defined in the rules.",
+            DiagnosticSeverity.Error,
+            CODE_UNKNOWN_FHIR_RESOURCE.toString(),
+            referenceToCheck.getValue0()
+          )
+        );
+      }
+    }
+
     return res;
   }
 
@@ -554,7 +604,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
   }
 
-  private GrammarObject visitFcRuleInternal(FcRuleContext ctx, Variables var) {
+  private GrammarObject visitFcRuleInternal(FcRuleContext ctx, Variables var) throws IOException {
     final Token start = ctx.getStart();
     final Token stop = ctx.getStop();
     
@@ -592,7 +642,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
   }
   
-  private Rule processRule(FcRuleContext ctx, int startRow, int startCol, int endRow, int endCol, Variables var) {
+  private Rule processRule(FcRuleContext ctx, int startRow, int startCol, int endRow, int endCol, Variables var)
+    throws IOException {
     final Rule res = new Rule(startRow, startCol, endRow, endCol);
     if (ctx.condition() != null) {
       final Condition c = (Condition) visitConditionInternal(ctx.condition(), var);
@@ -617,7 +668,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return res;
   }
 
-  private Body visitFcBodyInternal(FcBodyContext ctx, Variables var) {
+  private Body visitFcBodyInternal(FcBodyContext ctx, Variables var) throws IOException {
     final Body b = new Body();
     
     for(ResourceContext rc : ctx.resource()) {
@@ -829,7 +880,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     }
   }
 
-  private Resource visitResourceInternal(ResourceContext ctx, Variables var) {
+  private Resource visitResourceInternal(ResourceContext ctx, Variables var) throws IOException {
     final Resource res = new Resource();
     if (ctx == null) {
       return res;
@@ -850,6 +901,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     TerminalNode resourceIdNode = ctx.ID().get(1);
     String resourceId = processFhirId(resourceIdNode, resourceIdNode.getSymbol(), var);
     res.setResourceId(resourceId);
+
+    existingResources.add(res.toResourceString());
     
     for (int i = 0; i < ctx.attribute().size(); i++) {
       AttributeValue av = new AttributeValue();
@@ -871,7 +924,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     return att;
   }
 
-  private List<Attribute> visitAttributeInternal(String resourceType, AttributeContext ctx, Variables var) {
+  private List<Attribute> visitAttributeInternal(String resourceType, AttributeContext ctx, Variables var)
+    throws IOException {
     final List<Attribute> res = new ArrayList<>();
     String path = resourceType;
     
@@ -1258,6 +1312,11 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     res.setResourceType(resType);
     String id = processFhirId(ctx.ID(1), ctx.ID(1).getSymbol(), var);
     res.setResourceId(id);
+
+    // Check if this resource exists
+    if (!existingResources.contains(res.toResourceString())) {
+      referencesToCheck.add(new Pair<>(res.toResourceString(), ctx));
+    }
     
     return res;
   }
@@ -1371,6 +1430,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     schema = null;
     diagnostics.clear();
     baseFolder = null;
+    existingResources.clear();
+    referencesToCheck.clear();
   }
 
   /**

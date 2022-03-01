@@ -14,6 +14,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -31,6 +32,11 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
   private static final Gson gson = new Gson();
   private static final TerminologyService terminologyService = new TerminologyService(FhirContext.forR4(), gson);
 
+  @AfterAll
+  static void cleanUp() {
+    terminologyService.shutdown();
+  }
+
   @Test
   public void testCompletionsRedcapField() {
     RedmatchLanguageServer server = new RedmatchLanguageServer();
@@ -43,7 +49,7 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
       terminologyService);
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { VALUE(";
-    Position position = new Position(0, 52);
+    Position position = new Position(0, 53);
     List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(5, completions.size());
 
@@ -54,7 +60,7 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("record_id")));
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { VALUE(p";
-    position = new Position(0, 53);
+    position = new Position(0, 54);
     completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(4, completions.size());
 
@@ -64,7 +70,7 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("pat_sex___2")));
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { VALUE(pat_s";
-    position = new Position(0, 57);
+    position = new Position(0, 58);
     completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(3, completions.size());
 
@@ -86,16 +92,26 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
       terminologyService);
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { ";
-    Position position = new Position(0, 52);
+    Position position = new Position(0, 53);
     List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
-    for (CompletionItem completionItem : completions) {
-      System.out.println(completionItem.getLabel());
-    }
     assertEquals(189, completions.size());
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Obs ";
     position = new Position(0, 56);
     completions = completionProcessor.getCompletions(uri, documentString, position);
+    assertEquals(3, completions.size());
+
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("ObservationDefinition")));
+    assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("observation-genetics")));
+
+    documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Obs<obs>: *status = CODE(final) } }";
+    position = new Position(0, 56);
+    completions = completionProcessor.getCompletions(uri, documentString, position);
+    System.out.println("Found " + completions.size() + " completions: ");
+    for (CompletionItem completionItem : completions) {
+      System.out.println(completionItem.getLabel());
+    }
     assertEquals(3, completions.size());
 
     assertTrue(completions.stream().anyMatch(i -> i.getLabel().equals("Observation")));
@@ -117,12 +133,12 @@ public class CompletionProcessorTest extends AbstractRedmatchTest {
     String uri = "1";
     String documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Observation<sex>: * ";
 
-    Position position = new Position(0, 72);
+    Position position = new Position(0, 73);
     List<CompletionItem> completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(497, completions.size());
 
     documentString = "SCHEMA: 'simple_schema.json' (REDCAP) RULES: { TRUE { Observation<sex>: * code.co ";
-    position = new Position(0, 80);
+    position = new Position(0, 81);
     completions = completionProcessor.getCompletions(uri, documentString, position);
     assertEquals(8, completions.size());
 

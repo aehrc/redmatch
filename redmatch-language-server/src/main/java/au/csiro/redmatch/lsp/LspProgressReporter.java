@@ -12,10 +12,11 @@ import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /**
- * Implementation of the {@link ProgressReporter} interface that knows how to report progress using the langauge server
+ * Implementation of the {@link ProgressReporter} interface that knows how to report progress using the language server
  * protocol.
  *
  * @author Alejandro Metke Jimenez
@@ -25,7 +26,6 @@ public class LspProgressReporter implements ProgressReporter {
   private static final Log log = LogFactory.getLog(LspProgressReporter.class);
   private final RedmatchLanguageServer languageServer;
   private String token;
-
 
   public LspProgressReporter(RedmatchLanguageServer languageServer) {
     this.languageServer = languageServer;
@@ -56,7 +56,11 @@ public class LspProgressReporter implements ProgressReporter {
 
   private void notifyStart(String token, String message)
     throws ExecutionException, InterruptedException {
-    languageServer.getClient().createProgress(new WorkDoneProgressCreateParams(Either.forLeft(token))).get();
+    CompletableFuture<Void> completableFuture = languageServer.getClient().createProgress(
+      new WorkDoneProgressCreateParams(Either.forLeft(token)));
+    if (completableFuture != null) {
+      completableFuture.get();
+    }
     WorkDoneProgressBegin begin = new WorkDoneProgressBegin();
     begin.setMessage(message);
     begin.setCancellable(true);

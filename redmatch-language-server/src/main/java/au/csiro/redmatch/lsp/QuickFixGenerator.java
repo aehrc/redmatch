@@ -32,10 +32,13 @@ public class QuickFixGenerator {
       if (cancelToken.isCanceled()) {
         break;
       }
-      CodeAction codeAction = getCodeAction(ErrorCodes.valueOf(diagnostic.getCode().getLeft()), diagnostic, docUri,
-        document);
-      if (codeAction != null) {
-        codeActions.add(Either.forRight(codeAction));
+      Either<String, Integer> code = diagnostic.getCode();
+      if (code != null) {
+        CodeAction codeAction = getCodeAction(ErrorCodes.valueOf(diagnostic.getCode().getLeft()), diagnostic, docUri,
+          document);
+        if (codeAction != null) {
+          codeActions.add(Either.forRight(codeAction));
+        }
       }
     }
     return codeActions;

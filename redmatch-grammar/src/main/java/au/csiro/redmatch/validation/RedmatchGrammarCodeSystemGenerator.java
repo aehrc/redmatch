@@ -7,6 +7,8 @@ package au.csiro.redmatch.validation;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.util.FhirUtils;
 import au.csiro.redmatch.util.FileUtils;
+import au.csiro.redmatch.util.Progress;
+import au.csiro.redmatch.util.ProgressReporter;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -62,6 +64,23 @@ public class RedmatchGrammarCodeSystemGenerator {
    * @throws IOException If there are issues reading the files.
    */
   public CodeSystem createCodeSystem(VersionedFhirPackage fhirPackage) throws IOException {
+    return createCodeSystem(fhirPackage, null);
+  }
+
+  /**
+   * Creates a validation code system for a version of FHIR or an implementation guide.
+   *
+   * @param fhirPackage The NPM package of a version of FHIR or implementation guide, e.g., hl7.fhir.r4.core.
+   * @param progressReporter An object to report progress. Can be null.
+   * @return A code system that can be used for validation.
+   * @throws IOException If there are issues reading the files.
+   */
+  public CodeSystem createCodeSystem(VersionedFhirPackage fhirPackage, ProgressReporter progressReporter)
+    throws IOException {
+
+    if (progressReporter != null) {
+      progressReporter.reportProgress(Progress.reportStart("Creating code system for FHIR package " + fhirPackage));
+    }
 
     // Create a set with all the FHIR packages required
     Set<VersionedFhirPackage> packages = new HashSet<>();
@@ -96,20 +115,42 @@ public class RedmatchGrammarCodeSystemGenerator {
 
     log.info("Found " + resources.size() + " resources");
 
+    int total = complexTypes.size() + resourceProfiles.size() + resources.size();
+    double div = total / 100.0;
+
     CodeSystem codeSystem = createBaseCodeSystem(fhirPackage);
 
+    int i = 0;
     for (StructureDefinition structureDefinition : complexTypes) {
       processStructureDefinition(codeSystem, structureDefinition, false, "");
+      i++;
+
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
+      }
     }
 
     for (StructureDefinition structureDefinition : resourceProfiles) {
       processStructureDefinition(codeSystem, structureDefinition, false, "");
+      i++;
+
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
+      }
     }
 
     for (StructureDefinition structureDefinition : resources) {
       processStructureDefinition(codeSystem, structureDefinition, false, "");
+      i++;
+
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportProgress((int) Math.floor(i / div)));
+      }
     }
 
+    if (progressReporter != null) {
+      progressReporter.reportProgress(Progress.reportEnd());
+    }
     return codeSystem;
   }
 
@@ -292,7 +333,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     log.debug("Processing element definition " + elementDefinition.getPath());
 
     if ("0".equals(elementDefinition.getMax())) {
-      log.info("Element has a max value of 0 and will therefore be excluded from the code system.");
+      log.debug("Element has a max value of 0 and will therefore be excluded from the code system.");
       prefixesToIgnore.add(path);
       return;
     }
@@ -300,7 +341,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     boolean[] ignore = new boolean[1];
     prefixesToIgnore.forEach(p -> {
       if (path.startsWith(removeAllBrackets(p))) {
-        log.info("Parent element was excluded, so excluding this element.");
+        log.debug("Parent element was excluded, so excluding this element.");
         ignore[0] = true;
       }
     });
@@ -354,7 +395,7 @@ public class RedmatchGrammarCodeSystemGenerator {
 
     log.debug("Creating code " + code);
     if (!allCodes.add(removeAllBrackets(code))) {
-      log.warn("Duplicate code found " + removeAllBrackets(code));
+      log.debug("Duplicate code found " + removeAllBrackets(code));
       return;
     }
 

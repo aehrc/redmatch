@@ -52,6 +52,8 @@ public class ReferenceValue extends Value {
     return "REF(" + resourceType + "<" + resourceId + ">)";
   }
 
+  public String toResourceString() { return resourceType + "<" + resourceId + ">"; }
+
   @Override
   public DataReference referencesData() {
     return DataReference.RESOURCE;
