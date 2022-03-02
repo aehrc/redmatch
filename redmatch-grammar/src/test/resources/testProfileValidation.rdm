@@ -1,0 +1,16 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+TARGET: 'hl7.fhir.us.mcode#2.0.0'
+
+RULES: {
+  TRUE { 
+    us-core-patient<pat>:
+      * identifier.type.text = 'Medicare Number' 
+  }
+  
+  TRUE {
+    Procedure<proc>:
+      * status = CODE(completed)
+      * subject = REF(us-core-patient<pat>)
+  }
+}

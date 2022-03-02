@@ -51,6 +51,13 @@ public class RedmatchGrammarCodeSystemGenerator {
   private final Map<String, StructureDefinition> structureDefinitionsMapByUrl = new HashMap<>();
   private final Set<String> allCodes = new HashSet<>();
 
+  /**
+   * Used to keep track of the children of profiles or resoruces so the target profiles in the generated code systems
+   * can include not only the specific target profiles but also all children (see
+   * <a href="https://github.com/aehrc/redmatch/issues/47">this issue</a>).
+   */
+  private final Map<String, Set<String>> profileChildrenMap = new HashMap<>();
+
   public RedmatchGrammarCodeSystemGenerator(Gson gson, FhirContext ctx) {
     this.gson = gson;
     this.ctx = ctx;
@@ -117,6 +124,35 @@ public class RedmatchGrammarCodeSystemGenerator {
 
     int total = complexTypes.size() + resourceProfiles.size() + resources.size();
     double div = total / 100.0;
+
+    // Initialise profile children map
+    resourceProfiles.forEach(sd -> profileChildrenMap.put(sd.getUrl(), new HashSet<>()));
+    resources.forEach(sd -> profileChildrenMap.put(sd.getUrl(), new HashSet<>()));
+
+    // Create temporary profile parents map
+    Map<String, Set<String>> profileParentsMap = new HashMap<>();
+    resourceProfiles.forEach(sd -> {
+      Set<String> parentUrls = new HashSet<>();
+      profileParentsMap.put(sd.getUrl(), parentUrls);
+      StructureDefinition baseDefinition = structureDefinitionsMapByUrl.get(sd.getBaseDefinition());
+      while (baseDefinition != null &&
+        baseDefinition.getDerivation() == StructureDefinition.TypeDerivationRule.CONSTRAINT) {
+        parentUrls.add(baseDefinition.getUrl());
+        baseDefinition = structureDefinitionsMapByUrl.get(baseDefinition.getBaseDefinition());
+      }
+      // The parent resource will be a specialization
+      if (baseDefinition != null) {
+        parentUrls.add(baseDefinition.getUrl());
+      }
+    });
+
+    // Use the temporary map to populate the children map
+    profileParentsMap.keySet().forEach(key -> {
+        Set<String> parents = profileParentsMap.get(key);
+        if (parents != null) {
+          parents.forEach(val -> profileChildrenMap.get(val).add(key));
+        }
+      });
 
     CodeSystem codeSystem = createBaseCodeSystem(fhirPackage);
 
@@ -326,6 +362,20 @@ public class RedmatchGrammarCodeSystemGenerator {
     }
   }
 
+  private void addTarget(ConceptDefinitionComponent cdc, StructureDefinition targetStructureDefinition,
+                         String targetProfileUrl ) {
+    if (targetStructureDefinition != null) {
+      cdc.addProperty()
+        .setCode("targetProfile")
+        .setValue(new StringType(getProfileName(targetStructureDefinition.getUrl())));
+    } else {
+      log.warn("Could not find structure definition for target profile " + targetProfileUrl);
+      cdc.addProperty()
+        .setCode("targetProfile")
+        .setValue(new StringType(targetProfileUrl));
+    }
+  }
+
   private void processElementDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
                                         ElementDefinition elementDefinition, boolean nested, String prefix,
                                         Deque<String> parents, String path, TypeRefComponent typeRefComponent,
@@ -436,15 +486,14 @@ public class RedmatchGrammarCodeSystemGenerator {
       for (CanonicalType targetProfile : typeRefComponent.getTargetProfile()) {
         String targetProfileUrl = targetProfile.getValueAsString();
         StructureDefinition targetStructureDefinition = structureDefinitionsMapByUrl.get(targetProfileUrl);
-        if (targetStructureDefinition != null) {
-          cdc.addProperty()
-            .setCode("targetProfile")
-            .setValue(new StringType(getProfileName(targetStructureDefinition.getUrl())));
-        } else {
-          log.warn("Could not find structure definition for target profile " + targetProfileUrl);
-          cdc.addProperty()
-            .setCode("targetProfile")
-            .setValue(new StringType(targetProfileUrl));
+        addTarget(cdc, targetStructureDefinition, targetProfileUrl);
+
+        if (profileChildrenMap.containsKey(targetProfileUrl)) {
+          Set<String> childrenProfiles = profileChildrenMap.get(targetProfileUrl);
+          for (String childProfile : childrenProfiles) {
+            targetStructureDefinition = structureDefinitionsMapByUrl.get(childProfile);
+            addTarget(cdc, targetStructureDefinition, targetProfileUrl);
+          }
         }
       }
     } else {

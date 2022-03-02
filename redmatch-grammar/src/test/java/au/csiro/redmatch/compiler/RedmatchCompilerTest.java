@@ -731,6 +731,19 @@ public class RedmatchCompilerTest {
     assertTrue(errors.stream().anyMatch(e -> e.getSeverity().equals(DiagnosticSeverity.Error)));
   }
 
+  @Test
+  public void testProfileValidation() {
+    log.info("Running testProfileValidation");
+    String document = FileUtils.loadTextFileFromClassPath("testProfileValidation.rdm");
+    printTokens(document);
+
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+  }
+
   private void testMapping(Mapping m, String system, String code, String display) {
     assertNotNull(m.getTarget());
     assertEquals(system, m.getTarget().getSystem());
