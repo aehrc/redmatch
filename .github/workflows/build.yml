@@ -52,16 +52,6 @@ jobs:
           overwrite: true
           file_glob: true
 
-      - name: upload .jar to github tag
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{github.workspace}}/redmatch-cli/target/redmatch-cli*.jar
-          tag: ${{ github.ref }}
-          overwrite: true
-          file_glob: true
-
       - name: publish plugin
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         run: |
