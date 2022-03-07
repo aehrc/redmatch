@@ -21,6 +21,7 @@ import au.csiro.redmatch.model.Field;
 import au.csiro.redmatch.model.ReplacementSuggestion;
 import au.csiro.redmatch.model.LabeledField;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.CodeInfo;
 import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.GraphUtils;
 import au.csiro.redmatch.util.ProgressReporter;
@@ -117,7 +118,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
   /**
    * Stores the path information for the leaf node - used to validate each value assignment.
    */
-  private PathInfo lastInfo = null;
+  private CodeInfo lastInfo = null;
 
   /**
    * A map to keep any aliases defined in the document.
@@ -200,6 +201,10 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
     this.terminologyService = terminologyService;
     this.defaultFhirPackage = defaultFhirPackage;
     this.progressReporter = progressReporter;
+  }
+
+  public VersionedFhirPackage getDefaultFhirPackage() {
+    return defaultFhirPackage;
   }
 
   /**
@@ -946,7 +951,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
       } else {
         // TODO: check what happens with extension[0].valueReference = REF(ResearchStudy<rstud>)
         // Add test case for FHIR exporter with an extension
-        PathInfo info = validator.getPathInfo(path);
+        CodeInfo info = validator.getPathInfo(path);
         lastInfo = info;
         
         String max = info.getMax();

@@ -49,6 +49,8 @@ public class RedmatchGrammarCodeSystemGenerator {
   private final Map<String, StructureDefinition> structureDefinitionsMapByCode = new HashMap<>();
   // Used to process profiled extensions
   private final Map<String, StructureDefinition> structureDefinitionsMapByUrl = new HashMap<>();
+  // Used to exclude profiled extensions urls
+  private final Map<String, ElementDefinition> elementDefinitionMapByCode = new HashMap<>();
   private final Set<String> allCodes = new HashSet<>();
 
   /**
@@ -218,7 +220,7 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setDescription("Indicates if this concept is deprecated.")
       .setType(PropertyType.BOOLEAN);
     cs.addProperty()
-      .setCode("parentResource")
+      .setCode("parentResourceOrProfile")
       .setDescription("If this concept represents an attribute then this property represents the resource or profile" +
         "that contains the attribute. If this concepts is a profile or resource then the parent resource is Object.")
       .setType(PropertyType.CODE);
@@ -238,6 +240,22 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setCode("targetProfile")
       .setDescription("If this code represents a Reference attribute, contains an allowed target profile.")
       .setType(PropertyType.STRING);
+    cs.addProperty()
+      .setCode("profile")
+      .setDescription("Indicates if this code represents a profile.")
+      .setType(PropertyType.BOOLEAN);
+    cs.addProperty()
+      .setCode("baseResource")
+      .setDescription("For profiles, indicates the resource the profile constrains.")
+      .setType(PropertyType.CODE);
+    cs.addProperty()
+      .setCode("extensionUrl")
+      .setDescription("If this code represents an extension, then this is its url.")
+      .setType(PropertyType.STRING);
+    cs.addProperty()
+      .setCode("profileUrl")
+      .setDescription("If this code represents a profile, then this is its url.")
+      .setType(PropertyType.STRING);
     cs.addFilter()
       .setCode("root")
       .setValue("True or false.")
@@ -247,8 +265,12 @@ public class RedmatchGrammarCodeSystemGenerator {
       .setValue("True or false.")
       .addOperator(FilterOperator.EQUAL);
     cs.addFilter()
-      .setCode("parentResource")
-      .setValue("The parent resource code.")
+      .setCode("parentResourceOrProfile")
+      .setValue("The parent resource or profile code.")
+      .addOperator(FilterOperator.EQUAL);
+    cs.addFilter()
+      .setCode("profile")
+      .setValue("True or false.")
       .addOperator(FilterOperator.EQUAL);
 
     // Create root concept
@@ -376,6 +398,19 @@ public class RedmatchGrammarCodeSystemGenerator {
     }
   }
 
+  private String getBaseResource(String url) {
+    StructureDefinition baseDefinition = structureDefinitionsMapByUrl.get(url);
+    while (baseDefinition != null &&
+      baseDefinition.getDerivation() == StructureDefinition.TypeDerivationRule.CONSTRAINT) {
+      baseDefinition = structureDefinitionsMapByUrl.get(baseDefinition.getBaseDefinition());
+    }
+    // The parent resource will be a specialization
+    if (baseDefinition != null) {
+      return baseDefinition.getUrl();
+    }
+    throw new RuntimeException("Profile " + url + " has no parent resource!");
+  }
+
   private void processElementDefinition(CodeSystem codeSystem, StructureDefinition structureDefinition,
                                         ElementDefinition elementDefinition, boolean nested, String prefix,
                                         Deque<String> parents, String path, TypeRefComponent typeRefComponent,
@@ -449,6 +484,16 @@ public class RedmatchGrammarCodeSystemGenerator {
       return;
     }
 
+    if (fullParent != null
+      && !fullParent.isEmpty()
+      && isExtension(elementDefinitionMapByCode.get(removeAllBrackets(fullParent)))
+      && code.endsWith(".url")) {
+      log.debug("Excluding extension url for code " + removeAllBrackets(code));
+      return;
+    }
+
+    elementDefinitionMapByCode.put(removeAllBrackets(code), elementDefinition);
+
     ConceptDefinitionComponent cdc =
       codeSystem.addConcept()
         .setCode(removeAllBrackets(code))
@@ -457,20 +502,31 @@ public class RedmatchGrammarCodeSystemGenerator {
     cdc.addProperty().setCode("max").setValue(new StringType(elementDefinition.getMax()));
     if (fullParent != null && !fullParent.isEmpty()) {
       cdc.addProperty().setCode("parent").setValue(new CodeType(removeAllBrackets(fullParent)));
-      cdc.addProperty().setCode("parentResource").setValue(new CodeType(getResource(fullParent)));
+      cdc.addProperty().setCode("parentResourceOrProfile").setValue(new CodeType(getResource(fullParent)));
+      cdc.addProperty().setCode("profile").setValue(new BooleanType(false));
     } else {
       if (isComplexType(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("ComplexType"));
+        cdc.addProperty().setCode("profile").setValue(new BooleanType(false));
       } else if (isProfile(structureDefinition)) {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Profile"));
-        cdc.addProperty().setCode("parentResource").setValue(new CodeType("Object"));
+        cdc.addProperty().setCode("parentResourceOrProfile").setValue(new CodeType("Object"));
+        cdc.addProperty().setCode("profile").setValue(new BooleanType(true));
+        cdc.addProperty().setCode("baseResource").setValue(new CodeType(getBaseResource(structureDefinition.getUrl())));
+        cdc.addProperty().setCode("profileUrl").setValue(new CodeType(structureDefinition.getUrl()));
       } else {
         cdc.addProperty().setCode("parent").setValue(new CodeType("Resource"));
-        cdc.addProperty().setCode("parentResource").setValue(new CodeType("Object"));
+        cdc.addProperty().setCode("parentResourceOrProfile").setValue(new CodeType("Object"));
+        cdc.addProperty().setCode("profile").setValue(new BooleanType(false));
       }
     }
     cdc.addProperty().setCode("root").setValue(new BooleanType(false));
     cdc.addProperty().setCode("deprecated").setValue(new BooleanType(false));
+
+    if (isExtension(elementDefinition)) {
+      CanonicalType extensionUrl = elementDefinition.getTypeFirstRep().getProfile().get(0);
+      cdc.addProperty().setCode("extensionUrl").setValue(new StringType(extensionUrl.getValue()));
+    }
 
     // Add synonyms
     addSynonym(code, cdc);
@@ -579,19 +635,27 @@ public class RedmatchGrammarCodeSystemGenerator {
     }
 
     // Special case: if this is a profiled extension, then we replace the 'extension' path element with the slice name
-    if (elementDefinition.hasType() && elementDefinition.hasSliceName()) {
-      TypeRefComponent typeRef = elementDefinition.getTypeFirstRep();
-      if ("Extension".equals(typeRef.getCode()) && !typeRef.getProfile().isEmpty() && path.endsWith(".extension")) {
+    if (isExtension(elementDefinition)) {
         path = path.substring(0, path.length() - 9) + elementDefinition.getSliceName();
         log.debug("Replaced 'extension' element in path: " + path);
-      }
     }
 
     return path;
   }
 
+  private boolean isExtension(ElementDefinition elementDefinition) {
+    if (elementDefinition.hasType() && elementDefinition.hasSliceName()) {
+      TypeRefComponent typeRef = elementDefinition.getTypeFirstRep();
+      return "Extension".equals(typeRef.getCode())
+        && !typeRef.getProfile().isEmpty()
+        && elementDefinition.getPath().endsWith(".extension");
+    }
+    return false;
+  }
+
   private boolean isProfile(StructureDefinition structureDefinition) {
-    return structureDefinition.getDerivation().equals(StructureDefinition.TypeDerivationRule.CONSTRAINT);
+    StructureDefinition.TypeDerivationRule derivation = structureDefinition.getDerivation();
+    return StructureDefinition.TypeDerivationRule.CONSTRAINT.equals(derivation);
   }
 
   private boolean isComplexType(StructureDefinition structureDefinition) {

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -47,8 +48,14 @@ public class FhirExporterTest {
 
   @BeforeAll
   private static void init() {
-    helper = new HapiReflectionHelper(ctx, defaultFhirPackage);
-    helper.init();
+    try {
+      terminologyService.addPackage(defaultFhirPackage).get();
+      terminologyService.addPackage(new VersionedFhirPackage("hl7.fhir.us.mcode", "2.0.0")).get();
+      helper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
+    } catch (ExecutionException | InterruptedException e) {
+      log.error(e);
+      throw new RuntimeException(e);
+    }
   }
 
   @AfterAll
@@ -69,7 +76,7 @@ public class FhirExporterTest {
 
     String json = FileUtils.loadTextFileFromClassPath("dataRepeatableInstruments.json");
     List<Row> rows = parseData(json);
-    FhirExporter exporter = new FhirExporter(doc, rows, helper);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper, terminologyService, defaultFhirPackage);
 
     Map<String, DomainResource> res = exporter.transform(null, null);
     assertFalse(res.isEmpty());
@@ -88,7 +95,7 @@ public class FhirExporterTest {
 
     String json = FileUtils.loadTextFileFromClassPath("dataTutorial.json");
     List<Row> rows = parseData(json);
-    FhirExporter exporter = new FhirExporter(doc, rows, helper);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper, terminologyService, defaultFhirPackage);
 
     Map<String, DomainResource> res = exporter.transform(null, null);
     assertFalse(res.isEmpty());
@@ -107,7 +114,7 @@ public class FhirExporterTest {
 
     String json = FileUtils.loadTextFileFromClassPath("dataTutorial.json");
     List<Row> rows = parseData(json);
-    FhirExporter exporter = new FhirExporter(doc, rows, helper);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper, terminologyService, defaultFhirPackage);
 
     Map<String, DomainResource> res = exporter.transform(null, null);
     assertFalse(res.isEmpty());
@@ -194,6 +201,67 @@ public class FhirExporterTest {
     assertEquals("root", thirdFilter.getProperty());
     assertEquals(ValueSet.FilterOperator.EQUAL, thirdFilter.getOp());
     assertEquals("True or false.", thirdFilter.getValue());
+  }
+
+  @Test
+  public void testProfilesAndExtensions() {
+    log.info("Running testProfilesAndExtensions");
+    String document = FileUtils.loadTextFileFromClassPath("testProfilesAndExtensions.rdm");
+
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService,
+      new VersionedFhirPackage("hl7.fhir.us.mcode", "2.0.0"));
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+
+    String json = FileUtils.loadTextFileFromClassPath("dataTutorial.json");
+    List<Row> rows = parseData(json);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper, terminologyService, defaultFhirPackage);
+
+    Map<String, DomainResource> res = exporter.transform(null, null);
+    assertFalse(res.isEmpty());
+
+    // Check that the resources that were created are the correct ones
+    Patient pat1 = (Patient) res.get("pat-1");
+    assertNotNull(pat1);
+    assertEquals("Medicare Number", pat1.getIdentifierFirstRep().getType().getText());
+    assertEquals("12345678911", pat1.getIdentifierFirstRep().getValue());
+    assertEquals(1, pat1.getMeta().getProfile().size());
+    assertEquals("http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+      pat1.getMeta().getProfile().get(0).getValue());
+
+    Patient pat2 = (Patient) res.get("pat-2");
+    assertNotNull(pat2);
+    assertEquals("Medicare Number", pat2.getIdentifierFirstRep().getType().getText());
+    assertEquals("9876543211", pat2.getIdentifierFirstRep().getValue());
+    assertEquals(1, pat2.getMeta().getProfile().size());
+    assertEquals("http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+      pat2.getMeta().getProfile().get(0).getValue());
+
+    Condition cc1 = (Condition) res.get("cc-1");
+    assertNotNull(cc1);
+    assertEquals(1, cc1.getExtension().size());
+    Extension ext1 = cc1.getExtension().get(0);
+    assertEquals("http://hl7.org/fhir/us/mcode/StructureDefinition/mcode-histology-morphology-behavior", ext1.getUrl());
+    CodeableConcept val1 = (CodeableConcept) ext1.getValue();
+    assertEquals("http://snomed.info/sct", val1.getCodingFirstRep().getSystem());
+    assertEquals("253052008", val1.getCodingFirstRep().getCode());
+    assertEquals(1, cc1.getMeta().getProfile().size());
+    assertEquals("http://hl7.org/fhir/us/mcode/StructureDefinition/mcode-primary-cancer-condition",
+      cc1.getMeta().getProfile().get(0).getValue());
+
+    Condition cc2 = (Condition) res.get("cc-2");
+    assertNotNull(cc2);
+    assertEquals(1, cc1.getExtension().size());
+    Extension ext2 = cc2.getExtension().get(0);
+    assertEquals("http://hl7.org/fhir/us/mcode/StructureDefinition/mcode-histology-morphology-behavior", ext2.getUrl());
+    CodeableConcept val2 = (CodeableConcept) ext2.getValue();
+    assertEquals("http://snomed.info/sct", val2.getCodingFirstRep().getSystem());
+    assertEquals("253052008", val2.getCodingFirstRep().getCode());
+    assertEquals(1, cc2.getMeta().getProfile().size());
+    assertEquals("http://hl7.org/fhir/us/mcode/StructureDefinition/mcode-primary-cancer-condition",
+      cc2.getMeta().getProfile().get(0).getValue());
   }
 
   private List<Row> parseData(String data) {

@@ -6,7 +6,6 @@ import au.csiro.redmatch.model.D3Link;
 import au.csiro.redmatch.model.D3Node;
 import au.csiro.redmatch.util.Progress;
 import au.csiro.redmatch.util.ProgressReporter;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -14,7 +13,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-@Component
 public class GraphExporterService {
 
   public void exportGraph(D3Graph d3Graph, File outputFolder, ProgressReporter progressReporter) throws IOException {

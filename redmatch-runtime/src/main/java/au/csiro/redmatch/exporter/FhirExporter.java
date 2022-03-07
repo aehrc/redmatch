@@ -9,6 +9,9 @@ import au.csiro.redmatch.compiler.Resource;
 import au.csiro.redmatch.model.LabeledDirectedMultigraph;
 import au.csiro.redmatch.model.LabeledEdge;
 import au.csiro.redmatch.model.Row;
+import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.CodeInfo;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.FitbitUrlValidator;
 import au.csiro.redmatch.util.GraphUtils;
 import au.csiro.redmatch.util.Progress;
@@ -24,11 +27,9 @@ import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.*;
 import org.jgrapht.Graph;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
 import javax.validation.constraints.NotNull;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -42,17 +43,18 @@ import java.util.regex.Pattern;
  * 
  * @author Alejandro Metke Jimenez
  */
-@Component()
-@Scope("prototype")
 public class FhirExporter {
   
   /** Logger. */
   private static final Log log = LogFactory.getLog(FhirExporter.class);
 
   private final Pattern codePattern = Pattern.compile("[^\\s]+([\\s]?[^\\s]+)*");
-  
-  @Autowired
-  private HapiReflectionHelper helper;
+
+  private final HapiReflectionHelper helper;
+
+  private final TerminologyService terminologyService;
+
+  private final VersionedFhirPackage defaultFhirPackage;
 
   /**
    * The transformation rules document.
@@ -79,22 +81,15 @@ public class FhirExporter {
    *
    * @param doc The transformation rules document.
    * @param rows The source data.
-   */
-  public FhirExporter(Document doc, List<Row> rows) {
-    this.doc = doc;
-    this.rows = rows;
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param doc The transformation rules document.
-   * @param rows The source data.
    * @param helper The HAPI transformation helper instance.
    */
-  public FhirExporter(Document doc, List<Row> rows, HapiReflectionHelper helper) {
-    this(doc, rows);
+  public FhirExporter(Document doc, List<Row> rows, HapiReflectionHelper helper,
+                      TerminologyService terminologyService, VersionedFhirPackage defaultFhirPackage) {
+    this.doc = doc;
+    this.rows = rows;
     this.helper = helper;
+    this.terminologyService = terminologyService;
+    this.defaultFhirPackage = defaultFhirPackage;
   }
 
   /**
@@ -253,10 +248,25 @@ public class FhirExporter {
 
     DomainResource fhirResource = fhirResourceMap.get(fhirId);
     if (fhirResource == null) {
+      String resourceType = resource.getResourceType();
+      CodeInfo codeInfo;
+      try {
+        VersionedFhirPackage fhirPackage = doc.getFhirPackage() != null ? doc.getFhirPackage() : defaultFhirPackage;
+        codeInfo = terminologyService.lookup(fhirPackage, resourceType);
+        if (codeInfo.isProfile() && codeInfo.getBaseResource() != null) {
+          String baseResource = codeInfo.getBaseResource();
+          String[] parts = baseResource.split("[/]");
+          resourceType = parts[parts.length - 1];
+        }
+      } catch (IOException e) {
+        throw new TransformationException("Unable to lookup information about resource " + resourceType, e);
+      }
+
+      // This can be a profile name, so we need to get the base FHIR resource
       Object instance;
       try {
-        instance = Class.forName(HapiReflectionHelper.FHIR_TYPES_BASE_PACKAGE + "." 
-            + resource.getResourceType()).getConstructor().newInstance();
+        instance = Class.forName(HapiReflectionHelper.FHIR_TYPES_BASE_PACKAGE + "." + resourceType)
+          .getConstructor().newInstance();
       } catch (ClassNotFoundException | IllegalAccessException | InstantiationException 
           | IllegalArgumentException | InvocationTargetException | NoSuchMethodException 
           | SecurityException e) {
@@ -264,10 +274,17 @@ public class FhirExporter {
       }
       fhirResource = (DomainResource) instance;
       fhirResource.setId(fhirId);
+
+      if (codeInfo.getProfileUrl() != null) {
+        fhirResource.getMeta().addProfile(codeInfo.getProfileUrl());
+      }
+
       fhirResourceMap.put(fhirId, fhirResource);
     }
     for (AttributeValue attVal : resource.getResourceAttributeValues()) {
-      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), vertex, recordId);
+      VersionedFhirPackage fhirPackage = doc.getFhirPackage() != null ? doc.getFhirPackage() : defaultFhirPackage;
+      setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), vertex, recordId, fhirPackage,
+        resource.getResourceType());
     }
   }
   
@@ -289,9 +306,11 @@ public class FhirExporter {
    * @param value The value to set.
    * @param vertex A vertex with patient data.
    * @param recordId The id of this record. Used to create the FHIR ids.
+   * @param originalResourceType The resource type in the rules. This can be a profile name, so it can be different from
+   *                             the actual FHIR resource type.
    */
   private void setValue(DomainResource resource, List<Attribute> attributes, Value value, JsonObject vertex,
-                        String recordId) {
+                        String recordId, VersionedFhirPackage fhirPackage, String originalResourceType) {
 
     // Get chain of attribute names
     final List<Attribute> attributesCopy = new ArrayList<>(attributes);
@@ -301,7 +320,7 @@ public class FhirExporter {
 
     try {
       // Now we need to find or create the object where the value is going to be set
-      final Base theElement = helper.getElementToSet(resource, attributesCopy);
+      final Base theElement = helper.getElementToSet(resource, attributesCopy, fhirPackage, originalResourceType);
 
       // Now we need to get the value to set
       Base theValue;
@@ -541,8 +560,11 @@ public class FhirExporter {
     for (Method m : c.getMethods()) {
       try {
         String methodName = m.getName();
-        if (methodName.startsWith("has") && Character.isUpperCase(methodName.charAt(3))
-            && m.getParameterCount() == 0 && ((Boolean) m.invoke(base, new Object[0]))) {
+        if (!methodName.equals("hasPrimitiveValue")
+          && methodName.startsWith("has")
+          && Character.isUpperCase(methodName.charAt(3))
+          && m.getParameterCount() == 0
+          && ((Boolean) m.invoke(base, new Object[0]))) {
           setAttrs.add(m.getName().substring(3));
         }
       } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -564,7 +586,7 @@ public class FhirExporter {
     log.trace("Pruning attributes with multiplicity > 1");
     for (String att : multSetAttrs) {
       try {
-        List<Base> list = (List<Base>) c.getMethod("get" + att, new Class<?>[0]).invoke(base,
+        List<Base> list = (List<Base>) c.getMethod("get" + att).invoke(base,
             new Object[0]);
         List<Base> toDelete = new ArrayList<>();
         for (Base b : list) {

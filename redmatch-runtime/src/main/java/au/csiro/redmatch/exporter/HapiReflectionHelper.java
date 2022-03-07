@@ -6,14 +6,13 @@ package au.csiro.redmatch.exporter;
 
 import au.csiro.redmatch.compiler.Attribute;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.CodeInfo;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.FhirUtils;
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Enumeration;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.lang.reflect.*;
@@ -25,7 +24,6 @@ import java.util.*;
  * @author Alejandro Metke Jimenez
  *
  */
-@Component
 public class HapiReflectionHelper {
   
   public static final String FHIR_TYPES_BASE_PACKAGE = "org.hl7.fhir.r4.model";
@@ -45,23 +43,26 @@ public class HapiReflectionHelper {
   private final FhirContext ctx;
 
   private final VersionedFhirPackage defaultFhirPackage;
+
+  private final TerminologyService terminologyService;
   
   /**
    * Sets the FHIR context.
    * 
    * @param ctx The FHIR context.
    */
-  @Autowired
-  public HapiReflectionHelper(FhirContext ctx, VersionedFhirPackage defaultFhirPackage) {
+  public HapiReflectionHelper(FhirContext ctx, VersionedFhirPackage defaultFhirPackage,
+                              TerminologyService terminologyService) {
     this.ctx = ctx;
     this.defaultFhirPackage = defaultFhirPackage;
+    this.terminologyService = terminologyService;
+    init();
   }
 
   /**
    * Configure restful client.
    */
-  @PostConstruct
-  public void init() {
+  private void init() {
     // Load FHIR simple and complex types - needed to get attribute types
     try {
       for (StructureDefinition structureDefinition : FhirUtils.getStructureDefinitions(ctx, defaultFhirPackage)) {
@@ -86,58 +87,81 @@ public class HapiReflectionHelper {
       throw new RuntimeException("There was a problem loading FHIR basic types.", e);
     }
   }
-  
+
   /**
    * Finds or creates the element where we are going to set a value.
    * 
    * @param resource The resource that contains the element.
-   * @param attributes The list of attributes that point at the element where a value is going to be
-   *        set.
+   * @param attributes The list of attributes that point at the element where a value is going to be set.
+   * @param fhirPackage The FHIR package specified in the rules document. Needed to replace extension names.
+   * @param originalResourceType The resource type in the rules. This can be a profile name, so it can be different from
+   *    *                        the actual FHIR resource type.
    * @return The element.
    */
-  public Base getElementToSet(DomainResource resource, List<Attribute> attributes)
-      throws NoSuchFieldException, NoSuchMethodException, ClassNotFoundException, 
-      IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+  public Base getElementToSet(DomainResource resource, List<Attribute> attributes, VersionedFhirPackage fhirPackage,
+                              String originalResourceType)
+    throws NoSuchFieldException, NoSuchMethodException, ClassNotFoundException, IllegalAccessException,
+    IllegalArgumentException, InvocationTargetException, IOException {
+
+    // Used to get information about the attributes from the terminology service
+    StringBuilder sb = new StringBuilder();
+    sb.append(originalResourceType);
+
     Base theElement = resource;
     for (Attribute att : attributes) {
       final String attName = att.getName();
       final boolean isList = att.isList();
-      
-      if (!isList) {
-        // If attribute is not a list then we just need to get it because HAPI autocreates instances
-        theElement = (Base) invokeGetter(theElement, attName);
-      } else {
-        // If the attribute is a list then we need to do the following:
-        // - If the attribute does not have an index, then we either return the first element or
-        //   add an element if the list is empty
-        // - If the attribute does have an index and there are enough elements, then return the
-        //   right element
-        // - If the attribute does have an index but there are not enough elements, then call the
-        //   add method until the necessary number of elements are created
-        
-        if (!att.hasAttributeIndex()) {
-          List<?> list = (List<?>) invokeGetter(theElement, attName);
-          if (list.size() > 0) {
-            theElement = (Base) list.get(0);
-          } else {
-            theElement = invokeAdder(theElement, attName);
-          }
+
+      // Check the current attribute path to see if it is an extension - we need to treat extensions differently
+      sb.append(".");
+      sb.append(attName);
+      CodeInfo codeInfo = terminologyService.lookup(fhirPackage, sb.toString());
+      String extensionUrl = codeInfo.getExtensionUrl();
+      if (extensionUrl != null) {
+        // This is a profiled extension, so we set the url attribute based on the information in the profile
+        List<?> list = (List<?>) invokeGetter(theElement, "extension");
+        if (list.size() > 0) {
+          theElement = (Base) list.get(0);
         } else {
-          
-          // Find the element in the list or create the necessary elements
-          int index = att.getAttributeIndex();
-          
-          List<?> list = (List<?>) invokeGetter(theElement, attName);
-          int num = index - list.size() + 1;
-          if (num > 0) {
-            final Method add = getAddMethod(theElement.getClass(), attName);
-            Object elem = null;
-            for (int i = 0; i < num; i++) {
-              elem = add.invoke(theElement);
+          theElement = invokeAdder(theElement, "extension");
+        }
+        ((Extension) theElement).setUrl(extensionUrl);
+      } else {
+        if (!isList) {
+          // If attribute is not a list then we just need to get it because HAPI auto-creates instances
+          theElement = (Base) invokeGetter(theElement, attName);
+        } else {
+          // If the attribute is a list then we need to do the following:
+          // - If the attribute does not have an index, then we either return the first element or
+          //   add an element if the list is empty
+          // - If the attribute does have an index and there are enough elements, then return the
+          //   right element
+          // - If the attribute does have an index but there are not enough elements, then call the
+          //   add method until the necessary number of elements are created
+
+          if (!att.hasAttributeIndex()) {
+            List<?> list = (List<?>) invokeGetter(theElement, attName);
+            if (list.size() > 0) {
+              theElement = (Base) list.get(0);
+            } else {
+              theElement = invokeAdder(theElement, attName);
             }
-            theElement = (Base) elem;
           } else {
-            theElement = (Base) list.get(index);
+            // Find the element in the list or create the necessary elements
+            int index = att.getAttributeIndex();
+
+            List<?> list = (List<?>) invokeGetter(theElement, attName);
+            int num = index - list.size() + 1;
+            if (num > 0) {
+              final Method add = getAddMethod(theElement.getClass(), attName);
+              Object elem = null;
+              for (int j = 0; j < num; j++) {
+                elem = add.invoke(theElement);
+              }
+              theElement = (Base) elem;
+            } else {
+              theElement = (Base) list.get(index);
+            }
           }
         }
       }

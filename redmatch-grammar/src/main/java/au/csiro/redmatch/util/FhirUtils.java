@@ -67,7 +67,6 @@ public class FhirUtils {
             throw new RuntimeException(e);
           }
         })
-        .filter(s -> !s.getAbstract())
         .collect(Collectors.toList());
     }
   }

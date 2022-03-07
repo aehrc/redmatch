@@ -14,9 +14,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.model.*;
 import org.javatuples.Triplet;
 
 import java.io.FileWriter;
@@ -25,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -156,9 +155,9 @@ public class TerminologyService {
     return onto.validateCode(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path, null);
   }
 
-  public Parameters lookup(VersionedFhirPackage fhirPackage, String path) throws IOException {
-    return onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path,
-      Arrays.asList("min", "max", "type", "targetProfile"));
+  public CodeInfo lookup(VersionedFhirPackage fhirPackage, String path) throws IOException {
+    return processCodeInfo(path, onto.lookup(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), path,
+      Arrays.asList("min", "max", "type", "targetProfile", "profile", "baseResource", "extensionUrl", "profileUrl")));
   }
 
   public ValueSet expand(VersionedFhirPackage fhirPackage, String query, boolean isResource, String parentResource)
@@ -167,12 +166,12 @@ public class TerminologyService {
 
     if (isResource) {
       filter = new ValueSet.ConceptSetFilterComponent()
-        .setProperty("parentResource")
+        .setProperty("parentResourceOrProfile")
         .setOp(ValueSet.FilterOperator.EQUAL)
         .setValue("Object");
     } else {
       filter = new ValueSet.ConceptSetFilterComponent()
-        .setProperty("parentResource")
+        .setProperty("parentResourceOrProfile")
         .setOp(ValueSet.FilterOperator.EQUAL)
         .setValue(parentResource);
       query = parentResource + "." + query;
@@ -180,6 +179,44 @@ public class TerminologyService {
 
     log.info("Expanding FHIR package " + fhirPackage + " with query " + query);
     return onto.expand(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion(), query, filter);
+  }
+
+  private CodeInfo processCodeInfo(String path, Parameters out) {
+    CodeInfo res = new CodeInfo(path);
+    for(Parameters.ParametersParameterComponent param : out.getParameter()) {
+      if (param.getName().equals("property")) {
+        List<Parameters.ParametersParameterComponent> ppcs = param.getPart();
+        if (ppcs.size() == 2) {
+          Parameters.ParametersParameterComponent code = ppcs.get(0);
+          if ("code".equals(code.getName())) {
+            String codeValue = ((StringType) code.getValue()).getValue();
+            Parameters.ParametersParameterComponent value = ppcs.get(1);
+            if (value.getName().startsWith("value")) {
+              if ("min".equals(codeValue)) {
+                res.setMin(((IntegerType) value.getValue()).getValue());
+              } else if ("max".equals(codeValue)) {
+                res.setMax(((StringType) value.getValue()).getValue());
+              } else if ("type".equals(codeValue)) {
+                res.setType(((StringType) value.getValue()).getValue());
+              } else if ("targetProfile".equals(codeValue)) {
+                res.getTargetProfiles().add(((StringType) value.getValue()).getValue());
+              } else if ("profile".equals(codeValue)) {
+                res.setProfile(((BooleanType)value.getValue()).getValue());
+              } else if ("baseResource".equals(codeValue)) {
+                res.setBaseResource(((StringType) value.getValue()).getValue());
+              } else if ("extensionUrl".equals(codeValue)) {
+                res.setExtensionUrl(((StringType) value.getValue()).getValue());
+              } else if ("profileUrl".equals(codeValue)) {
+                res.setProfileUrl(((StringType) value.getValue()).getValue());
+              } else {
+                log.warn("Unexpected property: " + codeValue);
+              }
+            }
+          }
+        }
+      }
+    }
+    return res;
   }
 
 }

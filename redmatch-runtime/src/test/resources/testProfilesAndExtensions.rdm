@@ -1,0 +1,18 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+TARGET: 'hl7.fhir.us.mcode#2.0.0'
+
+RULES: {
+
+  TRUE {
+    us-core-patient<pat>:
+      * identifier.type.text = 'Medicare Number'
+      * identifier.value = VALUE(pat_medicare)
+  }
+
+  TRUE {
+    mcode-primary-cancer-condition<cc>:
+      * histologyMorphologyBehavior.valueCodeableConcept = CONCEPT_LITERAL(http://snomed.info/sct|253052008)
+      * subject = REF(us-core-patient<pat>)
+  }
+}

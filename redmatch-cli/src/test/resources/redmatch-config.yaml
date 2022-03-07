@@ -1,9 +1,0 @@
-servers:
-  - name: test
-    type: redcap
-    url: http://myserver.org/redcap/api/
-    token: ***REMOVED***
-  - name: local
-    type: redcap
-    url: http://localhost:8888/redcap/api/
-    token: ***REMOVED***

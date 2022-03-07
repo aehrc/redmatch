@@ -7,7 +7,7 @@
   <parent>
     <groupId>au.csiro</groupId>
     <artifactId>redmatch</artifactId>
-    <version>2.3.4</version>
+    <version>2.3.5</version>
   </parent>
 
   <artifactId>redmatch-runtime</artifactId>
@@ -15,25 +15,22 @@
 
   <name>Redmatch Runtime</name>
 
+  <properties>
+    <snakeyaml.version>1.30</snakeyaml.version>
+    <validation.version>2.0.1.Final</validation.version>
+  </properties>
+
   <dependencies>
-    <!-- Used to import the basic Spring Boot functionality. -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter</artifactId>
-    </dependency>
-    <!-- Spring Boot validation support. -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
     <!-- Imported to reuse compilation functionality.  -->
@@ -46,6 +43,7 @@
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
+      <version>${gson.version}</version>
     </dependency>
     <!-- Used to support FHIR. -->
     <dependency>
@@ -67,10 +65,36 @@
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
+      <version>${httpcomponents.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpmime</artifactId>
+      <version>${httpcomponents.version}</version>
+    </dependency>
+    <!-- Used to parse the Redmatch configuration file. -->
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>${snakeyaml.version}</version>
+    </dependency>
+    <!-- To support validation annotations. -->
+    <dependency>
+      <groupId>javax.validation</groupId>
+      <artifactId>validation-api</artifactId>
+      <version>${validation.version}</version>
+    </dependency>
+    <!-- Required for logging in tests. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.0-alpha6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-jdk14</artifactId>
+      <version>2.0.0-alpha6</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -80,6 +104,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.0</version>
         <configuration>
           <compilerArgs>
             <arg>-Xlint</arg>
@@ -90,6 +115,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M5</version>
         <configuration>
           <useSystemClassLoader>false</useSystemClassLoader>
           <forkCount>0</forkCount>
@@ -102,6 +128,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.0.0-M5</version>
         <configuration>
           <useSystemClassLoader>false</useSystemClassLoader>
           <forkCount>0</forkCount>

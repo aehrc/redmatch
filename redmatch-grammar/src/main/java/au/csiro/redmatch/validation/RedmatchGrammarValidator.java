@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import au.csiro.redmatch.compiler.PathInfo;
 import au.csiro.redmatch.model.VersionedFhirPackage;
+import au.csiro.redmatch.terminology.CodeInfo;
 import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.ProgressReporter;
 import org.apache.commons.logging.Log;
@@ -221,7 +221,7 @@ public class RedmatchGrammarValidator {
    * @param path The path.
    * @return The properties of the path.
    */
-  public PathInfo getPathInfo(String path) throws IOException {
+  public CodeInfo getPathInfo(String path) throws IOException {
     if (hasExtension(path)) {
       String first = getFirstExtension(path);
       List<String> others = new ArrayList<>();
@@ -245,7 +245,7 @@ public class RedmatchGrammarValidator {
     }
   }
   
-  private PathInfo getInfo(String path) throws IOException {
+  private CodeInfo getInfo(String path) throws IOException {
     if (hasExtension(path)) {
       String first = getFirstExtension(path);
       List<String> others = new ArrayList<>();
@@ -258,8 +258,7 @@ public class RedmatchGrammarValidator {
           return handleExtensionUrl(path);
         }
 
-        Parameters out = terminologyService.lookup(fhirPackage, first);
-        return getPathInfo(path, out);
+        return terminologyService.lookup(fhirPackage, first);
       } else {
 
         String last = others.get(others.size() - 1);
@@ -269,17 +268,15 @@ public class RedmatchGrammarValidator {
           return handleExtensionUrl(path);
         }
 
-        Parameters out = terminologyService.lookup(fhirPackage, last);
-        return getPathInfo(path, out);
+        return terminologyService.lookup(fhirPackage, last);
       }
     } else {
-      Parameters out = terminologyService.lookup(fhirPackage, path);
-      return getPathInfo(path, out);
+      return terminologyService.lookup(fhirPackage, path);
     }
   }
   
-  private PathInfo handleExtensionValue(String path) {
-    PathInfo res = new PathInfo(path);
+  private CodeInfo handleExtensionValue(String path) {
+    CodeInfo res = new CodeInfo(path);
     res.setMin(0);
     res.setMax("1");
     res.setType("");
@@ -287,42 +284,12 @@ public class RedmatchGrammarValidator {
     return res;
   }
   
-  private PathInfo handleExtensionUrl(String path) {
-    PathInfo res = new PathInfo(path);
+  private CodeInfo handleExtensionUrl(String path) {
+    CodeInfo res = new CodeInfo(path);
     res.setMin(1);
     res.setMax("1");
     res.setType("uri");
     
-    return res;
-  }
-  
-  private PathInfo getPathInfo(String path, Parameters out) {
-    PathInfo res = new PathInfo(path);
-    for(ParametersParameterComponent param : out.getParameter()) {
-      if (param.getName().equals("property")) {
-        List<ParametersParameterComponent> ppcs = param.getPart();
-        if (ppcs.size() == 2) {
-          ParametersParameterComponent code = ppcs.get(0);
-          if ("code".equals(code.getName())) {
-            String codeValue = ((StringType) code.getValue()).getValue();
-            ParametersParameterComponent value = ppcs.get(1);
-            if (value.getName().startsWith("value")) {
-              if ("min".equals(codeValue)) {
-                res.setMin(((IntegerType) value.getValue()).getValue());
-              } else if ("max".equals(codeValue)) {
-                res.setMax(((StringType) value.getValue()).getValue());
-              } else if ("type".equals(codeValue)) {
-                res.setType(((StringType) value.getValue()).getValue());
-              } else if ("targetProfile".equals(codeValue)) {
-                res.getTargetProfiles().add(((StringType) value.getValue()).getValue());
-              } else {
-                log.warn("Unexpected property: " + codeValue);
-              }
-            }
-          }
-        }
-      }
-    }
     return res;
   }
 

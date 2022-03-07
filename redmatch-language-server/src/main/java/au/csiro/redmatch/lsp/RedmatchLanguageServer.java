@@ -46,10 +46,9 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     TerminologyService terminologyService = new TerminologyService(ctx, gson);
     RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage,
       new LspProgressReporter(this));
-    HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage);
-    reflectionHelper.init();
+    HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
     GraphExporterService graphExporterService = new GraphExporterService();
-    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService);
+    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService, terminologyService);
     textDocumentService = new RedmatchTextDocumentService(this, terminologyService);
     workspaceService = new RedmatchWorkspaceService(this);
   }

@@ -21,8 +21,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.jgrapht.Graph;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -35,7 +33,6 @@ import java.util.*;
  *
  * @author Alejandro Metke Jimenez
  */
-@Component
 public class RedcapClient implements Client {
 
   /** Logger. */
@@ -43,7 +40,6 @@ public class RedcapClient implements Client {
 
   private final Gson gson;
 
-  @Autowired
   public RedcapClient(Gson gson) {
     this.gson = gson;
   }

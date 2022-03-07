@@ -13,6 +13,7 @@ import au.csiro.redmatch.exporter.FhirExporter;
 import au.csiro.redmatch.exporter.GraphExporterService;
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.*;
+import au.csiro.redmatch.terminology.TerminologyService;
 import au.csiro.redmatch.util.*;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
@@ -26,9 +27,6 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
@@ -48,7 +46,6 @@ import java.util.stream.Stream;
  * @author Alejandro Metke Jimenez
  *
  */
-@Component(value = "api")
 public class RedmatchApi {
 
   /** Logger. */
@@ -64,19 +61,19 @@ public class RedmatchApi {
 
   private final GraphExporterService graphExporterService;
 
-  @Autowired
-  private ObjectProvider<FhirExporter> fhirExporterProvider;
+  private final TerminologyService terminologyService;
+
 
   public static final Range zeroZero = new Range(new Position(0, 0), new Position(0, 0));
 
-  @Autowired
   public RedmatchApi(FhirContext ctx, Gson gson, RedmatchCompiler compiler, HapiReflectionHelper reflectionHelper,
-                     GraphExporterService graphExporterService) {
+                     GraphExporterService graphExporterService, TerminologyService terminologyService) {
     this.ctx = ctx;
     this.gson = gson;
     this.compiler = compiler;
     this.reflectionHelper = reflectionHelper;
     this.graphExporterService = graphExporterService;
+    this.terminologyService = terminologyService;
   }
 
   /**
@@ -203,12 +200,8 @@ public class RedmatchApi {
       }
 
       log.info("Transforming into FHIR resources");
-      FhirExporter exp;
-      if (fhirExporterProvider == null) {
-        exp = new FhirExporter(document, rows, reflectionHelper);
-      } else {
-        exp = fhirExporterProvider.getObject(document, rows);
-      }
+      FhirExporter exp = new FhirExporter(document, rows, reflectionHelper, terminologyService,
+        compiler.getDefaultFhirPackage());
       Map<String, DomainResource> resourceMap = exp.transform(progressReporter, null);
 
       // Group resources by type
@@ -242,8 +235,6 @@ public class RedmatchApi {
         DiagnosticSeverity.Error, "API"));
     }
   }
-
-
 
   /**
    * Runs an operation on all the Redmatch rule documents found in the base folder.
