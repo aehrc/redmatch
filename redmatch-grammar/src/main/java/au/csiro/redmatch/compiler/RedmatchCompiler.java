@@ -492,7 +492,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
               mappingCtx,
               "Mapping for field " + fieldId + " is not needed.",
               DiagnosticSeverity.Warning,
-              CODE_MAPPING_NOT_NEEDED.toString()
+              CODE_MAPPING_NOT_NEEDED.toString(),
+              fieldId
             )
           );
         }
@@ -508,7 +509,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
             "Mapping for field " + fieldId + " is required but was not found.",
             DiagnosticSeverity.Error,
             CODE_MAPPING_MISSING.toString(),
-            fieldId
+            labeledField
           )
         );
       } else {

@@ -8,13 +8,13 @@ import au.csiro.redmatch.compiler.ErrorCodes;
 import au.csiro.redmatch.util.DocumentUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Generates quick fixes using the language server protocol.
@@ -23,22 +23,32 @@ import java.util.regex.Pattern;
  */
 public class QuickFixGenerator {
 
+  private static final Log log = LogFactory.getLog(LspProgressReporter.class);
+
   public static List<Either<Command, CodeAction>> computeCodeActions(CodeActionParams params,
                                                                      CancelChecker cancelToken,
                                                                      TextDocumentItem document) {
     String docUri = params.getTextDocument().getUri();
-    var codeActions = new ArrayList<Either<Command, CodeAction>>();
+    Map<String, List<Diagnostic>> diagnosticsByType = new HashMap<>();
     for (var diagnostic: params.getContext().getDiagnostics()) {
+      String key = diagnostic.getCode().getLeft();
+      List<Diagnostic> diagnostics = diagnosticsByType.computeIfAbsent(key, k -> new ArrayList<>());
+      diagnostics.add(diagnostic);
+    }
+    var codeActions = new ArrayList<Either<Command, CodeAction>>();
+    for (String key : diagnosticsByType.keySet()) {
       if (cancelToken.isCanceled()) {
         break;
       }
-      Either<String, Integer> code = diagnostic.getCode();
-      if (code != null) {
-        CodeAction codeAction = getCodeAction(ErrorCodes.valueOf(diagnostic.getCode().getLeft()), diagnostic, docUri,
-          document);
-        if (codeAction != null) {
-          codeActions.add(Either.forRight(codeAction));
-        }
+      ErrorCodes errorCode = ErrorCodes.valueOf(key);
+      List<Diagnostic> diagnostics = diagnosticsByType.get(key);
+      CodeAction codeAction = getCodeAction(errorCode, diagnostics.get(0), docUri, document);
+      if (codeAction != null) {
+        codeActions.add(Either.forRight(codeAction));
+      }
+      codeAction = getCodeAction(errorCode, diagnostics, docUri, document);
+      if (codeAction != null) {
+        codeActions.add(Either.forRight(codeAction));
       }
     }
     return codeActions;
@@ -47,16 +57,6 @@ public class QuickFixGenerator {
   static CodeAction getCodeAction(ErrorCodes errorCode, Diagnostic diagnostic, String documentUri,
                                   TextDocumentItem document) {
     switch (errorCode) {
-      case CODE_MAPPING_MISSING:
-        return getActionForMissingMapping(diagnostic, documentUri, document);
-      case CODE_MAPPED_FIELD_DOES_NOT_EXIST:
-        return getActionForMappedFieldDoesNotExist(diagnostic, documentUri);
-      case CODE_MAPPED_FIELD_LABEL_MISMATCH:
-        return getActionForFieldLabelMismatch(diagnostic, documentUri, document);
-      case CODE_MAPPING_NOT_NEEDED:
-        return getActionForMappingNotNeeded(diagnostic, documentUri);
-      case CODE_MAPPING_AND_SECTION_MISSING:
-        return getActionForMissingMappingAndSection(diagnostic, documentUri, document);
       case CODE_INVALID_REDCAP_ID:
       case CODE_UNKNOWN_REDCAP_FIELD:
         return getActionForInvalidRedcapId(diagnostic, documentUri);
@@ -64,6 +64,24 @@ public class QuickFixGenerator {
         return getActionForInvalidFhirId(diagnostic, documentUri);
       case CODE_INVALID_ALIAS:
         return getActionForInvalidAlias(diagnostic, documentUri);
+      case CODE_MAPPED_FIELD_DOES_NOT_EXIST:
+        return getActionForMappedFieldDoesNotExist(diagnostic, documentUri);
+      case CODE_MAPPED_FIELD_LABEL_MISMATCH:
+        return getActionForFieldLabelMismatch(diagnostic, documentUri, document);
+      case CODE_MAPPING_NOT_NEEDED:
+        return getActionForMappingNotNeeded(diagnostic, documentUri);
+      default:
+        return null;
+    }
+  }
+
+  static CodeAction getCodeAction(ErrorCodes errorCode, List<Diagnostic> diagnostics, String documentUri,
+                                  TextDocumentItem document) {
+    switch (errorCode) {
+      case CODE_MAPPING_MISSING:
+        return getActionForMissingMapping(diagnostics, documentUri, document);
+      case CODE_MAPPING_AND_SECTION_MISSING:
+        return getActionForMissingMappingAndSection(diagnostics, documentUri, document);
       default:
         return null;
     }
@@ -105,20 +123,24 @@ public class QuickFixGenerator {
     return null;
   }
 
-  static CodeAction getActionForMissingMappingAndSection(Diagnostic diagnostic, String documentUri,
+  static CodeAction getActionForMissingMappingAndSection(List<Diagnostic> diagnostics, String documentUri,
                                                          TextDocumentItem document) {
-    Object data = diagnostic.getData();
-    if (data instanceof JsonObject) {
-      JsonObject labeledField = (JsonObject) diagnostic.getData();
-      String fieldId = labeledField.get("id").getAsString();
-      String label = labeledField.get("label").getAsString();
-
-      String actionLabel = "Add missing mapping for field " + fieldId;
-      // In this we have the document context, so we can just append the mapping section to the end of the document
-      String newValue = document.getText() + "\nMAPPINGS: {\n" + generateDefaultMapping(fieldId, label) + "}";
-      return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+    if (diagnostics == null || diagnostics.isEmpty()) {
+      return null;
     }
-    return null;
+
+    Map<String, List<TextEdit>> changes = new HashMap<>();
+    List<TextEdit> textEdits = new ArrayList<>();
+    changes.put(documentUri, textEdits);
+
+    Diagnostic diagnostic = diagnostics.get(0);
+    textEdits.add(new TextEdit(diagnostic.getRange(), document.getText() + "\nMAPPINGS: {\n}"));
+
+    var newCodeAction = new CodeAction("Add mappings section");
+    newCodeAction.setKind(CodeActionKind.QuickFix);
+    newCodeAction.setDiagnostics(diagnostics);
+    newCodeAction.setEdit(new WorkspaceEdit(changes));
+    return newCodeAction;
   }
 
   static CodeAction getActionForMappingNotNeeded(Diagnostic diagnostic, String documentUri) {
@@ -131,18 +153,35 @@ public class QuickFixGenerator {
     return null;
   }
 
-  static CodeAction getActionForMissingMapping(Diagnostic diagnostic, String documentUri, TextDocumentItem document) {
-    Object data = diagnostic.getData();
-    if (data instanceof JsonObject) {
-      JsonObject labeledField = (JsonObject) diagnostic.getData();
-      String fieldId = labeledField.get("id").getAsString();
-      String label = labeledField.get("label").getAsString();
-
-      String actionLabel = "Add missing mapping for field " + fieldId;
-      String newValue = getNewValueForMissingMapping(document.getText(), diagnostic.getRange(), fieldId, label);
-      return createCodeAction(diagnostic, newValue, documentUri, actionLabel);
+  static CodeAction getActionForMissingMapping(List<Diagnostic> diagnostics, String documentUri, TextDocumentItem document) {
+    if (diagnostics == null || diagnostics.isEmpty()) {
+      return null;
     }
-    return null;
+
+    Map<String, List<TextEdit>> changes = new HashMap<>();
+    List<TextEdit> textEdits = new ArrayList<>();
+    changes.put(documentUri, textEdits);
+    for (Diagnostic diagnostic : diagnostics) {
+      Object data = diagnostic.getData();
+      if (data instanceof JsonObject) {
+        JsonObject labeledField = (JsonObject) diagnostic.getData();
+        String fieldId = labeledField.get("id").getAsString();
+        String label = labeledField.get("label").getAsString();
+        String newValue = getNewValueForMissingMapping(document.getText(), diagnostic.getRange(), fieldId, label);
+        textEdits.add(new TextEdit(diagnostic.getRange(), newValue));
+      } else {
+        log.error("Unexpected data in diagnostic: " + data);
+        return null;
+      }
+    }
+
+    String actionLabel = "Add missing mappings";
+    WorkspaceEdit workspaceEdit = new WorkspaceEdit(changes);
+    var newCodeAction = new CodeAction(actionLabel);
+    newCodeAction.setKind(CodeActionKind.QuickFix);
+    newCodeAction.setDiagnostics(diagnostics);
+    newCodeAction.setEdit(workspaceEdit);
+    return newCodeAction;
   }
 
   static CodeAction getActionForMappedFieldDoesNotExist(Diagnostic diagnostic, String documentUri) {
