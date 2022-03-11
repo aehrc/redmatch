@@ -627,16 +627,18 @@ public class RedmatchGrammarCodeSystemGenerator {
       path = discardBaseType(path);
     }
 
+    boolean isList = false;
     if (path.contains(".")) {
       String max = elementDefinition.getMax();
       if (!"1".equals(max)) {
         path = path + "[]";
+        isList = true;
       }
     }
 
     // Special case: if this is a profiled extension, then we replace the 'extension' path element with the slice name
     if (isExtension(elementDefinition)) {
-        path = path.substring(0, path.length() - 9) + elementDefinition.getSliceName();
+        path = path.substring(0, path.length() - (isList ? 11 : 9)) + elementDefinition.getSliceName();
         log.debug("Replaced 'extension' element in path: " + path);
     }
 
