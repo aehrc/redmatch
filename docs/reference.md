@@ -22,6 +22,14 @@ This section declares which REDCap server to use to fetch and transform data. It
 SERVER: 'local'
 ```
 
+## Target
+
+This section declares what is the target FHIR package that the rules will target. This is optional and when it is not present a default FHIR package will be used. This is currently set to FHIR R4. Note that if a FHIR package is not published in the Simplifier registry then it should be available locally in the `.fhir` folder (for example, if developing an IG locally).
+
+```
+TARGET: 'agha.fhir.genclipr#dev'
+```
+
 ## Aliases
 
 Aliases allow making the rules more readable, especially when long urls need to be reference frequently. The following example shows how to define aliases for SNOMED CT and the Human Phenotype Ontology. 
@@ -78,7 +86,7 @@ The body of a rule runs when a condition evaluates to `true` and indicates which
 A resource element defines the FHIR resource that gets created and assigns values to its attributes. The resource needs an identifier because it might be referenced by other rules. For example, the following snippet shows a Patient resource with an identifier of `p`. Note that this is an internal identifier used by Redmatch and it's different from an identifier of a FHIR resource.
 
 ```
-Patient<p> -> ...
+Patient<p> : ...
 ```
 ### Attributes
 
@@ -93,20 +101,20 @@ The values assigned to an attribute can be literals, references or values that c
 Redmatch supports boolean, string and number literals. The following snippet shows how to assign a string literal value:
 
 ```
-Patient<p> -> identifier.type.text = 'Medicare Number';
+Patient<p> : identifier.type.text = 'Medicare Number';
 ```
 
 Also, two special kinds of literals are available: concept literals and codes. The former can be used to populate `CodeableConcept` attributes and the latter to populate `code` attributes. The following snippet shows how to assign a codeable concept literal:
 
 ```
-Patient<p> -> identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC);
+Patient<p> : identifier.type = CONCEPT_LITERAL(http://hl7.org/fhir/v2/0203|MC);
 ```
 #### References
 
 FHIR supports attributes of type `reference` to point at other instances of FHIR resources. Redmatch also allows assigning attributes of type `reference` to other FHIR resources that have been created with the rules. The following snippet shows how to assign a reference:
 
 ```
-Condition<c> -> subject = REF(Patient<p>);
+Condition<c> : subject = REF(Patient<p>);
 ```
 
 ### Compatibility
