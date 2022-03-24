@@ -5,10 +5,7 @@
 package au.csiro.redmatch.validation;
 
 import au.csiro.redmatch.model.VersionedFhirPackage;
-import au.csiro.redmatch.util.FhirUtils;
-import au.csiro.redmatch.util.FileUtils;
-import au.csiro.redmatch.util.Progress;
-import au.csiro.redmatch.util.ProgressReporter;
+import au.csiro.redmatch.util.*;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -389,7 +386,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     if (targetStructureDefinition != null) {
       cdc.addProperty()
         .setCode("targetProfile")
-        .setValue(new StringType(getProfileName(targetStructureDefinition.getUrl())));
+        .setValue(new StringType(StringUtils.getLastPath(targetStructureDefinition.getUrl())));
     } else {
       log.warn("Could not find structure definition for target profile " + targetProfileUrl);
       cdc.addProperty()
@@ -589,11 +586,6 @@ public class RedmatchGrammarCodeSystemGenerator {
     }
   }
 
-  private String getProfileName(String url) {
-    String[] parts = url.split("[/]");
-    return parts[parts.length - 1];
-  }
-
   /**
    * Calculates the path for an element definition, adding brackets where the multiplicity is greater than one. If it is
    * nested then it drops the base type. If this is a profile then it replaces the resource / type name with the profile
@@ -615,7 +607,7 @@ public class RedmatchGrammarCodeSystemGenerator {
     // resource name)
     if (isProfile(structureDefinition)) {
       int index = path.indexOf('.');
-      String newName = getProfileName(structureDefinition.getUrl());
+      String newName = StringUtils.getLastPath(structureDefinition.getUrl());
       if (index == -1) {
         path = newName;
       } else {

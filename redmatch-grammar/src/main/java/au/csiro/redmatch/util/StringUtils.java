@@ -54,6 +54,11 @@ public class StringUtils {
     return dp[x.length()][y.length()];
   }
 
+  public static String getLastPath(String url) {
+    String[] parts = url.split("[/]");
+    return parts[parts.length - 1];
+  }
+
   private static int costOfSubstitution(char a, char b) {
     return a == b ? 0 : 1;
   }
@@ -61,4 +66,6 @@ public class StringUtils {
   private static int min(int... numbers) {
     return Arrays.stream(numbers).min().orElse(Integer.MAX_VALUE);
   }
+
+
 }

@@ -12,10 +12,7 @@ import au.csiro.redmatch.model.Row;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.terminology.CodeInfo;
 import au.csiro.redmatch.terminology.TerminologyService;
-import au.csiro.redmatch.util.FitbitUrlValidator;
-import au.csiro.redmatch.util.GraphUtils;
-import au.csiro.redmatch.util.Progress;
-import au.csiro.redmatch.util.ProgressReporter;
+import au.csiro.redmatch.util.*;
 import ca.uhn.fhir.model.api.annotation.Child;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -349,7 +346,7 @@ public class FhirExporter {
         }
       }
 
-      theValue = getValue(value, fhirType, vertex, recordId, enumFactory);
+      theValue = getValue(value, fhirType, vertex, recordId, enumFactory, fhirPackage);
       if (theValue != null) {
         helper.invokeSetter(theElement, leafAttributeName, theValue, leafAttribute.isList(), index, isValueX);
       }
@@ -368,9 +365,11 @@ public class FhirExporter {
    * @param vertex A vertex with patient data.
    * @param recordId The id of this record. Used to create the references to FHIR ids.
    * @param enumFactory If the type is an enumeration, this is the factory to create an instance.
+   * @param fhirPackage The target FHIR package.
    * @return The value or null if the value cannot be determined. This can also be a list.
    */
-  private Base getValue(Value value, Class<?> fhirType, JsonObject vertex, String recordId, Class<?> enumFactory) {
+  private Base getValue(Value value, Class<?> fhirType, JsonObject vertex, String recordId, Class<?> enumFactory,
+                        VersionedFhirPackage fhirPackage) throws IOException {
     // If this is a field-based value then make sure that there is a value and if not return null
     if (value instanceof FieldBasedValue) {
       FieldBasedValue fbv = (FieldBasedValue) value;
@@ -432,6 +431,11 @@ public class FhirExporter {
       Reference ref = new Reference();
 
       String resourceType = rv.getResourceType();
+      CodeInfo codeInfo = terminologyService.lookup(fhirPackage, resourceType);
+      if (codeInfo.isProfile()) {
+        resourceType = StringUtils.getLastPath(codeInfo.getBaseResource());
+      }
+
       String resourceId = rv.getResourceId();
       String resId = resourceType + "<" + resourceId + ">";
       boolean unique = uniqueIds.contains(resId);
