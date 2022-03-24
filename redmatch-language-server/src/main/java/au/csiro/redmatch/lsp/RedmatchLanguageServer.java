@@ -126,9 +126,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     ExecuteCommandOptions executeCommandOptions = new ExecuteCommandOptions(
       List.of(
         "au.csiro.redmatch.transform.this",
-        "au.csiro.redmatch.transform.all",
-        "au.csiro.redmatch.graph.this",
-        "au.csiro.redmatch.graph.all"
+        "au.csiro.redmatch.transform.all"
       )
     );
     executeCommandOptions.setWorkDoneProgress(true);

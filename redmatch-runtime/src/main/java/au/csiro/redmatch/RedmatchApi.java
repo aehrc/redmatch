@@ -27,6 +27,7 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
+import org.javatuples.Pair;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
@@ -137,73 +138,86 @@ public class RedmatchApi {
     return res;
   }
 
+  private Pair<Map<String, DomainResource>, List<Diagnostic>> transform(@NotNull File redmatchRulesFile,
+                                                                        ProgressReporter progressReporter,
+                                                                        CancelChecker cancelToken) throws IOException {
+    File baseFolder = redmatchRulesFile.toPath().getParent().toFile();
+
+    // Compile
+    String doc = FileUtils.loadTextFile(redmatchRulesFile);
+    String name = redmatchRulesFile.getName();
+    Document document = compile(doc, name, progressReporter);
+    if (document.getDiagnostics().stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
+      return Pair.with(Collections.emptyMap(), document.getDiagnostics());
+    }
+
+    if (cancelToken != null && cancelToken.isCanceled()) {
+      return Pair.with(Collections.emptyMap(), document.getDiagnostics());
+    }
+
+    // Get data from server
+    Map<String, DataSource> dataSourceMap = getDataSourceMap(baseFolder);
+    String server = document.getServer();
+    log.info("Resolving server " + server);
+    DataSource dataSource = dataSourceMap.get(server);
+    if (dataSource == null) {
+      return Pair.with(Collections.emptyMap(), List.of(new Diagnostic(zeroZero, "Unknown server " + server + ". Available servers are: "
+        + dataSourceMap.keySet(), DiagnosticSeverity.Error, "API")));
+    }
+
+    log.info("Getting data from server: " + dataSource.getUrl());
+    Client client = null;
+    switch(dataSource.getType()) {
+      case REDCAP:
+        client = new RedcapClient(gson);
+        break;
+      case CSV_OAUTH2:
+        throw new UnsupportedOperationException("Support for CSV files over OAuth2 has not been implemented yet.");
+    }
+    List<Row> rows;
+    try {
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportStart("Fetching data"));
+      }
+      rows = client.getData(dataSource.getUrl(), new RedcapCredentials(dataSource.getToken()),
+        document.getReferencedFields(true));
+      log.info("Got " + rows.size() + " rows");
+    } finally {
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportEnd());
+      }
+    }
+
+    if (cancelToken != null && cancelToken.isCanceled()) {
+      return Pair.with(Collections.emptyMap(), document.getDiagnostics());
+    }
+
+    log.info("Transforming into FHIR resources");
+    FhirExporter exp = new FhirExporter(document, rows, reflectionHelper, terminologyService,
+      compiler.getDefaultFhirPackage());
+    return Pair.with(exp.transform(progressReporter, cancelToken), document.getDiagnostics());
+  }
+
   /**
-   * Runs an operation on a Redmatch rules document.
+   * Exports the generated FHIR resources that result from running a Redmatch rules document.
    *
-   * @param operation The operation to run.
    * @param redmatchRulesFile The Redmatch rules document.
    * @param progressReporter An object used to report progress. Can be null.
+   * @param cancelToken Used to check if the user has cancelled the operation.
    * @return List of diagnostic messages.
    */
-  public List<Diagnostic> run(@NotNull Operation operation, @NotNull File redmatchRulesFile,
+  public List<Diagnostic> export(@NotNull File redmatchRulesFile,
                                     ProgressReporter progressReporter, CancelChecker cancelToken) {
     try {
-      File baseFolder = redmatchRulesFile.toPath().getParent().toFile();
+      Pair<Map<String, DomainResource>, List<Diagnostic>> data =
+        transform(redmatchRulesFile, progressReporter, cancelToken);
 
-      // Compile
-      String doc = FileUtils.loadTextFile(redmatchRulesFile);
-      String name = redmatchRulesFile.getName();
-      Document document = compile(doc, name, progressReporter);
-      if (document.getDiagnostics().stream().anyMatch(d -> d.getSeverity().equals(DiagnosticSeverity.Error))) {
-        return document.getDiagnostics();
+      // If the resource map is empty then something went wrong or the operation was cancelled by the user
+      if (data.getValue0().isEmpty()) {
+        return data.getValue1();
       }
 
-      if (cancelToken != null && cancelToken.isCanceled()) {
-        return document.getDiagnostics();
-      }
-
-      // Get data from server
-      Map<String, DataSource> dataSourceMap = getDataSourceMap(baseFolder);
-      String server = document.getServer();
-      log.info("Resolving server " + server);
-      DataSource dataSource = dataSourceMap.get(server);
-      if (dataSource == null) {
-        return List.of(new Diagnostic(zeroZero, "Unknown server " + server + ". Available servers are: "
-          + dataSourceMap.keySet(), DiagnosticSeverity.Error, "API"));
-      }
-
-      log.info("Getting data from server: " + dataSource.getUrl());
-      Client client = null;
-      switch(dataSource.getType()) {
-        case REDCAP:
-          client = new RedcapClient(gson);
-          break;
-        case CSV_OAUTH2:
-          throw new UnsupportedOperationException("Support for CSV files over OAuth2 has not been implemented yet.");
-      }
-      List<Row> rows;
-      try {
-        if (progressReporter != null) {
-          progressReporter.reportProgress(Progress.reportStart("Fetching data"));
-        }
-        rows = client.getData(dataSource.getUrl(), new RedcapCredentials(dataSource.getToken()),
-          document.getReferencedFields(true));
-        log.info("Got " + rows.size() + " rows");
-      } finally {
-        if (progressReporter != null) {
-          progressReporter.reportProgress(Progress.reportEnd());
-        }
-      }
-
-      if (cancelToken != null && cancelToken.isCanceled()) {
-        return document.getDiagnostics();
-      }
-
-      log.info("Transforming into FHIR resources");
-      FhirExporter exp = new FhirExporter(document, rows, reflectionHelper, terminologyService,
-        compiler.getDefaultFhirPackage());
-      Map<String, DomainResource> resourceMap = exp.transform(progressReporter, null);
-
+      Map<String, DomainResource> resourceMap = data.getValue0();
       // Group resources by type
       final Map<String, List<DomainResource>> grouped = new HashMap<>();
       for (String key : resourceMap.keySet()) {
@@ -213,22 +227,10 @@ public class RedmatchApi {
         list.add(dr);
       }
 
-      log.info("Running operation " + operation.toString());
+      File baseFolder = redmatchRulesFile.toPath().getParent().toFile();
       Path outputFolder = createOutputFolder(baseFolder).toPath();
-      switch (operation) {
-        case EXPORT:
-          save(grouped, outputFolder, progressReporter, cancelToken);
-          break;
-        case GENERATE_GRAPH:
-          generateGraph(resourceMap, outputFolder, progressReporter, cancelToken);
-          break;
-        case BOTH:
-          save(grouped, outputFolder, progressReporter, cancelToken);
-          generateGraph(resourceMap, outputFolder, progressReporter, cancelToken);
-          break;
-      }
-
-      return document.getDiagnostics();
+      save(grouped, outputFolder, progressReporter, cancelToken);
+      return data.getValue1();
     } catch (Exception e) {
       log.error(e);
       return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + e.getLocalizedMessage(),
@@ -239,13 +241,13 @@ public class RedmatchApi {
   /**
    * Runs an operation on all the Redmatch rule documents found in the base folder.
    *
-   * @param operation The operation to run.
    * @param baseFolder The folder that contains the Redmatch rule documents , one or more schemas referenced by the
    *                   rules and a redmatch-config.yaml file with source server details.
    * @param progressReporter An object used to report progress. Can be null.
+   * @param cancelToken Used to check if the user has cancelled the operation.
    * @return Map of diagnostic messages. Key is file where error happened.
    */
-  public List<Diagnostic> runAll(@NotNull Operation operation, @NotNull File baseFolder,
+  public List<Diagnostic> exportAll(@NotNull File baseFolder,
                                  ProgressReporter progressReporter, CancelChecker cancelToken) {
     if (!baseFolder.canRead() || !baseFolder.canWrite()) {
       return List.of(new Diagnostic(zeroZero, "Unable to read or write on the base folder.", DiagnosticSeverity.Error,
@@ -264,11 +266,36 @@ public class RedmatchApi {
         DiagnosticSeverity.Error, "API"));
     }
 
-    List<Diagnostic> diagnostics = new ArrayList<>();
-    for (File rdmFile : rdmFiles) {
-      diagnostics.addAll(run(operation, rdmFile, progressReporter, cancelToken));
+    try {
+      List<Diagnostic> diagnostics = new ArrayList<>();
+      Map<String, DomainResource> resourcesMap = new HashMap<>();
+
+      for (File rdmFile : rdmFiles) {
+
+        Pair<Map<String, DomainResource>, List<Diagnostic>> data =
+          transform(rdmFile, progressReporter, cancelToken);
+
+        resourcesMap.putAll(data.getValue0());
+        diagnostics.addAll(data.getValue1());
+      }
+
+      // Group resources by type
+      final Map<String, List<DomainResource>> grouped = new HashMap<>();
+      for (String key : resourcesMap.keySet()) {
+        DomainResource dr = resourcesMap.get(key);
+        String resourceType = dr.getResourceType().toString();
+        List<DomainResource> list = grouped.computeIfAbsent(resourceType, k -> new ArrayList<>());
+        list.add(dr);
+      }
+
+      Path outputFolder = createOutputFolder(baseFolder).toPath();
+      save(grouped, outputFolder, progressReporter, cancelToken);
+      return diagnostics;
+    } catch (Exception e) {
+      log.error(e);
+      return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + e.getLocalizedMessage(),
+        DiagnosticSeverity.Error, "API"));
     }
-    return diagnostics;
   }
 
   /**
@@ -409,16 +436,6 @@ public class RedmatchApi {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportEnd());
       }
-    }
-  }
-
-  private void generateGraph(Map<String, DomainResource> res, Path tgtDir, ProgressReporter progressReporter,
-                             CancelChecker cancelToken)
-    throws IOException {
-    log.info("Generating graph in output folder");
-    D3Graph d3Graph = generateGraph(res.values(), progressReporter, cancelToken);
-    if (!cancelToken.isCanceled()) {
-      graphExporterService.exportGraph(d3Graph, tgtDir.toFile(), progressReporter);
     }
   }
 

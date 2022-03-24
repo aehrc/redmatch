@@ -4,7 +4,6 @@
  */
 package au.csiro.redmatch.lsp;
 
-import au.csiro.redmatch.Operation;
 import com.google.gson.JsonObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -65,16 +64,10 @@ public class RedmatchWorkspaceService implements WorkspaceService {
         if (flag.compareAndSet(false, true)) {
           switch (command) {
             case "au.csiro.redmatch.transform.all":
-              runAllCommand(parentFolder, Operation.EXPORT, flag, cancelToken);
+              exportAll(parentFolder, flag, cancelToken);
               break;
             case "au.csiro.redmatch.transform.this":
-              runThisCommand(filePath, Operation.EXPORT, flag, cancelToken);
-              break;
-            case "au.csiro.redmatch.graph.all":
-              runAllCommand(parentFolder, Operation.GENERATE_GRAPH, flag, cancelToken);
-              break;
-            case "au.csiro.redmatch.graph.this":
-              runThisCommand(filePath, Operation.GENERATE_GRAPH, flag, cancelToken);
+              exportThis(filePath, flag, cancelToken);
               break;
             default:
               log.error("Unexpected command " + command);
@@ -93,9 +86,10 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     });
   }
 
-  private void runThisCommand(Path filePath, Operation operation, AtomicBoolean flag, CancelChecker cancelToken) {
+  private void exportThis(Path filePath, AtomicBoolean flag, CancelChecker cancelToken) {
     try {
-      List<Diagnostic> diagnostics = run(filePath, operation, cancelToken);
+      List<Diagnostic> diagnostics = languageServer.getApi().export(filePath.toFile(),
+        new LspProgressReporter(languageServer), cancelToken);
       for (Diagnostic diagnostic : diagnostics) {
         MessageType messageType = MessageType.Info;
         switch (diagnostic.getSeverity()) {
@@ -116,9 +110,10 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     }
   }
 
-  private void runAllCommand(File parentFolder, Operation operation, AtomicBoolean flag, CancelChecker cancelToken) {
+  private void exportAll(File parentFolder, AtomicBoolean flag, CancelChecker cancelToken) {
     try {
-      List<Diagnostic> diagnostics = runAll(parentFolder, operation, cancelToken);
+      List<Diagnostic> diagnostics = languageServer.getApi().exportAll(parentFolder,
+        new LspProgressReporter(languageServer), cancelToken);
       for (Diagnostic diagnostic : diagnostics) {
         MessageType messageType = MessageType.Info;
         switch (diagnostic.getSeverity()) {
@@ -137,17 +132,6 @@ public class RedmatchWorkspaceService implements WorkspaceService {
     } finally {
       flag.compareAndSet(true, false);
     }
-  }
-
-  private List<Diagnostic> runAll(File baseFolder, Operation operation, CancelChecker cancelToken) {
-    log.info("Running operation " + operation + " in folder " + baseFolder);
-    return languageServer.getApi().runAll(operation, baseFolder, new LspProgressReporter(languageServer), cancelToken);
-  }
-
-  private List<Diagnostic> run(Path filePath, Operation operation, CancelChecker cancelToken) {
-    log.info("Running operation" + operation + " on file " + filePath);
-    return languageServer.getApi().run(operation, filePath.toFile(), new LspProgressReporter(languageServer),
-      cancelToken);
   }
 
   @Override

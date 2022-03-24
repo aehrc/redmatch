@@ -118,15 +118,9 @@ The rules should compile with no issues.
 
 For more details and a list of all the expressions available in the language please check the [reference documentation](./reference.html).
 
-## Step 9: Visualise the Generated FHIR Resources
+## Step 9: Export to FHIR
 
-In order to visualise how the generated FHIR resources are related to each other, Redmatch allows exporting a graph view of the transformation results. Right-click on the `tutorial.rdm` file and select the `Generate graph for this file` command. This will generate a file called `graph.html` in the `output` folder. You can open this file with your browser. The visualisation should look similar to this:
-
-![](img/redmatch_graph.png)
-
-## Step 10: Export to FHIR
-
-If you are happy with the resulting FHIR resources you can run the transformation to produce FHIR resources. This can be done by right-clicking on the `tutorial.rdm` file and selecting the `Transform this file` command. 
+If you are happy with the transformation rules you can run the transformation to produce FHIR resources. This can be done by right-clicking on the `tutorial.rdm` file and selecting the `Transform this file` command. 
 
 This will generate a collection of files in [NDJSON](http://ndjson.org/) format in the `output` folder. Each resource type is saved in a separate file. In this case, three files are generated: `Condition.ndjson`, `Observation.ndjson` and `Patient.ndjson`. This formats allows directly importing this data into the [Pathling FHIR Analytics Platform](https://pathling.csiro.au/docs/import.html).
 

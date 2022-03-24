@@ -19,7 +19,6 @@ This tool is targeted at domain experts that know about FHIR but don't necessari
 ## Screenshots
 
 [![Redmatch Visual Studio Code Plugin](docs/img/redmatch_vscode_th.png?raw=true)](docs/img/redmatch_vscode.png)
-[![Redmatch Graph](docs/img/redmatch_graph_th.png?raw=true)](docs/img/redmatch_graph.png)
 
 ## Technologies
 * Spring Boot
