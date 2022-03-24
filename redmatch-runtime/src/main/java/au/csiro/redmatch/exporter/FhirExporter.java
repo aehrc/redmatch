@@ -278,8 +278,9 @@ public class FhirExporter {
 
       fhirResourceMap.put(fhirId, fhirResource);
     }
+
+    VersionedFhirPackage fhirPackage = doc.getFhirPackage() != null ? doc.getFhirPackage() : defaultFhirPackage;
     for (AttributeValue attVal : resource.getResourceAttributeValues()) {
-      VersionedFhirPackage fhirPackage = doc.getFhirPackage() != null ? doc.getFhirPackage() : defaultFhirPackage;
       setValue(fhirResource, attVal.getAttributes(), attVal.getValue(), vertex, recordId, fhirPackage,
         resource.getResourceType());
     }
@@ -431,14 +432,13 @@ public class FhirExporter {
       Reference ref = new Reference();
 
       String resourceType = rv.getResourceType();
+      String resourceId = rv.getResourceId();
+      boolean unique = uniqueIds.contains(resourceType + "<" + resourceId + ">");
+
       CodeInfo codeInfo = terminologyService.lookup(fhirPackage, resourceType);
       if (codeInfo.isProfile()) {
         resourceType = StringUtils.getLastPath(codeInfo.getBaseResource());
       }
-
-      String resourceId = rv.getResourceId();
-      String resId = resourceType + "<" + resourceId + ">";
-      boolean unique = uniqueIds.contains(resId);
 
       if (unique) {
         // This is a reference to a unique resource - no need to append row id
