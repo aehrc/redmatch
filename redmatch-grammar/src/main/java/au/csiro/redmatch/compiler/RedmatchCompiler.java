@@ -1171,8 +1171,8 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         }
       }
 
-      if (ctx.STRING() != null) {
-        display = removeEnds(ctx.STRING().getText());
+      if (ctx.CL_STRING() != null) {
+        display = removeEnds(ctx.CL_STRING().getText());
       }
 
       if (display != null) {
