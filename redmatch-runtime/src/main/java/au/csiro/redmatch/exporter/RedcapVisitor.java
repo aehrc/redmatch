@@ -118,7 +118,7 @@ public class RedcapVisitor implements GrammarObjectVisitor {
           actualStringValue = data.get(fieldId).getAsString();
         }
 
-        if (actualStringValue == null) {
+        if (actualStringValue == null || actualStringValue.isEmpty()) {
           log.debug("There was no value for field " + fieldId + " [" + this + "]");
           return false;
         }
