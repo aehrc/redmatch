@@ -12,7 +12,15 @@ public class DocumentUtils {
   public static String calculateSnippet(String text, Range range) {
     Position start = range.getStart();
     Position end = range.getEnd();
-    return text.substring(getPosition(start, text), getPosition(end, text));
+    int startIndex = getPosition(start, text);
+    int endIndex = getPosition(end, text);
+    if (startIndex < 0) {
+      startIndex = 0;
+    }
+    if (endIndex > text.length()) {
+      endIndex = text.length();
+    }
+    return text.substring(startIndex, endIndex);
   }
 
   public static int getPosition(Position pos, String text) {
