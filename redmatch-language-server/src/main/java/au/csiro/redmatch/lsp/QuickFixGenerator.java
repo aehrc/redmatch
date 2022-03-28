@@ -6,6 +6,7 @@ package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.compiler.ErrorCodes;
 import au.csiro.redmatch.util.DocumentUtils;
+import au.csiro.redmatch.util.StringUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.apache.commons.logging.Log;
@@ -166,7 +167,7 @@ public class QuickFixGenerator {
       if (data instanceof JsonObject) {
         JsonObject labeledField = (JsonObject) diagnostic.getData();
         String fieldId = labeledField.get("id").getAsString();
-        String label = labeledField.get("label").getAsString();
+        String label = StringUtils.escape(labeledField.get("label").getAsString());
         String newValue = getNewValueForMissingMapping(document.getText(), diagnostic.getRange(), fieldId, label);
         textEdits.add(new TextEdit(diagnostic.getRange(), newValue));
       } else {

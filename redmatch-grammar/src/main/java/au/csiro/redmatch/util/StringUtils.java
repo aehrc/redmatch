@@ -59,6 +59,10 @@ public class StringUtils {
     return parts[parts.length - 1];
   }
 
+  public static String escape(String s) {
+    return s.replace("'", "\\'");
+  }
+
   private static int costOfSubstitution(char a, char b) {
     return a == b ? 0 : 1;
   }

@@ -469,7 +469,7 @@ public class RedmatchCompiler extends RedmatchGrammarBaseVisitor<GrammarObject> 
         if (mappingCtx.STRING() != null) {
           String fieldLabel = removeEnds(mappingCtx.STRING().getText());
           LabeledField labeledField = new LabeledField(f);
-          if(!fieldLabel.equals(f.getLabel())) {
+          if(!fieldLabel.equals(StringUtils.escape(f.getLabel()))) {
             this.diagnostics.add(
               getDiagnosticFromContext(
                 mappingCtx,
