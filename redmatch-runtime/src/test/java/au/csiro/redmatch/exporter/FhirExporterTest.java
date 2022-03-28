@@ -264,6 +264,25 @@ public class FhirExporterTest {
       cc2.getMeta().getProfile().get(0).getValue());
   }
 
+  @Test
+  public void testEffectiveDate() {
+    log.info("Running testEffectiveDate");
+    String document = FileUtils.loadTextFileFromClassPath("testEffectiveDate.rdm");
+
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage);
+    Document doc = compiler.compile(document);
+    List<Diagnostic> errors = doc.getDiagnostics();
+    printErrors(errors);
+    assertTrue(errors.isEmpty());
+
+    String json = FileUtils.loadTextFileFromClassPath("dataTutorial.json");
+    List<Row> rows = parseData(json);
+    FhirExporter exporter = new FhirExporter(doc, rows, helper, terminologyService, defaultFhirPackage);
+
+    Map<String, DomainResource> res = exporter.transform(null, null);
+    assertFalse(res.isEmpty());
+  }
+
   private List<Row> parseData(String data) {
     return new RedcapClient(gson).parseData(data);
   }

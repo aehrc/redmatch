@@ -1,0 +1,8 @@
+SCHEMA: 'schema.json' (REDCAP)
+
+RULES: {
+  TRUE {
+    Observation<obs>:
+      * effectiveDateTime = VALUE(pat_dob)
+  }
+}
