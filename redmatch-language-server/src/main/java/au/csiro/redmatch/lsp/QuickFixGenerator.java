@@ -154,6 +154,15 @@ public class QuickFixGenerator {
     return null;
   }
 
+  static String getLabel(Diagnostic diagnostic) {
+    Object data = diagnostic.getData();
+    if (data instanceof JsonObject) {
+      JsonObject labeledField = (JsonObject) diagnostic.getData();
+      return StringUtils.escape(labeledField.get("id").getAsString());
+    }
+    return "";
+  }
+
   static CodeAction getActionForMissingMapping(List<Diagnostic> diagnostics, String documentUri, TextDocumentItem document) {
     if (diagnostics == null || diagnostics.isEmpty()) {
       return null;
@@ -162,6 +171,9 @@ public class QuickFixGenerator {
     Map<String, List<TextEdit>> changes = new HashMap<>();
     List<TextEdit> textEdits = new ArrayList<>();
     changes.put(documentUri, textEdits);
+
+    // Sort diagnostics so generated mappings are not in random order
+    diagnostics.sort(Comparator.comparing(QuickFixGenerator::getLabel));
     for (Diagnostic diagnostic : diagnostics) {
       Object data = diagnostic.getData();
       if (data instanceof JsonObject) {
