@@ -267,4 +267,8 @@ public class Rule extends GrammarObject {
     return sb.toString();
   }
 
+  public String toStringShort() {
+    return toString().substring(0, 50) + "...";
+  }
+
 }

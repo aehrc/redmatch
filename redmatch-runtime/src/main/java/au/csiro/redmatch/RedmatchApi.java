@@ -10,7 +10,6 @@ import au.csiro.redmatch.client.RedcapCredentials;
 import au.csiro.redmatch.compiler.Document;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exporter.FhirExporter;
-import au.csiro.redmatch.exporter.GraphExporterService;
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.*;
 import au.csiro.redmatch.terminology.TerminologyService;
@@ -26,7 +25,6 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Resource;
 import org.javatuples.Pair;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -60,20 +58,17 @@ public class RedmatchApi {
 
   private final HapiReflectionHelper reflectionHelper;
 
-  private final GraphExporterService graphExporterService;
-
   private final TerminologyService terminologyService;
 
 
   public static final Range zeroZero = new Range(new Position(0, 0), new Position(0, 0));
 
   public RedmatchApi(FhirContext ctx, Gson gson, RedmatchCompiler compiler, HapiReflectionHelper reflectionHelper,
-                     GraphExporterService graphExporterService, TerminologyService terminologyService) {
+                     TerminologyService terminologyService) {
     this.ctx = ctx;
     this.gson = gson;
     this.compiler = compiler;
     this.reflectionHelper = reflectionHelper;
-    this.graphExporterService = graphExporterService;
     this.terminologyService = terminologyService;
   }
 
@@ -102,40 +97,6 @@ public class RedmatchApi {
         progressReporter.reportProgress(Progress.reportEnd());
       }
     }
-  }
-
-  /**
-   * Compiles one or more transformation rules documents.
-   *
-   * @param baseFolder The base folder where the input files are contained.
-   * @param progressReporter An object used to report progress.
-   * @return The compiled documents.
-   */
-  public List<Document> compile(File baseFolder, ProgressReporter progressReporter) {
-    log.info("Compiling rule documents in folder " + baseFolder);
-
-    // Get .rdm files
-    List<File> rdmFiles;
-    try (Stream<Path> walk = Files.walk(baseFolder.toPath())) {
-      rdmFiles = walk
-        .filter(p -> !Files.isDirectory(p))
-        .map(Path::toFile)
-        .filter(f -> f.getName().endsWith(".rdm"))
-        .collect(Collectors.toList());
-    } catch (IOException e) {
-      Document res = new Document();
-      res.getDiagnostics().add(new Diagnostic(zeroZero, "Unexpected compilation issue" + e.getLocalizedMessage(),
-        DiagnosticSeverity.Error, "API"));
-      return List.of(res);
-    }
-
-    List<Document> res = new ArrayList<>();
-    for (File doc : rdmFiles) {
-      log.info("Compiling file " + doc.getName());
-      String s = FileUtils.loadTextFile(doc);
-      res.add(compile(s, doc.getName(), progressReporter));
-    }
-    return res;
   }
 
   private Pair<Map<String, DomainResource>, List<Diagnostic>> transform(@NotNull File redmatchRulesFile,
@@ -192,7 +153,7 @@ public class RedmatchApi {
       return Pair.with(Collections.emptyMap(), document.getDiagnostics());
     }
 
-    log.info("Transforming into FHIR resources");
+    log.info("Transforming into FHIR resources using rules " + name);
     FhirExporter exp = new FhirExporter(document, rows, reflectionHelper, terminologyService,
       compiler.getDefaultFhirPackage());
     return Pair.with(exp.transform(progressReporter, cancelToken), document.getDiagnostics());
@@ -231,9 +192,9 @@ public class RedmatchApi {
       Path outputFolder = createOutputFolder(baseFolder).toPath();
       save(grouped, outputFolder, progressReporter, cancelToken);
       return data.getValue1();
-    } catch (Exception e) {
-      log.error(e);
-      return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + e.getLocalizedMessage(),
+    } catch (Throwable t) {
+      log.error("Could not complete transformation", t);
+      return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + t.getLocalizedMessage(),
         DiagnosticSeverity.Error, "API"));
     }
   }
@@ -291,57 +252,10 @@ public class RedmatchApi {
       Path outputFolder = createOutputFolder(baseFolder).toPath();
       save(grouped, outputFolder, progressReporter, cancelToken);
       return diagnostics;
-    } catch (Exception e) {
-      log.error(e);
-      return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + e.getLocalizedMessage(),
+    } catch (Throwable t) {
+      log.error("Could not complete transformation", t);
+      return List.of(new Diagnostic(zeroZero, "Could not complete transformation:" + t.getLocalizedMessage(),
         DiagnosticSeverity.Error, "API"));
-    }
-  }
-
-  /**
-   * Exports a graph representation of the generated resources.
-   *
-   * @param resources A collection of FHIR resources.
-   * @param progressReporter An object used to report progress.
-   * @param cancelToken A token to check if the operation has been cancelled.
-   * @return A graph representation of the FHIR resources.
-   */
-  public D3Graph generateGraph(Collection<DomainResource> resources, ProgressReporter progressReporter,
-                               CancelChecker cancelToken) {
-    try {
-      if (progressReporter != null) {
-        progressReporter.reportProgress(Progress.reportStart("Generating graph"));
-      }
-      log.info("Creating graph representation for visualisation.");
-
-      D3Graph d3Graph = new D3Graph();
-
-      if (cancelToken!= null && cancelToken.isCanceled()) {
-        return d3Graph;
-      }
-
-      // Add vertices
-      for (Resource res : resources) {
-        d3Graph.addNode(new D3Node(generateId(res)));
-        if (cancelToken != null && cancelToken.isCanceled()) {
-          return d3Graph;
-        }
-      }
-
-      // Add edges
-      for (Resource src : resources) {
-        for (FhirUtils.Target tgt : FhirUtils.getReferencedResources(src)) {
-          d3Graph.addLink(new D3Link(generateId(src), tgt.getResourceId(), tgt.getAttributeName()));
-          if (cancelToken != null && cancelToken.isCanceled()) {
-            return d3Graph;
-          }
-        }
-      }
-      return d3Graph;
-    } finally {
-      if (progressReporter != null) {
-        progressReporter.reportProgress(Progress.reportEnd());
-      }
     }
   }
 
@@ -437,10 +351,6 @@ public class RedmatchApi {
         progressReporter.reportProgress(Progress.reportEnd());
       }
     }
-  }
-
-  private String generateId(Resource res) {
-    return res.fhirType() + "<" + res.getId() + ">";
   }
 
 }

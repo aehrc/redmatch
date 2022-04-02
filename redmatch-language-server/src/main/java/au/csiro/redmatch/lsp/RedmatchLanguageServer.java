@@ -6,7 +6,6 @@ package au.csiro.redmatch.lsp;
 
 import au.csiro.redmatch.RedmatchApi;
 import au.csiro.redmatch.compiler.RedmatchCompiler;
-import au.csiro.redmatch.exporter.GraphExporterService;
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.terminology.TerminologyService;
@@ -47,8 +46,7 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage,
       new LspProgressReporter(this));
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
-    GraphExporterService graphExporterService = new GraphExporterService();
-    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, graphExporterService, terminologyService);
+    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, terminologyService);
     textDocumentService = new RedmatchTextDocumentService(this, terminologyService);
     workspaceService = new RedmatchWorkspaceService(this);
   }
@@ -69,14 +67,15 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
 
   @Override
   public CompletableFuture<Object> shutdown() {
-    log.info("Client has requested to shut down.");
-    textDocumentService.shutdown();
+    log.info("Client has requested to shut down");
+    //textDocumentService.shutdown();
+    System.exit(0);
     return CompletableFuture.completedFuture(new Object());
   }
 
   @Override
   public void exit() {
-    log.info("Client has requested to exit.");
+    log.info("Client has requested to exit");
     System.exit(0);
   }
 

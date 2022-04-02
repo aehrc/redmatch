@@ -15,7 +15,6 @@ import java.util.List;
  */
 public class Body extends GrammarObject {
 
-  
   /**
    * A list of resources that get created if the condition evaluates to true.
    */
@@ -25,8 +24,6 @@ public class Body extends GrammarObject {
    * An list of rules that get evaluated if the condition evaluates to true.
    */
   private final List<Rule> rules = new ArrayList<>();
-
-  
 
   /**
    * @return the resources

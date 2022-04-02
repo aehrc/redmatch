@@ -9,6 +9,10 @@ import org.jgrapht.Graph;
 
 /**
  * Represents a row of data.
+ *
+ * When the data source is REDCap, the graph contains a node that represents the non-repeatable instruments. If the
+ * project contains repeatable instruments then these are included as additional nodes, connected with an edge that has
+ * the repeatable instruments name.
  * 
  * @author Alejandro Metke Jimenez
  *
