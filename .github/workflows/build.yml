@@ -45,9 +45,7 @@ jobs:
 
       - name: publish plugin
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-        run: |
-          yarn install
-          npm run deploy
+        run: npm run deploy
         working-directory: ./redmatch-lsp-client-vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
