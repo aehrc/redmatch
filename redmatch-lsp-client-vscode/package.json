@@ -4,7 +4,7 @@
 	"description": "Visual Studio Code plugin for the Redmatch language.",
 	"author": "The Australian e-Health Research Centre",
 	"license": "SEE LICENSE IN LICENSE.md",
-	"version": "2.3.10",
+	"version": "2.3.11",
 	"publisher": "aehrc",
 	"icon": "images/redmatch-icon.png",
 	"categories": [],
