@@ -33,15 +33,6 @@ jobs:
       - name: build and test with maven
         run: mvn -B verify --file pom.xml
 
-      - name: vsce setup
-        run: npm install -g vsce@"^1.0.0"
-
-      - name: vsce package
-        run: |
-          npm install
-          vsce package
-        working-directory: ./redmatch-lsp-client-vscode
-
       - name: upload .vsix to github tag
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         uses: svenstaro/upload-release-action@v2
