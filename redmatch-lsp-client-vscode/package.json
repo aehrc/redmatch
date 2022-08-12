@@ -3,15 +3,11 @@
 	"displayName": "Redmatch",
 	"description": "Visual Studio Code plugin for the Redmatch language.",
 	"author": "The Australian e-Health Research Centre",
-	"license": "SEE LICENSE IN LICENSE.md",
-	"version": "2.3.12",
+	"license": "MIT",
+	"version": "2.3.13",
 	"publisher": "aehrc",
 	"icon": "images/redmatch-icon.png",
 	"categories": [],
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/aehrc/redmatch.git"
-	},
 	"engines": {
 		"vscode": "^1.52.0"
 	},
@@ -62,28 +58,26 @@
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
 		"lint": "eslint ./src --ext .ts,.tsx",
-		"package": "vsce package",
 		"deploy": "vsce publish --yarn"
 	},
 	"dependencies": {
-		"expand-home-dir": "^0.0.3",
+		"vscode-languageclient": "^7.0.0",
 		"find-java-home": "^1.2.2",
 		"fs-extra": "^10.0.0",
 		"lodash": "^4.17.21",
-		"vscode-languageclient": "^7.0.0",
+		"expand-home-dir": "^0.0.3",
 		"winreg-utf8": "^0.1.1"
 	},
 	"devDependencies": {
+		"@types/vscode": "^1.52.0",
 		"@types/mocha": "^9.1.0",
 		"@types/node": "^12.12.0",
-		"@types/vscode": "^1.52.0",
 		"@types/winreg": "^1.2.31",
+		"@vscode/test-electron": "^1.6.1",
 		"@typescript-eslint/eslint-plugin": "^4.23.0",
 		"@typescript-eslint/parser": "^4.23.0",
-		"@vscode/test-electron": "^1.6.1",
 		"eslint": "^7.26.0",
 		"mocha": "^9.2.0",
-		"typescript": "^4.3.5",
-		"vsce": "^1.0.0"
+		"typescript": "^4.3.5"
 	}
 }
