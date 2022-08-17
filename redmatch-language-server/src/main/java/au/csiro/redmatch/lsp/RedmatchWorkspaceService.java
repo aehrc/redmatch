@@ -5,6 +5,7 @@
 package au.csiro.redmatch.lsp;
 
 import com.google.gson.JsonObject;
+import java.util.regex.Pattern;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.lsp4j.*;
@@ -29,6 +30,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class RedmatchWorkspaceService implements WorkspaceService {
 
   private static final Log log = LogFactory.getLog(RedmatchWorkspaceService.class);
+
+  private static final Pattern WINDOWS_PATH_PATTERN = Pattern.compile("/[a-zA-Z]:");
 
   private final RedmatchLanguageServer languageServer;
 
@@ -57,7 +60,7 @@ public class RedmatchWorkspaceService implements WorkspaceService {
           return null;
         }
         String path = arg.get("path").getAsString();
-        Path filePath = Paths.get(path);
+        Path filePath = getFilePath(path);
         File parentFolder = filePath.getParent().toFile();
 
         AtomicBoolean flag = inProgressMap.computeIfAbsent(parentFolder.toString(), k -> new AtomicBoolean(false));
@@ -84,6 +87,15 @@ public class RedmatchWorkspaceService implements WorkspaceService {
       }
       return null;
     });
+  }
+
+  private static Path getFilePath(String path) {
+    if (WINDOWS_PATH_PATTERN.matcher(path).find()) {
+      // Cater for Windows-style path names passed through with a leading forward slash.
+      return Paths.get(path.replaceFirst("/", ""));
+    } else {
+      return Paths.get(path);
+    }
   }
 
   private void exportThis(Path filePath, AtomicBoolean flag, CancelChecker cancelToken) {
