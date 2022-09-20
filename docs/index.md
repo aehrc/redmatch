@@ -4,7 +4,7 @@ layout: default
 
 # What is Redmatch?
 
-Redmatch is a tool that allows transforming REDCap forms into FHIR resources, using a domain specific language to write transformation rules.
+Redmatch is a tool that allows exporting and transforming data in REDCap as FHIR resources, using a domain specific language to write transformation rules.
 
 # Contents
 
