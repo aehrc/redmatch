@@ -58,6 +58,6 @@ Lists of 61 third-party dependencies.
      (MIT License) JCL 1.2 implemented over SLF4J (org.slf4j:jcl-over-slf4j:1.7.28 - http://www.slf4j.org)
      (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.32 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.32 - http://www.slf4j.org)
-     (Apache License, Version 2.0) SnakeYAML (org.yaml:snakeyaml:1.30 - https://bitbucket.org/snakeyaml/snakeyaml)
+     (Apache License, Version 2.0) SnakeYAML (org.yaml:snakeyaml:1.31 - https://bitbucket.org/snakeyaml/snakeyaml)
      (Apache Software License, version 1.1) (Indiana University Extreme! Lab Software License, vesion 1.1.1) (Public Domain) MXP1: Xml Pull Parser 3rd Edition (XPP3) (xpp3:xpp3:1.1.4c - http://www.extreme.indiana.edu/xgws/xsoap/xpp/mxp1/)
      (Indiana University Extreme! Lab Software License, vesion 1.1.1) MXP1: Xml Pull Parser 3rd Edition (XPP3) (xpp3:xpp3_xpath:1.1.4c - http://www.extreme.indiana.edu/xgws/xsoap/xpp/mxp1/)
