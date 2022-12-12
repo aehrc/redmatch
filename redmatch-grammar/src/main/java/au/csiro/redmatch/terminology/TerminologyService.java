@@ -54,7 +54,7 @@ public class TerminologyService {
   public boolean ontoIndexCheck(VersionedFhirPackage fhirPackage) {
     return onto.isIndexed(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion());
   }
-  public void checkPackage(VersionedFhirPackage fhirPackage, ProgressReporter progressReporter) {
+  public void checkPackage(VersionedFhirPackage fhirPackage, ProgressReporter progressReporter) throws IOException {
     log.debug("Checking if FHIR package " + fhirPackage + " is installed");
     try {
       Instant start = Instant.now();
@@ -87,7 +87,7 @@ public class TerminologyService {
       log.info("Finished checking in: " + DateUtils.prettyPrintMillis(timeElapsed));
     } catch (IOException e) {
       log.error("There was an IO error processing FHIR package " + fhirPackage, e);
-      Thread.currentThread().interrupt();
+      throw e;
     }
   }
 
@@ -109,8 +109,12 @@ public class TerminologyService {
           Triplet<VersionedFhirPackage, CompletableFuture<Void>, ProgressReporter> item = blockingQueue.take();
           VersionedFhirPackage fhirPackage = item.getValue0();
           ProgressReporter progressReporter = item.getValue2();
-          checkPackage(fhirPackage, progressReporter);
-          item.getValue1().complete(null);
+          try {
+            checkPackage(fhirPackage, progressReporter);
+            item.getValue1().complete(null);
+          } catch (IOException e) {
+            Thread.currentThread().interrupt();
+          }
         }
       } catch (InterruptedException e) {
         log.error("Thread was interrupted.", e);

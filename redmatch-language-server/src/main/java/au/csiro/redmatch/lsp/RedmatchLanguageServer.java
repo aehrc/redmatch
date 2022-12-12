@@ -19,6 +19,7 @@ import org.eclipse.lsp4j.services.*;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.io.IOException;
 
 /**
  * The Redmatch language server implementation.
@@ -49,7 +50,11 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage, progressReporter);
     if (!terminologyService.ontoIndexCheck(defaultFhirPackage)) {
       log.info("defaultFhirPackage not detected by index on initialisation");
-      terminologyService.checkPackage(defaultFhirPackage, null);
+      try {
+        terminologyService.checkPackage(defaultFhirPackage, null);
+      } catch (IOException e) {
+        throw new RuntimeException("Tried and failed to load the Default FHIR package.", e);
+      }
     }
     HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
     api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, terminologyService);
