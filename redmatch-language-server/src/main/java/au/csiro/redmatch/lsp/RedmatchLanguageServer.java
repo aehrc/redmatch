@@ -9,6 +9,7 @@ import au.csiro.redmatch.compiler.RedmatchCompiler;
 import au.csiro.redmatch.exporter.HapiReflectionHelper;
 import au.csiro.redmatch.model.VersionedFhirPackage;
 import au.csiro.redmatch.terminology.TerminologyService;
+import au.csiro.redmatch.util.ProgressReporter;
 import ca.uhn.fhir.context.FhirContext;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
@@ -18,6 +19,7 @@ import org.eclipse.lsp4j.services.*;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.io.IOException;
 
 /**
  * The Redmatch language server implementation.
@@ -43,10 +45,9 @@ public class RedmatchLanguageServer implements LanguageServer, LanguageClientAwa
     // TODO: would be good to allow users to set the default FHIR package through configuration options
     defaultFhirPackage = new VersionedFhirPackage("hl7.fhir.r4.core", "4.0.1");
     TerminologyService terminologyService = new TerminologyService(ctx, gson);
-    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage,
-      new LspProgressReporter(this));
-    HapiReflectionHelper reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
-    api = new RedmatchApi(ctx, gson, compiler, reflectionHelper, terminologyService);
+    ProgressReporter progressReporter = new LspProgressReporter(this);
+    RedmatchCompiler compiler = new RedmatchCompiler(gson, terminologyService, defaultFhirPackage, progressReporter);
+    api = new RedmatchApi(ctx, gson, compiler, defaultFhirPackage, terminologyService, progressReporter);
     textDocumentService = new RedmatchTextDocumentService(this, terminologyService);
     workspaceService = new RedmatchWorkspaceService(this);
   }

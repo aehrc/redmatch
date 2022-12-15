@@ -39,6 +39,8 @@ public class TerminologyService {
   private static final String REDMATCH_PREFIX = "http://redmatch.";
 
   private final InternalApi onto;
+  private FhirContext ctx;
+  private Gson gson;
 
   /**
    * Used to make sure the system does not attempt to index validation code system simultaneously.
@@ -47,6 +49,47 @@ public class TerminologyService {
     new LinkedBlockingDeque<>(10);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(1);
+
+
+  public boolean ontoIndexCheck(VersionedFhirPackage fhirPackage) {
+    return onto.isIndexed(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion());
+  }
+  public void checkPackage(VersionedFhirPackage fhirPackage, ProgressReporter progressReporter) throws IOException {
+    log.debug("Checking if FHIR package " + fhirPackage + " is installed");
+    try {
+      Instant start = Instant.now();
+      log.debug("Package is not indexed");
+      RedmatchGrammarCodeSystemGenerator generator = new RedmatchGrammarCodeSystemGenerator(gson, ctx);
+      CodeSystem cs = generator.createCodeSystem(fhirPackage, progressReporter);
+
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportStart("Indexing code system for FHIR package "
+          + fhirPackage));
+      }
+      Path targetFolder = onto.indexFhirCodeSystem(cs);
+      if (progressReporter != null) {
+        progressReporter.reportProgress(Progress.reportEnd());
+      }
+  
+      Path targetFile = targetFolder.resolve(fhirPackage.getName() + ".json");
+      try (FileWriter fw = new FileWriter(targetFile.toFile())) {
+        if (progressReporter != null) {
+          progressReporter.reportProgress(Progress.reportStart("Saving generated code system for FHIR package "
+            + fhirPackage));
+        }
+        ctx.newJsonParser().setPrettyPrint(true).encodeResourceToWriter(cs, fw);
+        if (progressReporter != null) {
+          progressReporter.reportProgress(Progress.reportEnd());
+        }
+      }
+      Instant finish = Instant.now();
+      long timeElapsed = Duration.between(start, finish).toMillis();
+      log.info("Finished checking in: " + DateUtils.prettyPrintMillis(timeElapsed));
+    } catch (IOException e) {
+      log.error("There was an IO error processing FHIR package " + fhirPackage, e);
+      throw e;
+    }
+  }
 
   /**
    * Constructor.
@@ -57,6 +100,8 @@ public class TerminologyService {
   public TerminologyService(FhirContext ctx, Gson gson) {
     log.info("Initialising terminology service");
     onto = new InternalApi(gson, ctx);
+    this.ctx = ctx;
+    this.gson = gson;
 
     Runnable indexingTask = () -> {
       try {
@@ -64,39 +109,10 @@ public class TerminologyService {
           Triplet<VersionedFhirPackage, CompletableFuture<Void>, ProgressReporter> item = blockingQueue.take();
           VersionedFhirPackage fhirPackage = item.getValue0();
           ProgressReporter progressReporter = item.getValue2();
-          log.debug("Checking if FHIR package " + fhirPackage + " is installed");
           try {
-            Instant start = Instant.now();
-            log.debug("Package is not indexed");
-            RedmatchGrammarCodeSystemGenerator generator = new RedmatchGrammarCodeSystemGenerator(gson, ctx);
-            CodeSystem cs = generator.createCodeSystem(fhirPackage, progressReporter);
-
-            if (progressReporter != null) {
-              progressReporter.reportProgress(Progress.reportStart("Indexing code system for FHIR package "
-                + fhirPackage));
-            }
-            Path targetFolder = onto.indexFhirCodeSystem(cs);
-            if (progressReporter != null) {
-              progressReporter.reportProgress(Progress.reportEnd());
-            }
-
-            Path targetFile = targetFolder.resolve(fhirPackage.getName() + ".json");
-            try (FileWriter fw = new FileWriter(targetFile.toFile())) {
-              if (progressReporter != null) {
-                progressReporter.reportProgress(Progress.reportStart("Saving generated code system for FHIR package "
-                  + fhirPackage));
-              }
-              ctx.newJsonParser().setPrettyPrint(true).encodeResourceToWriter(cs, fw);
-              if (progressReporter != null) {
-                progressReporter.reportProgress(Progress.reportEnd());
-              }
-            }
-            Instant finish = Instant.now();
-            long timeElapsed = Duration.between(start, finish).toMillis();
-            log.info("Finished checking in: " + DateUtils.prettyPrintMillis(timeElapsed));
+            checkPackage(fhirPackage, progressReporter);
             item.getValue1().complete(null);
           } catch (IOException e) {
-            log.error("There was an IO error processing FHIR package " + item.getValue0(), e);
             Thread.currentThread().interrupt();
           }
         }
@@ -137,7 +153,7 @@ public class TerminologyService {
 
     CompletableFuture<Void> future = new CompletableFuture<>();
 
-    if (onto.isIndexed(REDMATCH_PREFIX + fhirPackage.getName(), fhirPackage.getVersion())) {
+    if (ontoIndexCheck(fhirPackage)) {
       if (progressReporter != null) {
         progressReporter.reportProgress(Progress.reportStart("Adding package " + fhirPackage));
       }

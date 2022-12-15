@@ -56,20 +56,25 @@ public class RedmatchApi {
 
   private final RedmatchCompiler compiler;
 
-  private final HapiReflectionHelper reflectionHelper;
+  private HapiReflectionHelper reflectionHelper;
 
   private final TerminologyService terminologyService;
+  
+  private VersionedFhirPackage defaultFhirPackage;
+  
+  private ProgressReporter progressReporter;
 
 
   public static final Range zeroZero = new Range(new Position(0, 0), new Position(0, 0));
 
-  public RedmatchApi(FhirContext ctx, Gson gson, RedmatchCompiler compiler, HapiReflectionHelper reflectionHelper,
-                     TerminologyService terminologyService) {
+  public RedmatchApi(FhirContext ctx, Gson gson, RedmatchCompiler compiler, VersionedFhirPackage defaultFhirPackage,
+                     TerminologyService terminologyService, ProgressReporter progressReporter) {
     this.ctx = ctx;
     this.gson = gson;
     this.compiler = compiler;
-    this.reflectionHelper = reflectionHelper;
+    this.defaultFhirPackage = defaultFhirPackage;
     this.terminologyService = terminologyService;
+    this.progressReporter = progressReporter;
   }
 
   /**
@@ -154,6 +159,19 @@ public class RedmatchApi {
     }
 
     log.info("Transforming into FHIR resources using rules " + name);
+    
+    if (reflectionHelper == null) {
+      if (!terminologyService.ontoIndexCheck(defaultFhirPackage)) {
+        log.info("defaultFhirPackage not detected by index on initialisation");
+        try {
+          terminologyService.checkPackage(defaultFhirPackage, progressReporter);
+        } catch (IOException e) {
+          throw new RuntimeException("Tried and failed to load the Default FHIR package.", e);
+        }
+      }
+      reflectionHelper = new HapiReflectionHelper(ctx, defaultFhirPackage, terminologyService);
+    }
+    
     FhirExporter exp = new FhirExporter(document, rows, reflectionHelper, terminologyService,
       compiler.getDefaultFhirPackage());
     return Pair.with(exp.transform(progressReporter, cancelToken), document.getDiagnostics());
