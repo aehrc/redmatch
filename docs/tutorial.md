@@ -120,7 +120,7 @@ For more details and a list of all the expressions available in the language ple
 
 ## Step 9: Export to FHIR
 
-If you are happy with the transformation rules you can run the transformation to produce FHIR resources. This can be done by right-clicking on the `tutorial.rdm` file and selecting the `Transform this file` command. 
+If you are happy with the transformation rules you can run the transformation to produce FHIR resources. This can be done by opening the `tutorial.rdm` file, right-clicking on the content of the file and selecting the `Transform this file` command. 
 
 This will generate a collection of files in [NDJSON](http://ndjson.org/) format in the `output` folder. Each resource type is saved in a separate file. In this case, three files are generated: `Condition.ndjson`, `Observation.ndjson` and `Patient.ndjson`. This formats allows directly importing this data into the [Pathling FHIR Analytics Platform](https://pathling.csiro.au/docs/import.html).
 
